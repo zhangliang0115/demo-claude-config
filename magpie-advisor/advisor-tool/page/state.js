@@ -1,0 +1,1 @@
+window.MAGPIE_ADVISOR_STATE = {"at":"2026-10-18T01:02:41.198Z","ok":true,"endpoint":"http://127.0.0.1:3425","model":"deepseek/deepseek-v4-pro","declared":"","why":"session","ms":8352,"seen":1,"captured":true,"chars":6209,"source":"defaults"};

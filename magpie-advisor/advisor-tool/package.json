@@ -1,0 +1,24 @@
+{
+  "name": "magpie-advisor-tool",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Claude Code advisor for any upstream: an MCP tool that consults a model of your choice with the conversation so far, plus the request hook that gives it the transcript.",
+  "type": "module",
+  "main": "index.js",
+  "magpie": {
+    "hooks": "hooks.js",
+    "page": {
+      "title": "Advisor",
+      "file": "page/index.html",
+      "icon": "page/icon.svg"
+    },
+    "options": {
+      "endpoints": [],
+      "model": "",
+      "follow": true,
+      "models": {},
+      "budget": 16000,
+      "timeout": 40000
+    }
+  }
+}

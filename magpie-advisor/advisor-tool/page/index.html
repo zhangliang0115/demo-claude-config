@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advisor</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.svg" alt="" width="28" height="28">
+    <div>
+      <h1>Advisor</h1>
+      <p class="muted">Claude Code 的 advisor 工具：问哪个模型、走哪个端点，都在这里改。</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>端点</h2>
+    <p class="muted">默认就是 magpie 网关地址。留空即可；要换或加备用端点，一行一个。</p>
+    <textarea id="endpoints" rows="3" spellcheck="false" placeholder="http://127.0.0.1:3425"></textarea>
+    <p class="hint" id="gateway-hint"></p>
+  </section>
+
+  <section class="card">
+    <h2>模型</h2>
+    <p class="muted">跟随 Claude Code：用请求里 advisor 声明的模型（<code>/advisor</code> 选的那个）。关掉后固定用下面的模型。</p>
+    <label class="check"><input type="checkbox" id="follow"> 跟随 Claude Code 的 advisor 声明</label>
+
+    <div class="field">
+      <label id="model-label-text">兜底模型</label>
+      <div class="picker-wrap">
+        <button id="model-btn" class="picker" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="model-label-text model-btn-label">
+          <span id="model-btn-label" class="picker-value"></span>
+          <svg class="picker-chev" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="model-pop" class="pop" hidden>
+          <div class="pop-head">
+            <input id="model-search" type="text" spellcheck="false" autocomplete="off" placeholder="搜索模型">
+          </div>
+          <div id="model-list" class="pop-list" role="listbox" aria-labelledby="model-label-text"></div>
+          <div class="pop-foot"><span id="model-count" class="muted"></span></div>
+        </div>
+      </div>
+      <p class="hint" id="model-hint">留空表示不设：声明的模型不可用时，最后用会话自己的模型。</p>
+    </div>
+
+    <div class="field">
+      <label for="budget">上下文预算（字符）</label>
+      <input id="budget" type="number" min="1000" max="200000" step="1000" value="16000">
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>最近一次调用</h2>
+    <div id="state" class="state muted">还没有调用记录。在 Claude Code 里让模型调用一次 advisor，这里就会显示用的哪个端点、哪个模型、耗时多久。</div>
+  </section>
+
+  <div class="bar">
+    <button id="save" class="primary">保存</button>
+    <span id="status" class="muted" role="status"></span>
+  </div>
+</main>
+<script src="models.js"></script>
+<script src="state.js"></script>
+<script src="_magpie/bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
