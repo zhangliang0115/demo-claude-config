@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "id": "production-incident",
+  "title": "订单接口延迟升高：生产处置模板演示",
+  "kind": "incident",
+  "stage": "模拟演示 · 未执行生产操作",
+  "summary": "用固定模板呈现影响、事实、假设、止损、授权和恢复验证。",
+  "why": "让接班人迅速了解现场，避免重复猜测或盲目重启。",
+  "scope": "演示数据；无生产连接、无真实日志、无操作执行。",
+  "roles": [
+    {
+      "role": "事件负责人",
+      "owner": "值班负责人（示例）",
+      "responsibility": "判断影响、协调并决定止损动作",
+      "accepts": "恢复证据明确，未解决风险已交接"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "statement": "最近发布导致数据库连接耗尽",
+      "basis": "仅时间相关，不是根因证据",
+      "status": "pending",
+      "owner": "诊断工程师",
+      "check": "对比连接指标、慢查询、发布变更及历史基线"
+    }
+  ],
+  "design": [],
+  "behaviors": [
+    {
+      "id": "B1",
+      "before": "订单请求延迟升高（模拟）",
+      "after": "用户下单路径恢复到事先约定的延迟/错误率范围",
+      "status": "恢复标准待负责人确认"
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "从告警到恢复核验",
+      "kind": "simulation",
+      "steps": [
+        {
+          "action": "确认影响",
+          "result": "列出受影响用户路径、环境与发生窗口"
+        },
+        {
+          "action": "只读调查",
+          "result": "区分观测与假设，记录脱敏证据"
+        },
+        {
+          "action": "提出止损方案",
+          "result": "确定授权范围、观察指标和停止条件"
+        },
+        {
+          "action": "验证恢复",
+          "result": "运行获授权的测试路径并对照指标，不能只看进程存活"
+        }
+      ]
+    }
+  ],
+  "implementation": [],
+  "decisions": [
+    {
+      "id": "D1",
+      "question": "是否回滚最近发布？",
+      "recommendation": "先核对时间相关性与回滚兼容性，再由事件负责人决定",
+      "status": "pending",
+      "owner": "事件负责人"
+    }
+  ],
+  "operations": [
+    {
+      "id": "O1",
+      "type": "只读诊断",
+      "environment": "生产订单服务（演示）",
+      "impact": "部分下单请求变慢（模拟）",
+      "observation": "尚无真实指标记录",
+      "hypothesis": "连接池耗尽或下游阻塞",
+      "action": "读取已授权监控与脱敏日志",
+      "authorization": "本示例未授予任何生产访问权限",
+      "stop_condition": "超出只读范围或发现敏感信息立即停止并说明",
+      "rollback": "只读查询无需变更回退",
+      "result": "未执行",
+      "verification": "待收集真实指标",
+      "status": "planned",
+      "owner": "值班工程师"
+    }
+  ],
+  "handoffs": [
+    {
+      "id": "H1",
+      "from": "当前值班",
+      "to": "下一班值班",
+      "deliverable": "事件时间线、已排除假设、未执行方案",
+      "readback": "待接班人填写",
+      "open_questions": "根因未确认，不能宣称恢复",
+      "status": "pending",
+      "actor": "演示",
+      "at": "无真实时间"
+    }
+  ],
+  "timeline": [
+    {
+      "at": "T+0（模拟）",
+      "actor": "监控",
+      "action": "发现延迟异常",
+      "reason": "待调查",
+      "impact": "下单路径"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "behavior_ids": [
+        "B1"
+      ],
+      "status": "not_run",
+      "command": "未执行；需实际授权环境",
+      "summary": "演示不能作为恢复证据",
+      "revision": "",
+      "source": "无真实日志",
+      "executed_at": "未执行"
+    }
+  ],
+  "risks": [
+    "回滚可能受数据库结构兼容性影响，需先核对"
+  ],
+  "changes": [
+    "补充生产诊断和接班模板"
+  ],
+  "acceptance": [
+    "确认恢复标准",
+    "核对真实用户路径与指标",
+    "接班人复述尚未解决的问题"
+  ],
+  "rollback": "任何生产变更前单独确认可执行恢复方案"
+}

@@ -1,0 +1,82 @@
+# Reviewable Dev 插件说明
+
+## 基本信息
+
+- 插件名：`reviewable-dev`
+- 当前版本：`0.2.0`
+- 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
+- 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
+- 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
+- 运行依赖：Claude Code；Python 3.9+，仅标准库
+
+## 解决什么问题
+
+需求和设计由 AI 辅助产生，实施者可能换人、换工具、换模型，导致理解偏差和验收困难。本插件用固定结构记录目标、事实、假设、方案、接手复述、行为约定、实现与证据，并生成统一交互式 HTML，让人快速理解、处理决策和核验结果。
+
+## 适用场景
+
+新功能、业务规则调整、缺陷修复、重构、性能优化、数据迁移、技术升级、生产事件排查和日常运维。尤其适合需求尚不明确、多人分阶段交接、需要人工为最终结果负责的工作。
+
+## 命令清单
+
+| 命令 | 功能 |
+|---|---|
+| `/reviewable-dev:start` | 理解任务、识别类型与风险，建立任务和首版页面 |
+| `/reviewable-dev:spec` | 明确当前与目标行为、验收例子和待决问题 |
+| `/reviewable-dev:design` | 形成候选方案、假设、取舍及场景说明 |
+| `/reviewable-dev:plan` | 将方案拆为可独立验证的小切片 |
+| `/reviewable-dev:handoff` | 生成交接记录和跨工具 HANDOFF.md |
+| `/reviewable-dev:intake` | 接收方案、核对现状、复述理解和疑问 |
+| `/reviewable-dev:build` | 实施明确且已授权的小切片 |
+| `/reviewable-dev:review` | 审查差异与反例，有能力时使用独立 reviewer |
+| `/reviewable-dev:verify` | 执行真实检查并关联行为与验证证据 |
+| `/reviewable-dev:status` | 查看进度、待决事项与证据状态 |
+| `/reviewable-dev:incident` | 生产问题的影响分析、诊断、止损建议与恢复验证 |
+| `/reviewable-dev:ops` | 日常巡检和受控变更的操作计划、结果及恢复记录 |
+
+不要求每次手工执行全部命令；低风险、目标明确的任务可连续推进。
+
+## 固定交互模板
+
+每项任务使用同一份 `task.json` 生成 `report.html`，提供九个区域：一分钟概览、场景演示、业务变化、实现解释、需要你决定、验证证据、方案与职责、跨人交接、生产与运维。
+
+支持角色入口切换、场景选择、规则筛选、详情展开和决策草稿导出。项目 `index.html` 汇总多项任务。场景模拟明确标注，不能作为真实运行证据。
+
+## 产物与存储
+
+默认写入业务项目 `.reviewable-dev/tasks/<slug>/`：
+- `task.json`：结构化事实、方案、交接和证据记录。
+- `report.html`：可离线打开的交互页面。
+- `HANDOFF.md`：其他人员和 agent 的接手说明。
+- 必要的脱敏测试日志、截图等证据，由工作流按实际执行保存。
+
+代码与行为约定指纹用于在重新渲染时提示旧证据过期。它不证明测试真实执行，也不覆盖外部系统或 Git 忽略文件。
+
+## 安装与使用
+
+本地开发，在业务项目目录运行：
+```sh
+claude --plugin-dir /本仓库绝对路径/reviewable-dev
+```
+
+文件提交并推送至 GitHub 后：
+```text
+/plugin marketplace add https://github.com/zhangliang0115/demo-claude-config
+/plugin install reviewable-dev@reviewable-dev-marketplace
+```
+
+入口示例：
+```text
+/reviewable-dev:start 我们希望减少客服处理取消订单的工作，具体规则还没确定
+```
+
+## 能力边界
+
+- 不是线上审批服务、自动部署平台或生产命令执行器。
+- 不会自动跨人同步、推送 Git、发布网页或替人批准。
+- 页面反馈是草稿，需明确回传并核对版本后记录。
+- 其他 agent 通过 HANDOFF.md 和 Python CLI 复用数据；不声称原生支持 Claude 插件命令。
+- 固定模板约束交付结构，不能保证不同模型产生同等质量的需求和实现。
+- 人仍需确认关键业务规则，并核验高风险行为。
+
+更多说明：[README](README.md)、[团队工作协议](docs/team-workflow.md)、[数据格式](docs/schema-reference.md)。

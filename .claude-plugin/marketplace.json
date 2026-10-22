@@ -1,0 +1,14 @@
+{
+  "name": "reviewable-dev-marketplace",
+  "owner": {
+    "name": "zhangliang0115"
+  },
+  "plugins": [
+    {
+      "name": "reviewable-dev",
+      "source": "./reviewable-dev",
+      "description": "跨人员、跨 AI 工具的理解、交接、实施与验收工作流"
+    }
+  ],
+  "description": "统一的 AI 协作开发、交接、验收和生产运维模板"
+}

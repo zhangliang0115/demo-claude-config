@@ -1,0 +1,17 @@
+{
+  "name": "reviewable-dev",
+  "version": "0.2.0",
+  "description": "面向多人和多 AI 工具协作的开发与运维插件：将模糊需求、方案设计、交接复述、实施审查、端到端验证和生产问题处置整理为统一的交互式 HTML，帮助人理解并核验结果。",
+  "author": {
+    "name": "Reviewable Dev contributors"
+  },
+  "repository": "https://github.com/zhangliang0115/demo-claude-config",
+  "keywords": [
+    "development",
+    "review",
+    "handoff",
+    "verification",
+    "operations",
+    "html"
+  ]
+}
