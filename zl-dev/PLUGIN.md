@@ -3,7 +3,7 @@
 ## 基本信息
 
 - 插件名：`zl-dev`
-- 当前版本：`0.2.1`
+- 当前版本：`0.3.0`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
@@ -80,3 +80,6 @@ claude --plugin-dir /本仓库绝对路径/zl-dev
 - 人仍需确认关键业务规则，并核验高风险行为。
 
 更多说明：[README](README.md)、[团队工作协议](docs/team-workflow.md)、[数据格式](docs/schema-reference.md)。
+
+## 阶段专用展示
+“阶段工作台”按九个固定阶段呈现不同布局和交互。规则见 [阶段模板协议](docs/stage-templates.md)，字段以 `templates/stages.json` 为准；AI 不自行生成样式。

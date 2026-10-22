@@ -12,6 +12,11 @@ import sys
 KINDS = {'feature': '新功能：使用场景与异常路径', 'change': '业务调整：规则差异与生效范围', 'bugfix': '缺陷修复：复现、根因与回归', 'refactor': '重构：结构变化与行为保持', 'performance': '性能优化：同条件基线与代价', 'migration': '数据迁移：转换、核对与恢复', 'upgrade': '技术升级：兼容性与行为对比'}
 KINDS.update({'incident': '生产事件：影响、止损、诊断与恢复', 'operations': '日常运维：检查、变更、验证与恢复'})
 ROOT = Path(__file__).resolve().parents[1]
+STAGES = json.loads((ROOT / 'templates/stages.json').read_text(encoding='utf-8'))
+
+def stage_skeleton():
+    return {key: dict(purpose=meta['focus'], owner='', summary='', decision='', exit_criteria='', items=[]) for key, meta in STAGES.items()}
+
 
 
 def git(args, cwd):
@@ -32,7 +37,7 @@ def fingerprint(task_dir):
         task_file = task_dir / 'task.json'
         if task_file.exists():
             contract = json.loads(task_file.read_text(encoding='utf-8'))
-            contract = {k: contract.get(k) for k in ('kind', 'summary', 'why', 'scope', 'behaviors', 'scenarios', 'acceptance', 'assumptions', 'design', 'handoffs', 'operations')}
+            contract = {k: contract.get(k) for k in ('kind', 'summary', 'why', 'scope', 'behaviors', 'scenarios', 'acceptance', 'assumptions', 'design', 'handoffs', 'operations', 'stage_details')}
             digest.update(json.dumps(contract, sort_keys=True, ensure_ascii=False).encode('utf-8'))
         for raw in sorted(names):
             if not raw:
@@ -85,6 +90,42 @@ def validate(data):
         refs = evidence.get('behavior_ids', [])
         if not isinstance(refs, list) or any(x not in ids for x in refs):
             raise ValueError('证据引用了不存在的行为')
+    details = data.get('stage_details', {})
+    if not isinstance(details, dict) or set(details) - set(STAGES):
+        raise ValueError('stage_details 只能使用模板规定的阶段名')
+    for key, section in details.items():
+        if not isinstance(section, dict) or set(section) - {'purpose','owner','summary','decision','exit_criteria','items'}:
+            raise ValueError('阶段字段必须遵循固定模板')
+        for field in ('purpose','owner','summary','decision','exit_criteria'):
+            if not isinstance(section.get(field, ''), str):
+                raise ValueError('阶段说明必须为字符串')
+        items = section.get('items', [])
+        if not isinstance(items, list):
+            raise ValueError('阶段 items 必须是数组')
+        seen = set()
+        allowed = {f[0] for f in STAGES[key]['fields']} | {'id','status','steps','evidence_ids'}
+        for item in items:
+            if not isinstance(item, dict) or set(item) - allowed:
+                raise ValueError('阶段条目包含未定义字段')
+            if not isinstance(item.get('id'), str) or not item['id'] or item['id'] in seen:
+                raise ValueError('阶段条目 id 必须非空且阶段内唯一')
+            seen.add(item['id'])
+            if item.get('status') not in {'pending','in_progress','blocked','done'}:
+                raise ValueError('阶段状态必须为 pending/in_progress/blocked/done')
+            for field, label in STAGES[key]['fields']:
+                if not isinstance(item.get(field, ''), str):
+                    raise ValueError('阶段展示字段必须为字符串: ' + field)
+            if key == 'review' and item.get('severity') not in {'P0','P1','P2','P3'}:
+                raise ValueError('审查 severity 必须为 P0/P1/P2/P3')
+            if key == 'testing' and item.get('mode') not in {'simulation','recorded'}:
+                raise ValueError('测试 mode 必须标注 simulation/recorded')
+            steps = item.get('steps', [])
+            if not isinstance(steps, list) or any(not isinstance(step, dict) or set(step) - {'action','expected','actual'} or any(not isinstance(v, str) for v in step.values()) for step in steps):
+                raise ValueError('steps 必须为 action/expected/actual 字符串对象数组')
+            refs = item.get('evidence_ids', [])
+            evidence_ids = {e.get('id') for e in data.get('evidence', [])}
+            if not isinstance(refs, list) or any(not isinstance(ref, str) or ref not in evidence_ids for ref in refs):
+                raise ValueError('阶段引用不存在的证据')
     return data
 
 
@@ -99,6 +140,7 @@ def assessed(data, current):
     from datetime import datetime, timezone
     result['generated_at'] = datetime.now(timezone.utc).isoformat()
     result['current_fingerprint'] = current
+    result['stage_catalog'] = STAGES
     result['kind_label'] = KINDS[result['kind']]
     return result
 
@@ -109,6 +151,7 @@ def render(task_dir):
     # Escape inline JSON closing tags and all markup-sensitive chars.
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets' / 'report.html').read_text(encoding='utf-8')
+    template = template.replace('/* STAGE_STYLES */', (ROOT / 'assets/stages.css').read_text(encoding='utf-8')).replace('// STAGE_SCRIPT', (ROOT / 'assets/stages.js').read_text(encoding='utf-8'))
     replacements = {'__TASK_DATA__': payload, '__PAGE_TITLE__': html.escape(data['title'])}
     output = re.sub('__TASK_DATA__|__PAGE_TITLE__', lambda match: replacements[match.group()], template)
     target = task_dir / 'report.html'
@@ -165,7 +208,7 @@ def main():
     try:
         if args.command == 'init':
             args.task_dir.mkdir(parents=True, exist_ok=True)
-            data = dict(version=1, id=args.task_dir.name, title=args.title, kind=args.kind, summary='', why='', scope='', stage='需求待确认', behaviors=[], scenarios=[], roles=[], assumptions=[], design=[], handoffs=[], timeline=[], operations=[], implementation=[], decisions=[], evidence=[], risks=[], changes=[], acceptance=[], rollback='待定义')
+            data = dict(version=1, id=args.task_dir.name, title=args.title, kind=args.kind, summary='', why='', scope='', stage='需求待确认', behaviors=[], scenarios=[], roles=[], assumptions=[], design=[], handoffs=[], timeline=[], operations=[], implementation=[], decisions=[], evidence=[], risks=[], changes=[], acceptance=[], rollback='待定义', stage_details=stage_skeleton())
             with (args.task_dir / 'task.json').open('x', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             print(render(args.task_dir))
@@ -179,7 +222,7 @@ def main():
             print(fingerprint(args.task_dir) or 'UNKNOWN')
         else:
             data = assessed(load(args.task_dir), fingerprint(args.task_dir))
-            print(json.dumps({'title': data['title'], 'stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'fingerprint': data['current_fingerprint'], 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'next_step': '先处理待决问题与接手确认；否则按当前阶段执行并补充真实证据' }, ensure_ascii=False, indent=2))
+            print(json.dumps({'title': data['title'], 'stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'fingerprint': data['current_fingerprint'], 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'stage_pending': {key: {'decision': section.get('decision', ''), 'pending_items': [item.get('id') for item in section.get('items', []) if item.get('status') != 'done']} for key, section in data.get('stage_details', {}).items()}, 'next_step': '先处理待决问题与接手确认；否则按当前阶段执行并补充真实证据' }, ensure_ascii=False, indent=2))
     except (OSError, ValueError, KeyError) as exc:
         print(f'错误：{exc}', file=sys.stderr)
         return 1

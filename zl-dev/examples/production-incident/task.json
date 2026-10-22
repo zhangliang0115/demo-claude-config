@@ -133,5 +133,156 @@
     "核对真实用户路径与指标",
     "接班人复述尚未解决的问题"
   ],
-  "rollback": "任何生产变更前单独确认可执行恢复方案"
+  "rollback": "任何生产变更前单独确认可执行恢复方案",
+  "stage_details": {
+    "requirements": {
+      "purpose": "核对原始描述与解释，明确边界和验收例子。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": []
+    },
+    "solution": {
+      "purpose": "并排比较候选方案、交互路径和取舍。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": []
+    },
+    "handoff": {
+      "purpose": "对照交出内容与接收者复述，暴露理解差异。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "handoff-1",
+          "status": "pending",
+          "deliverable": "方案 A 候选 + B01-B03 行为约定；尚未批准",
+          "receiver": "实施工程师（示例）",
+          "readback": "先做未支付订单取消，不做退款",
+          "gap": "并发支付与取消的规则尚未确认",
+          "next_action": "阅读状态机，提出并发处理方案"
+        }
+      ]
+    },
+    "implementation": {
+      "purpose": "对照计划与实际，解释变更和影响。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": []
+    },
+    "review": {
+      "purpose": "按严重程度查看发现、修复和复查证据。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": []
+    },
+    "testing": {
+      "purpose": "逐步查看预期、实际与证据；模拟不代表执行。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "testing-1",
+          "status": "pending",
+          "case": "重复取消不重复释放库存",
+          "mode": "simulation",
+          "environment": "设计演示，无运行环境",
+          "expected": "第一次释放库存，第二次不释放",
+          "actual": "未执行",
+          "source": "无日志",
+          "steps": [
+            {
+              "action": "取消未支付订单",
+              "expected": "状态已取消，库存释放一次",
+              "actual": "未执行"
+            },
+            {
+              "action": "再次取消",
+              "expected": "返回已取消，库存不再变化",
+              "actual": "未执行"
+            }
+          ]
+        }
+      ]
+    },
+    "acceptance": {
+      "purpose": "人亲自核验关键场景；页面选择只生成草稿。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "acceptance-1",
+          "status": "pending",
+          "scenario": "本人订单正常取消",
+          "instruction": "创建测试订单，取消后检查订单和库存",
+          "expected": "状态正确且库存仅释放一次",
+          "actual": "尚未人工核验",
+          "reviewer": "待指定真实负责人",
+          "result": "未核验"
+        }
+      ]
+    },
+    "release": {
+      "purpose": "核对放行条件、观察指标、停止条件及恢复办法。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "release-1",
+          "status": "pending",
+          "check": "灰度前验证取消与支付并发",
+          "environment": "待指定测试环境及灰度范围",
+          "authorization": "尚无发布授权",
+          "metric": "业务错误率与库存一致性阈值待确认",
+          "stop": "出现重复释放立即停止扩量",
+          "rollback": "关闭功能开关；数据修复需单独计划",
+          "actual": "未发布"
+        }
+      ]
+    },
+    "operations": {
+      "purpose": "沿事件时间线区分事实、假设、动作与恢复证据。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "ops-1",
+          "status": "in_progress",
+          "at": "T+0（模拟）",
+          "observation": "订单接口延迟升高，无真实指标",
+          "hypothesis": "连接池耗尽？需要只读数据验证",
+          "action": "提出读取脱敏监控建议，未执行",
+          "verification": "恢复指标待负责人确认",
+          "followup": "诊断人待指定"
+        },
+        {
+          "id": "ops-2",
+          "status": "blocked",
+          "at": "T+10（模拟）",
+          "observation": "尚未获取生产访问授权",
+          "hypothesis": "不能根据时间相关性确定根因",
+          "action": "等待明确诊断范围",
+          "verification": "没有恢复证据",
+          "followup": "交班时保留未解决假设"
+        }
+      ]
+    }
+  }
 }

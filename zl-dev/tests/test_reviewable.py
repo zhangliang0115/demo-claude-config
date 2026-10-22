@@ -87,4 +87,38 @@ class ReportTests(unittest.TestCase):
         payload=out.split('<script id="task-data" type="application/json">')[1].split('</script>')[0]
         self.assertEqual(json.loads(payload)['title'],self.data['title'])
 
+    def test_stage_unknown_fields_rejected(self):
+        self.data['stage_details']={'unknown': {}}
+        with self.assertRaises(ValueError):m.validate(self.data)
+        self.data['stage_details']={'requirements': {'custom_html':'<p>hi</p>'}}
+        with self.assertRaises(ValueError):m.validate(self.data)
+        self.data['stage_details']={'requirements': {'items':[{'id':'R1','status':'done','custom_css':'red'}]}}
+        with self.assertRaises(ValueError):m.validate(self.data)
+    def test_stage_reference_and_mode(self):
+        self.data['stage_details']={'testing': {'items':[dict(id='T1',status='pending',mode='simulation',evidence_ids=['missing'])]}}
+        with self.assertRaises(ValueError):m.validate(self.data)
+        self.data['stage_details']['testing']['items'][0]['evidence_ids']=[]
+        self.assertIs(m.validate(self.data),self.data)
+        self.data['stage_details']['testing']['items'][0]['mode']='executed-for-sure'
+        with self.assertRaises(ValueError):m.validate(self.data)
+    def test_stage_contract_invalidates_and_escapes(self):
+        before=m.fingerprint(self.task)
+        self.data['stage_details']={'requirements': {'summary':'</script><img onerror=alert(1)>','items':[]}}
+        self.save()
+        self.assertNotEqual(before,m.fingerprint(self.task))
+        out=m.render(self.task).read_text()
+        self.assertNotIn('</script><img',out)
+        self.assertIn('stage-workspace',out)
+        self.assertNotIn('// STAGE_SCRIPT',out)
+    def test_stage_duplicates_and_steps(self):
+        row=dict(id='T1',status='pending',mode='simulation')
+        self.data['stage_details']={'testing': {'items':[row,row.copy()]}}
+        with self.assertRaises(ValueError):m.validate(self.data)
+        self.data['stage_details']['testing']['items']=[dict(row,steps=[dict(action=123)])]
+        with self.assertRaises(ValueError):m.validate(self.data)
+    def test_all_stage_skeletons(self):
+        self.data['stage_details']=m.stage_skeleton()
+        self.assertEqual(9,len(self.data['stage_details']))
+        m.validate(self.data)
+
 if __name__=='__main__':unittest.main()

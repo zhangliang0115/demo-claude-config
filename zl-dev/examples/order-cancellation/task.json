@@ -177,5 +177,205 @@
       "reason": "避免隐含增加退款需求",
       "impact": "范围与验收样例调整"
     }
-  ]
+  ],
+  "stage_details": {
+    "requirements": {
+      "purpose": "核对原始描述与解释，明确边界和验收例子。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "requirements-1",
+          "status": "pending",
+          "original": "希望用户自己取消订单，减少客服工作",
+          "interpretation": "本轮只允许取消未支付订单",
+          "boundary": "不包含退款；旧订单规则待确认",
+          "example": "本人未支付订单取消后库存只释放一次"
+        }
+      ]
+    },
+    "solution": {
+      "purpose": "并排比较候选方案、交互路径和取舍。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "solution-1",
+          "status": "pending",
+          "name": "方案 A：同步取消",
+          "approach": "在订单事务内校验并转换状态",
+          "benefit": "用户立即看到结果",
+          "cost": "订单与库存需可靠一致性机制",
+          "risk": "并发支付需要状态互斥",
+          "flow": "用户 → 归属校验 → 状态转换 → 库存释放 → 返回"
+        },
+        {
+          "id": "solution-2",
+          "status": "pending",
+          "name": "方案 B：异步取消",
+          "approach": "接受请求后由任务处理取消",
+          "benefit": "入口响应快，便于重试",
+          "cost": "需要处理中状态与任务监控",
+          "risk": "消息重复、延迟与失败需补偿",
+          "flow": "用户 → 请求入队 → worker 校验 → 执行 → 用户查询"
+        }
+      ]
+    },
+    "handoff": {
+      "purpose": "对照交出内容与接收者复述，暴露理解差异。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "handoff-1",
+          "status": "pending",
+          "deliverable": "方案 A 候选 + B01-B03 行为约定；尚未批准",
+          "receiver": "实施工程师（示例）",
+          "readback": "先做未支付订单取消，不做退款",
+          "gap": "并发支付与取消的规则尚未确认",
+          "next_action": "阅读状态机，提出并发处理方案"
+        }
+      ]
+    },
+    "implementation": {
+      "purpose": "对照计划与实际，解释变更和影响。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "implementation-1",
+          "status": "pending",
+          "planned": "实现取消接口的权限校验",
+          "actual": "尚未编写业务代码，本页仅演示模板",
+          "deviation": "无真实实施，不宣称完成",
+          "impact": "未来影响订单入口和权限测试",
+          "source": "待实施后填写实际文件位置"
+        }
+      ]
+    },
+    "review": {
+      "purpose": "按严重程度查看发现、修复和复查证据。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "review-1",
+          "status": "pending",
+          "severity": "P1",
+          "finding": "示例发现：重复取消可能再次释放库存",
+          "source": "模拟问题，无真实代码位置",
+          "fix": "建议使用状态转换结果控制释放",
+          "recheck": "未实施，待真实测试"
+        },
+        {
+          "id": "review-2",
+          "status": "pending",
+          "severity": "P2",
+          "finding": "示例发现：客户端错误提示不清晰",
+          "source": "模拟问题",
+          "fix": "区分已支付与无权限",
+          "recheck": "待复查"
+        }
+      ]
+    },
+    "testing": {
+      "purpose": "逐步查看预期、实际与证据；模拟不代表执行。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "testing-1",
+          "status": "pending",
+          "case": "重复取消不重复释放库存",
+          "mode": "simulation",
+          "environment": "设计演示，无运行环境",
+          "expected": "第一次释放库存，第二次不释放",
+          "actual": "未执行",
+          "source": "无日志",
+          "steps": [
+            {
+              "action": "取消未支付订单",
+              "expected": "状态已取消，库存释放一次",
+              "actual": "未执行"
+            },
+            {
+              "action": "再次取消",
+              "expected": "返回已取消，库存不再变化",
+              "actual": "未执行"
+            }
+          ]
+        }
+      ]
+    },
+    "acceptance": {
+      "purpose": "人亲自核验关键场景；页面选择只生成草稿。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "acceptance-1",
+          "status": "pending",
+          "scenario": "本人订单正常取消",
+          "instruction": "创建测试订单，取消后检查订单和库存",
+          "expected": "状态正确且库存仅释放一次",
+          "actual": "尚未人工核验",
+          "reviewer": "待指定真实负责人",
+          "result": "未核验"
+        }
+      ]
+    },
+    "release": {
+      "purpose": "核对放行条件、观察指标、停止条件及恢复办法。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "release-1",
+          "status": "pending",
+          "check": "灰度前验证取消与支付并发",
+          "environment": "待指定测试环境及灰度范围",
+          "authorization": "尚无发布授权",
+          "metric": "业务错误率与库存一致性阈值待确认",
+          "stop": "出现重复释放立即停止扩量",
+          "rollback": "关闭功能开关；数据修复需单独计划",
+          "actual": "未发布"
+        }
+      ]
+    },
+    "operations": {
+      "purpose": "沿事件时间线区分事实、假设、动作与恢复证据。",
+      "owner": "示例负责人；非真实指派",
+      "summary": "以下为固定模板示例，不表示业务已实施或获批。",
+      "decision": "请确认本阶段结论、未知项和范围。",
+      "exit_criteria": "负责人明确确认；必要证据完整，缺口如实记录。",
+      "items": [
+        {
+          "id": "operations-1",
+          "status": "pending",
+          "at": "T+0（演示）",
+          "observation": "用户反馈取消后库存异常（假设场景）",
+          "hypothesis": "可能存在重复释放，尚无证据",
+          "action": "先读取授权日志，不执行写操作",
+          "verification": "检查订单路径及库存账目，尚未执行",
+          "followup": "确认根因后补回归测试；负责人待指定"
+        }
+      ]
+    }
+  }
 }

@@ -1,0 +1,256 @@
+{
+  "requirements": {
+    "title": "需求理解",
+    "focus": "核对原始描述与解释，明确边界和验收例子。",
+    "fields": [
+      [
+        "original",
+        "原始描述"
+      ],
+      [
+        "interpretation",
+        "理解结果"
+      ],
+      [
+        "boundary",
+        "范围与非目标"
+      ],
+      [
+        "example",
+        "验收例子"
+      ]
+    ]
+  },
+  "solution": {
+    "title": "方案设计",
+    "focus": "并排比较候选方案、交互路径和取舍。",
+    "fields": [
+      [
+        "name",
+        "方案名称"
+      ],
+      [
+        "approach",
+        "如何工作"
+      ],
+      [
+        "benefit",
+        "收益"
+      ],
+      [
+        "cost",
+        "成本与代价"
+      ],
+      [
+        "risk",
+        "风险"
+      ],
+      [
+        "flow",
+        "交互或架构流程"
+      ]
+    ]
+  },
+  "handoff": {
+    "title": "下发与接手",
+    "focus": "对照交出内容与接收者复述，暴露理解差异。",
+    "fields": [
+      [
+        "deliverable",
+        "交出范围与版本"
+      ],
+      [
+        "receiver",
+        "接收人"
+      ],
+      [
+        "readback",
+        "接收者理解"
+      ],
+      [
+        "gap",
+        "差异与疑问"
+      ],
+      [
+        "next_action",
+        "第一步"
+      ]
+    ]
+  },
+  "implementation": {
+    "title": "实施过程",
+    "focus": "对照计划与实际，解释变更和影响。",
+    "fields": [
+      [
+        "planned",
+        "计划切片"
+      ],
+      [
+        "actual",
+        "实际实现"
+      ],
+      [
+        "deviation",
+        "偏差与原因"
+      ],
+      [
+        "impact",
+        "影响范围"
+      ],
+      [
+        "source",
+        "代码位置"
+      ]
+    ]
+  },
+  "review": {
+    "title": "代码审查",
+    "focus": "按严重程度查看发现、修复和复查证据。",
+    "fields": [
+      [
+        "severity",
+        "严重程度"
+      ],
+      [
+        "finding",
+        "发现与成立条件"
+      ],
+      [
+        "source",
+        "代码位置"
+      ],
+      [
+        "fix",
+        "修复说明"
+      ],
+      [
+        "recheck",
+        "复查结果"
+      ]
+    ]
+  },
+  "testing": {
+    "title": "自动测试与 E2E",
+    "focus": "逐步查看预期、实际与证据；模拟不代表执行。",
+    "fields": [
+      [
+        "case",
+        "测试场景"
+      ],
+      [
+        "mode",
+        "simulation / recorded"
+      ],
+      [
+        "environment",
+        "环境与前置条件"
+      ],
+      [
+        "expected",
+        "预期结果"
+      ],
+      [
+        "actual",
+        "实际结果"
+      ],
+      [
+        "source",
+        "日志或截图位置"
+      ]
+    ]
+  },
+  "acceptance": {
+    "title": "人工验收",
+    "focus": "人亲自核验关键场景；页面选择只生成草稿。",
+    "fields": [
+      [
+        "scenario",
+        "验收场景"
+      ],
+      [
+        "instruction",
+        "操作步骤"
+      ],
+      [
+        "expected",
+        "预期"
+      ],
+      [
+        "actual",
+        "人工实际观察"
+      ],
+      [
+        "reviewer",
+        "核验人"
+      ],
+      [
+        "result",
+        "接受 / 退回 / 未核验"
+      ]
+    ]
+  },
+  "release": {
+    "title": "发布与回滚",
+    "focus": "核对放行条件、观察指标、停止条件及恢复办法。",
+    "fields": [
+      [
+        "check",
+        "发布检查项"
+      ],
+      [
+        "environment",
+        "目标环境"
+      ],
+      [
+        "authorization",
+        "授权记录"
+      ],
+      [
+        "metric",
+        "观察指标及阈值"
+      ],
+      [
+        "stop",
+        "停止条件"
+      ],
+      [
+        "rollback",
+        "回退步骤"
+      ],
+      [
+        "actual",
+        "执行结果"
+      ]
+    ]
+  },
+  "operations": {
+    "title": "运维与复盘",
+    "focus": "沿事件时间线区分事实、假设、动作与恢复证据。",
+    "fields": [
+      [
+        "at",
+        "时间"
+      ],
+      [
+        "observation",
+        "事实与影响"
+      ],
+      [
+        "hypothesis",
+        "诊断假设"
+      ],
+      [
+        "action",
+        "动作及授权"
+      ],
+      [
+        "verification",
+        "恢复指标 / 用户路径"
+      ],
+      [
+        "followup",
+        "防复发行动及负责人"
+      ]
+    ]
+  }
+}

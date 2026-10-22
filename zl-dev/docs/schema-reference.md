@@ -35,3 +35,6 @@ fingerprint 绑定 Git 工作区内容与行为约定（含场景、验收、假
 
 ## 反馈
 HTML 导出 decision-draft.json，不直接改 task.json，不代表审批或接收。人把草稿交回会话后核对任务与版本，再记录明确授权。跨工具接手包不包含凭据，不自动执行任何命令。
+
+## stage_details 扩展
+可选对象，键只能取 templates/stages.json 中的九个阶段。新任务默认有骨架。字段、枚举、步骤与证据引用由 validate 强制校验；具体见 [阶段模板协议](stage-templates.md)。stage_details 内容变化会使旧证据需要重新核对；HTML 中的草稿修改不写回文件。
