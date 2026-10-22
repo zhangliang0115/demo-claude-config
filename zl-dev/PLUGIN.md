@@ -3,7 +3,7 @@
 ## 基本信息
 
 - 插件名：`zl-dev`
-- 当前版本：`0.3.0`
+- 当前版本：`0.4.0`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
@@ -83,3 +83,6 @@ claude --plugin-dir /本仓库绝对路径/zl-dev
 
 ## 阶段专用展示
 “阶段工作台”按九个固定阶段呈现不同布局和交互。规则见 [阶段模板协议](docs/stage-templates.md)，字段以 `templates/stages.json` 为准；AI 不自行生成样式。
+
+## 跨项目功能入口
+`/zl-dev:feature`：先识别候选项目与现有职责，再整体设计、确认共同契约、分配项目切片和依赖，最后整体联调。实施可一人或多人；人员独立于项目边界。详见 [用法与示例](docs/cross-project.md)。

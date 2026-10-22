@@ -121,4 +121,12 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(9,len(self.data['stage_details']))
         m.validate(self.data)
 
+    def test_shared_contract_version_invalidates(self):
+        self.data['feature']={'id':'F1','contract_version':'v1'}
+        self.save()
+        before=m.fingerprint(self.task)
+        self.data['feature']['contract_version']='v2'
+        self.save()
+        self.assertNotEqual(before,m.fingerprint(self.task))
+
 if __name__=='__main__':unittest.main()

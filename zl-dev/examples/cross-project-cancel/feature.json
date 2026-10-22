@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "id": "order-cancel",
+  "title": "订单取消：先整体设计，再分前后端实施（演示）",
+  "owner": "功能负责人（可以兼任全部实施）",
+  "mode": "flexible",
+  "phase": "方案示例，未执行真实开发",
+  "contract_version": "v1",
+  "design": {
+    "goal": "减少客服处理取消订单的工作；本轮只覆盖未支付订单。",
+    "flow": "用户在管理台点击取消 → 后端检查归属与状态 → 原子状态转换 → 库存释放一次 → 前端显示最终结果。",
+    "boundaries": "以下为教学示例而非真实代码分析：假设 admin-web 负责交互，order-api 掌握订单状态与库存。必须读取实际两个项目后确认，不能仅凭名称划界。",
+    "decisions": "已支付订单是否支持、旧订单是否适用、支付并发规则需业务确认；前端不自行判断最终可取消状态。"
+  },
+  "projects": [
+    {
+      "id": "admin",
+      "path": "/example/admin-web",
+      "observations": [
+        "示例占位：实际使用必须检查页面路由、API 客户端、权限和现有交互。"
+      ],
+      "responsibility": "候选职责：取消入口、处理中和结果展示；等实际源码核对。",
+      "task_path": "",
+      "contract_version": "v1",
+      "status": "unassigned",
+      "owner": "同一工程师或前端实施者"
+    },
+    {
+      "id": "api",
+      "path": "/example/order-api",
+      "observations": [
+        "示例占位：实际使用必须检查订单状态机、库存实现、事务及现有取消接口。"
+      ],
+      "responsibility": "候选职责：状态校验、幂等、库存一致性；不能假定接口不存在。",
+      "task_path": "",
+      "contract_version": "v1",
+      "status": "unassigned",
+      "owner": "同一工程师或后端实施者"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "cancel-api",
+      "version": "v1",
+      "description": "候选：POST /orders/{id}/cancel；后端校验归属和状态，重复请求不重复释放库存，前端展示服务端结果。",
+      "status": "proposed"
+    }
+  ],
+  "allocations": [
+    {
+      "id": "A-api",
+      "project_id": "api",
+      "summary": "方案确认后：先补已有取消接口的校验和幂等；若已具备则只补验证。",
+      "depends_on": [],
+      "contract_version": "v1",
+      "status": "planned",
+      "owner": "待分配；可由同一人承担"
+    },
+    {
+      "id": "A-admin",
+      "project_id": "admin",
+      "summary": "按统一契约接入取消入口，处理等待、成功和失败；mock 只能做交互验证。",
+      "depends_on": [
+        "A-api"
+      ],
+      "contract_version": "v1",
+      "status": "planned",
+      "owner": "待分配；可由同一人承担"
+    }
+  ],
+  "integration": [
+    {
+      "id": "I1",
+      "scenario": "取消未支付订单并再次取消，最后查询订单和库存",
+      "environment": "模拟示例；尚无集成环境",
+      "status": "not_run",
+      "versions": {
+        "admin": "未部署",
+        "api": "未部署"
+      },
+      "evidence": "未执行：需要真实环境、两个项目版本和端到端记录"
+    }
+  ]
+}

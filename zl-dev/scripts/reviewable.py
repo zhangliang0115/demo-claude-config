@@ -37,7 +37,7 @@ def fingerprint(task_dir):
         task_file = task_dir / 'task.json'
         if task_file.exists():
             contract = json.loads(task_file.read_text(encoding='utf-8'))
-            contract = {k: contract.get(k) for k in ('kind', 'summary', 'why', 'scope', 'behaviors', 'scenarios', 'acceptance', 'assumptions', 'design', 'handoffs', 'operations', 'stage_details')}
+            contract = {k: contract.get(k) for k in ('kind', 'summary', 'why', 'scope', 'behaviors', 'scenarios', 'acceptance', 'assumptions', 'design', 'handoffs', 'operations', 'stage_details', 'feature', 'contract_version')}
             digest.update(json.dumps(contract, sort_keys=True, ensure_ascii=False).encode('utf-8'))
         for raw in sorted(names):
             if not raw:
@@ -169,6 +169,9 @@ def build_index(task_root):
         pending = sum(d.get('status') != 'confirmed' for d in data.get('decisions', []))
         gaps = sum(e.get('status') != 'passed' or e['freshness'] != '当前' for e in data.get('evidence', []))
         rows.append('<article><h2><a href="' + quote(source.parent.name) + '/report.html">' + html.escape(data['title']) + '</a></h2><p>' + html.escape(str(data.get('stage', '未知'))) + '</p><p>' + html.escape(str(data.get('summary', ''))) + '</p><p>待决：' + str(pending) + ' · 证据缺口：' + str(gaps) + (' · 无验证证据' if not data.get('evidence') else '') + '</p></article>')
+    for source in sorted(task_root.glob('*/feature.json')):
+        feature_data = json.loads(source.read_text(encoding='utf-8'))
+        rows.append('<article><h2><a href="' + quote(source.parent.name) + '/feature.html">' + html.escape(str(feature_data.get('title', source.parent.name))) + '</a></h2><p>跨项目功能：项目识别 → 整体设计 → 分项目实施 → 整体联调</p><p>功能快照需用 feature.py sync/render 更新。</p></article>')
     target = task_root / 'index.html'
     target.write_text('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>项目任务总览</title><style>body{font:16px system-ui;background:#eef2f4;color:#183849;max-width:1000px;margin:40px auto;padding:20px}article{background:white;padding:24px;border-radius:12px;margin:18px 0}a{color:#176779}p{overflow-wrap:anywhere}</style><h1>项目任务总览</h1><p>生成时快照。选择任务查看场景、业务变化、待决事项和证据。</p>' + ''.join(rows) + ('<p>尚无任务</p>' if not rows else '') + '</html>', encoding='utf-8')
     return target

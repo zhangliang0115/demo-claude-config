@@ -55,3 +55,6 @@ HTML 中的勾选和反馈属于本地草稿，不能直接成为仓库审批或
 
 ## 阶段专用模板（必须）
 读取同目录 stage-templates.md。按 templates/stages.json 填写 stage_details，只通过内置 render 生成 HTML，不允许 AI 针对单个任务改样式、另造表格字段或脚本。新任务 init 自带完整骨架，旧任务缺失区块按目录补齐。阶段工作台是主审阅入口，原九个栏目提供详情。
+
+## 跨项目功能
+同一功能涉及多个项目时，改用 cross-project.md 的整体设计流程；feature.json 是功能总方案，task.json 是各项目实施材料。人员可以一人或多人，不以人员数量决定项目边界。
