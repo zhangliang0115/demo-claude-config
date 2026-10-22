@@ -1,12 +1,12 @@
 {
-  "name": "reviewable-dev-marketplace",
+  "name": "zl-dev-marketplace",
   "owner": {
     "name": "zhangliang0115"
   },
   "plugins": [
     {
-      "name": "reviewable-dev",
-      "source": "./reviewable-dev",
+      "name": "zl-dev",
+      "source": "./zl-dev",
       "description": "跨人员、跨 AI 工具的理解、交接、实施与验收工作流"
     }
   ],

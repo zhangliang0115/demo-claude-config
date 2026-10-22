@@ -1,46 +1,46 @@
-# Reviewable Dev — 团队 AI 协作与理解验收
+# ZL Dev — 团队 AI 协作与理解验收
 
 [插件完整描述](PLUGIN.md) · [标准插件清单](.claude-plugin/plugin.json) · [仓库安装清单](../.claude-plugin/marketplace.json)
 
-把模糊需求、方案、交接、实现、测试、人工核验和生产运维放进同一套固定交互式 HTML。版本 0.2.0，Python 3.9+，标准库，无 CDN、无账号或 Artifact 发布依赖。
+把模糊需求、方案、交接、实现、测试、人工核验和生产运维放进同一套固定交互式 HTML。版本 0.2.1，Python 3.9+，标准库，无 CDN、无账号或 Artifact 发布依赖。
 
 ## 安装
 
-本仓库根目录提供标准 `.claude-plugin/marketplace.json`，插件本体在 `reviewable-dev/.claude-plugin/plugin.json`。仓库内容提交并推送到 GitHub 后，具有访问权限的人可在 Claude Code 执行：
+本仓库根目录提供标准 `.claude-plugin/marketplace.json`，插件本体在 `zl-dev/.claude-plugin/plugin.json`。仓库内容提交并推送到 GitHub 后，具有访问权限的人可在 Claude Code 执行：
 
 ```text
 /plugin marketplace add https://github.com/zhangliang0115/demo-claude-config
-/plugin install reviewable-dev@reviewable-dev-marketplace
+/plugin install zl-dev@zl-dev-marketplace
 ```
 
 也可使用新版的一步入口：
 ```text
-/plugin install reviewable-dev --marketplace zhangliang0115/demo-claude-config
+/plugin install zl-dev --marketplace zhangliang0115/demo-claude-config
 ```
 
 **本地新增文件尚未推送时，GitHub 安装不会获得这些内容。** 本地开发无需安装市场，在目标项目目录启动：
 ```sh
-claude --plugin-dir /本仓库绝对路径/reviewable-dev
+claude --plugin-dir /本仓库绝对路径/zl-dev
 ```
 
-安装后按客户端提示重载；输入 `/reviewable-dev:` 检查命令。其他 agent 工具不能直接加载 Claude 命令，但能读取 `HANDOFF.md` 并调用同一 Python CLI。
+安装后按客户端提示重载；输入 `/zl-dev:` 检查命令。其他 agent 工具不能直接加载 Claude 命令，但能读取 `HANDOFF.md` 并调用同一 Python CLI。
 
 ## 最常用路线
 
 ```text
-/reviewable-dev:start 我们希望减少客服处理取消订单的工作，但具体规则尚未确定
-/reviewable-dev:design <任务目录>
-/reviewable-dev:handoff <任务目录>
+/zl-dev:start 我们希望减少客服处理取消订单的工作，但具体规则尚未确定
+/zl-dev:design <任务目录>
+/zl-dev:handoff <任务目录>
 ```
 下一位同事：
 ```text
-/reviewable-dev:intake <任务目录>
-/reviewable-dev:build <任务目录>
-/reviewable-dev:review <任务目录>
-/reviewable-dev:verify <任务目录>
-/reviewable-dev:handoff <任务目录>
+/zl-dev:intake <任务目录>
+/zl-dev:build <任务目录>
+/zl-dev:review <任务目录>
+/zl-dev:verify <任务目录>
+/zl-dev:handoff <任务目录>
 ```
-生产问题用 `/reviewable-dev:incident`；日常检查或运维变更用 `/reviewable-dev:ops`。`spec`、`plan` 可控制单独阶段，`status` 可随时继续。低风险明确任务可自动连续推进，不要求每人手动执行全部命令。
+生产问题用 `/zl-dev:incident`；日常检查或运维变更用 `/zl-dev:ops`。`spec`、`plan` 可控制单独阶段，`status` 可随时继续。低风险明确任务可自动连续推进，不要求每人手动执行全部命令。
 
 ## 固定页面
 
@@ -55,15 +55,15 @@ claude --plugin-dir /本仓库绝对路径/reviewable-dev
 - `examples/production-incident/report.html`：生产故障处理示例。
 
 ```sh
-python3 reviewable-dev/scripts/reviewable.py index reviewable-dev/examples
-python3 -m unittest discover -s reviewable-dev/tests -v
+python3 zl-dev/scripts/reviewable.py index zl-dev/examples
+python3 -m unittest discover -s zl-dev/tests -v
 claude plugin validate --strict .
-claude plugin validate --strict reviewable-dev
+claude plugin validate --strict zl-dev
 ```
 
 ## 团队职责和数据约定
 
-阅读 [团队协议](docs/team-workflow.md)、[基础工作流](docs/workflow.md)、[数据格式和 CLI](docs/schema-reference.md)。默认任务保存在业务仓库 `.reviewable-dev/tasks/<slug>/`，交接时将 JSON、HTML、HANDOFF.md 及必要证据一并移交。不要提交密钥或未脱敏生产日志。
+阅读 [团队协议](docs/team-workflow.md)、[基础工作流](docs/workflow.md)、[数据格式和 CLI](docs/schema-reference.md)。默认任务保存在业务仓库 `.zl-dev/tasks/<slug>/`，交接时将 JSON、HTML、HANDOFF.md 及必要证据一并移交。不要提交密钥或未脱敏生产日志。
 
 ## 当前边界
 
@@ -72,3 +72,7 @@ claude plugin validate --strict reviewable-dev
 所有示例都是演示资料，不代表真实线上事件或实际订单实现。尚未做完整 Claude 模型会话端到端验收；CLI、格式与浏览器验证另行报告。GitHub 分发必须先推送文件；公开发布的许可证尚未指定，不替用户选择开源许可。
 
 官方格式依据（2026-10-22 核对）：[插件格式](https://code.claude.com/docs/en/plugins-reference)、[创建市场](https://code.claude.com/docs/en/plugin-marketplaces)。
+
+## 名称变更
+
+0.2.1 起 marketplace 名称为 `zl-dev-marketplace`，插件及目录名为 `zl-dev`，命令前缀为 `/zl-dev:`。旧安装不会自动转换为新插件，请按上面的新名称安装，再按需要卸载旧插件。新任务默认保存在 `.zl-dev/tasks/`；已有任务目录不会自动移动，可把原任务目录显式传给命令继续使用。

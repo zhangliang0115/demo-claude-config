@@ -1,16 +1,16 @@
-# Reviewable Dev 工作协议
+# ZL Dev 工作协议
 
 HTML 是首要交付，`task.json` 是事实来源。页面不能代替代码、测试或人的判断。默认中文交流和页面内容，跟随用户明确语言偏好。
 
 ## 项目和任务
 
 1. 读取项目自己的 CLAUDE.md、AGENTS.md 和相关开发说明。先查现状，不臆造构建命令、框架或目录。
-2. 任务目录默认为当前项目 `.reviewable-dev/tasks/<slug>/`，slug 用简短英文字母、数字、连字符。传入已有目录时继续原任务；多个候选且无法判定时请用户指定，不覆盖别的任务。
+2. 任务目录默认为当前项目 `.zl-dev/tasks/<slug>/`，slug 用简短英文字母、数字、连字符。传入已有目录时继续原任务；多个候选且无法判定时请用户指定，不覆盖别的任务。
 3. 工具仅依赖 Python 3.9+ 标准库：
    ```sh
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" init ".reviewable-dev/tasks/<slug>" --title "任务名称" --kind feature
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render ".reviewable-dev/tasks/<slug>"
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" status ".reviewable-dev/tasks/<slug>"
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" init ".zl-dev/tasks/<slug>" --title "任务名称" --kind feature
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render ".zl-dev/tasks/<slug>"
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" status ".zl-dev/tasks/<slug>"
    ```
    这是模板：替换占位符，用独立参数和正确 shell 引号，不把用户描述拼接成可执行脚本。
 4. 先阅读 init 生成的 task.json，保持字段类型和结构，按实际数据编辑。不要创造与渲染器不兼容的新格式；参照插件示例和 `docs/schema-reference.md`。一次阶段结束后渲染，返回 report.html 绝对路径。

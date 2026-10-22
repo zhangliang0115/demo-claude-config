@@ -1,9 +1,9 @@
-# Reviewable Dev 插件说明
+# ZL Dev 插件说明
 
 ## 基本信息
 
-- 插件名：`reviewable-dev`
-- 当前版本：`0.2.0`
+- 插件名：`zl-dev`
+- 当前版本：`0.2.1`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
@@ -21,18 +21,18 @@
 
 | 命令 | 功能 |
 |---|---|
-| `/reviewable-dev:start` | 理解任务、识别类型与风险，建立任务和首版页面 |
-| `/reviewable-dev:spec` | 明确当前与目标行为、验收例子和待决问题 |
-| `/reviewable-dev:design` | 形成候选方案、假设、取舍及场景说明 |
-| `/reviewable-dev:plan` | 将方案拆为可独立验证的小切片 |
-| `/reviewable-dev:handoff` | 生成交接记录和跨工具 HANDOFF.md |
-| `/reviewable-dev:intake` | 接收方案、核对现状、复述理解和疑问 |
-| `/reviewable-dev:build` | 实施明确且已授权的小切片 |
-| `/reviewable-dev:review` | 审查差异与反例，有能力时使用独立 reviewer |
-| `/reviewable-dev:verify` | 执行真实检查并关联行为与验证证据 |
-| `/reviewable-dev:status` | 查看进度、待决事项与证据状态 |
-| `/reviewable-dev:incident` | 生产问题的影响分析、诊断、止损建议与恢复验证 |
-| `/reviewable-dev:ops` | 日常巡检和受控变更的操作计划、结果及恢复记录 |
+| `/zl-dev:start` | 理解任务、识别类型与风险，建立任务和首版页面 |
+| `/zl-dev:spec` | 明确当前与目标行为、验收例子和待决问题 |
+| `/zl-dev:design` | 形成候选方案、假设、取舍及场景说明 |
+| `/zl-dev:plan` | 将方案拆为可独立验证的小切片 |
+| `/zl-dev:handoff` | 生成交接记录和跨工具 HANDOFF.md |
+| `/zl-dev:intake` | 接收方案、核对现状、复述理解和疑问 |
+| `/zl-dev:build` | 实施明确且已授权的小切片 |
+| `/zl-dev:review` | 审查差异与反例，有能力时使用独立 reviewer |
+| `/zl-dev:verify` | 执行真实检查并关联行为与验证证据 |
+| `/zl-dev:status` | 查看进度、待决事项与证据状态 |
+| `/zl-dev:incident` | 生产问题的影响分析、诊断、止损建议与恢复验证 |
+| `/zl-dev:ops` | 日常巡检和受控变更的操作计划、结果及恢复记录 |
 
 不要求每次手工执行全部命令；低风险、目标明确的任务可连续推进。
 
@@ -44,7 +44,7 @@
 
 ## 产物与存储
 
-默认写入业务项目 `.reviewable-dev/tasks/<slug>/`：
+默认写入业务项目 `.zl-dev/tasks/<slug>/`：
 - `task.json`：结构化事实、方案、交接和证据记录。
 - `report.html`：可离线打开的交互页面。
 - `HANDOFF.md`：其他人员和 agent 的接手说明。
@@ -56,18 +56,18 @@
 
 本地开发，在业务项目目录运行：
 ```sh
-claude --plugin-dir /本仓库绝对路径/reviewable-dev
+claude --plugin-dir /本仓库绝对路径/zl-dev
 ```
 
 文件提交并推送至 GitHub 后：
 ```text
 /plugin marketplace add https://github.com/zhangliang0115/demo-claude-config
-/plugin install reviewable-dev@reviewable-dev-marketplace
+/plugin install zl-dev@zl-dev-marketplace
 ```
 
 入口示例：
 ```text
-/reviewable-dev:start 我们希望减少客服处理取消订单的工作，具体规则还没确定
+/zl-dev:start 我们希望减少客服处理取消订单的工作，具体规则还没确定
 ```
 
 ## 能力边界

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline reviewable-dev report builder. Python 3.9+, standard library only."""
+"""Offline zl-dev report builder. Python 3.9+, standard library only."""
 import argparse
 import hashlib
 import html
