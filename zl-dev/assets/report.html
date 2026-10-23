@@ -36,7 +36,7 @@ const has=key=>Array.isArray(task[key])&&task[key].length>0;
 const populated={overview:true,'stage-views':Object.values(task.stage_details||{}).some(x=>x&&((x.items||[]).length||x.summary)),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
 function show(id){const section=$(id);if(!section)return;const fold=section.closest('details.material');if(fold)fold.open=true;section.scrollIntoView({behavior:'smooth',block:'start'});}
 const workflow=task.workflow_summary||{};
-[['page_purpose','这页用来'],['read_first','先看'],['human_action','你需要']].forEach(([key,label])=>{if(!workflow[key])return;const line=el('p');line.append(el('strong',label+'：'),document.createTextNode(text(workflow[key])));$('reading-brief').append(line);});
+[[task.why,'为什么要做'],[task.scope,'本次范围'],[workflow.next_action,workflow.action_owner==='你'?'现在请你':'接下来由 AI']].forEach(([value,label])=>{if(!value)return;const line=el('p');line.append(el('strong',label+'：'),document.createTextNode(text(value)));$('reading-brief').append(line);});
 if(task.demo===true||(task.demo&&task.demo.simulation===true)){
   const notice=$('demo-notice');notice.hidden=false;notice.className='demo-notice';notice.append(document.createTextNode('模拟示例 · 不是实际项目进度或运行证据 · '));const gallery=el('a','查看其他场景');gallery.href='../index.html';notice.append(gallery);
 }
@@ -47,7 +47,7 @@ const uncovered=(task.behaviors||[]).filter(b=>!evidenceRecords.some(e=>(e.behav
 const stale=evidenceRecords.filter(e=>e.freshness&&e.freshness!=='当前').length;
 const decision=pendingDecisions[0];
 const next=el('article',undefined,'card next-action');next.append(el('span',workflow.stage_label||task.stage,'badge'),el('h2',decision?'现在需要你决定':'现在要做的事'));
-if(decision){next.append(el('h3',text(decision.question)),el('p','建议：'+text(decision.recommendation)));const btn=el('button','填写判断');btn.onclick=()=>show('decisions');next.append(btn);if(pendingDecisions.length>1)next.append(el('p','另有 '+(pendingDecisions.length-1)+' 项待决问题，可在详细材料中查看。','muted'));}
+if(decision){next.append(el('h3',text(decision.question)));if(decision.reason)next.append(el('p','为什么现在问：'+text(decision.reason)));if(Array.isArray(decision.options)){const options=el('ul');decision.options.forEach(option=>options.append(el('li',text(option))));next.append(options);}next.append(el('p','建议：'+text(decision.recommendation)));if(decision.impact)next.append(el('p','确认后：'+text(decision.impact)));const btn=el('button','填写判断');btn.onclick=()=>show('decisions');next.append(btn);if(pendingDecisions.length>1)next.append(el('p','另有 '+(pendingDecisions.length-1)+' 项待决问题，可在详细材料中查看。','muted'));}
 else next.append(el('p',workflow.next_action||'确认上述目标和例子是否符合需求，再开始下一轮实施。'));
 if(workflow.action_owner)next.append(el('p','由谁处理：'+text(workflow.action_owner)));
 $('overview').append(next);
