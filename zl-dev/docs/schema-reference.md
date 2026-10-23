@@ -59,3 +59,5 @@ python3 scripts/reviewable.py status cancel-order --project /workspace/orders
 continue [任务目录或 slug] --project /项目路径：省略任务时仅在恰好一个任务的情况下恢复；0 或多个返回候选清单。不会执行开发命令。返回 next_action 与 step（understand/decide/implement/verify/accept），供 AI 继续；accept 表示待人工核验，不是已验收。
 
 workflow_summary 是渲染时计算结果，不让 AI 填写完成度。指纹仅使用 semantic_contract 明确选择的行为字段；阶段 testing/review 的结果、handoffs、人员和展示摘要不参与。阶段 requirements/solution 的核心内容及 acceptance 预期仍参与。旧证据需重新验证。
+
+时间展示统一为 `yyyy-MM-dd HH:mm:ss`，时区 Asia/Shanghai（UTC+8）。原始数据保留带时区的 ISO 时间，页面与复制反馈格式化显示，不改变证据记录本身。

@@ -11,10 +11,12 @@
 <script id="task-data" type="application/json">__TASK_DATA__</script>
 <script>
 'use strict';
+function formatTimes(value){return String(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g,stamp=>{const time=new Date(stamp);if(Number.isNaN(time.getTime()))return stamp;const d=new Date(time.getTime()+8*60*60*1000),pad=n=>String(n).padStart(2,'0');return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());});}
+
 const task=JSON.parse(document.getElementById('task-data').textContent);
 const $=id=>document.getElementById(id);
-function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=typeof text==='string'?text:JSON.stringify(text);if(cls)n.className=cls;return n;}
-function text(value){return value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?value:JSON.stringify(value);}
+function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=formatTimes(typeof text==='string'?text:JSON.stringify(text));if(cls)n.className=cls;return n;}
+function text(value){return value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?formatTimes(value):JSON.stringify(value);}
 function feedbackComposer(parent,task,stage,buildBody){
   const box=el('article',undefined,'card feedback-composer');
   box.append(el('h3','填写后复制给 AI'),el('p','内容只保留在当前页面；复制后粘贴到开发会话。刷新会丢失尚未复制的内容。'));

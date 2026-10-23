@@ -3,7 +3,7 @@ function renderStages(container, task) {
   const catalog = task.stage_catalog || {};
   const fallback = [['requirements','需求理解'],['solution','方案设计'],['handoff','交接接手'],['implementation','实施偏差'],['review','代码审查'],['testing','测试回放'],['acceptance','人工验收'],['release','发布检查'],['operations','生产运维']];
   const drafts = Object.create(null);
-  const make = (tag, value, cls) => { const node=document.createElement(tag); if(value!==undefined)node.textContent=typeof value==='string'?value:JSON.stringify(value); if(cls)node.className=cls; return node; };
+  const make = (tag, value, cls) => { const node=document.createElement(tag); if(value!==undefined)node.textContent=formatTimes(typeof value==='string'?value:JSON.stringify(value)); if(cls)node.className=cls; return node; };
   const display = value => value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?value:JSON.stringify(value);
   container.classList.add('stage-workspace');
   container.append(make('h2','当前阶段材料'),make('p','固定模板展示当前记录；缺失不代表已完成。浏览器操作仅形成草稿，不会批准任务或执行生产动作。','warning'));
