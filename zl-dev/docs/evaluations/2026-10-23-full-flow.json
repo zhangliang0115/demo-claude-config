@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-23",
+  "plugin_version": "0.11.1",
+  "cli_version": "2.1.309",
+  "model": "opendesign/deepseek-v4.1-flash[1m]",
+  "environment": "local synthetic business fixture; two independent Git repos; no production",
+  "overall": "workflow_exercised_with_failures; not_release_approved",
+  "checks": {
+    "independent_http_sqlite": 18,
+    "api_suite": 9,
+    "browser_e2e_after_rework": 36,
+    "lost_response_browser_after": 10,
+    "lost_response_socket_after": 6,
+    "clipboard_native_copy": true,
+    "operations_data_unchanged": true,
+    "status_read_only": false
+  },
+  "real_human_acceptance": false,
+  "production_validated": false,
+  "remaining_issues": [
+    "feature defaults to discovery regardless of phase and has no feedback input",
+    "shared contract persisted after implementation started",
+    "historical stale evidence and editable snapshots make aggregation misleading",
+    "status invokes continue which rewrites report",
+    "canonical ~/.claude output denied for operations; workspace fallback used"
+  ],
+  "runs": [
+    {
+      "run": "01-design",
+      "result": "success",
+      "duration_ms": 121228,
+      "permission_denials": 0
+    },
+    {
+      "run": "02-api",
+      "result": "success",
+      "duration_ms": 595712,
+      "permission_denials": 1
+    },
+    {
+      "run": "03-web",
+      "result": "success",
+      "duration_ms": 654111,
+      "permission_denials": 2
+    },
+    {
+      "run": "04-rework",
+      "result": "success",
+      "duration_ms": 355268,
+      "permission_denials": 0
+    },
+    {
+      "run": "05-ops",
+      "result": "success",
+      "duration_ms": 243307,
+      "permission_denials": 3
+    },
+    {
+      "run": "06-status",
+      "result": "success",
+      "duration_ms": 47760,
+      "permission_denials": 0
+    }
+  ]
+}
