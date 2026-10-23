@@ -2,6 +2,7 @@
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#182c39;background:#eef2f4}*{box-sizing:border-box}body{margin:0}header{background:#123748;color:white;padding:36px max(24px,calc((100vw - 1120px)/2))}header p{color:#c9dde5}h1{font-size:32px;margin:12px 0}h2{font-size:23px}h3{font-size:17px}main{max-width:1168px;margin:auto;padding:24px}nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}button{cursor:pointer;background:white;border:1px solid #bdcbd2;border-radius:8px;padding:10px 16px;color:#234556;font:inherit}button[aria-selected=true],button.active{background:#166779;color:white;border-color:#166779}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #d99b28;outline-offset:2px}.panel[hidden]{display:none}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:16px}.card{background:white;border:1px solid #d6e0e5;border-radius:12px;padding:20px;margin-bottom:16px}.badge{display:inline-block;border-radius:20px;padding:5px 11px;background:#e3eef1;font-size:13px;color:#244b59}.warning{border-left:4px solid #bd8121;background:#fff9eb;padding:16px;border-radius:5px}.muted{color:#637580;font-size:14px}p,li,td{line-height:1.7;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef3f5;padding:14px;border-radius:8px}table{border-collapse:collapse;width:100%;background:white}td,th{text-align:left;padding:14px;border-bottom:1px solid #dce5e9;vertical-align:top}th{background:#e6eef2}.tablewrap{overflow:auto}.scene-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.step{border-left:3px solid #238396;padding:4px 20px;margin:20px 0}select{font:inherit;max-width:100%;padding:10px;border-radius:8px}input,textarea{font:inherit;padding:12px;border:1px solid #bacbd2;border-radius:7px;width:100%}textarea{min-height:85px}details{margin-top:12px}summary{cursor:pointer;color:#176478}footer{margin:32px 0;color:#637580;font-size:13px}
 [hidden]{display:none!important}.reading-tools{margin:20px 0}.quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.next-action{border-top:4px solid #166779}.decision-preview{border-left:3px solid #d99b28}.overview-heading{margin-top:0}
+.scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px}.scene-action{border-left:4px solid #166779}.scene-timeline{padding-left:24px;border-left:3px solid #759ba7}.scene-timeline>li{padding:0 0 20px 12px}.scene-matrix{overflow-x:auto}.scene-matrix table{min-width:520px}.scene-flow{display:flex;gap:12px;overflow-x:auto;padding:12px 0}.scene-flow>.card{min-width:220px;flex:1}dt{font-weight:600}dd{margin:4px 0 14px;overflow-wrap:anywhere}
 /* STAGE_STYLES */
 </style>
 <header><span id="kind"></span><h1 id="title"></h1><p id="summary"></p><span class="badge" id="stage"></span></header>
@@ -39,17 +40,17 @@ const evidenceRecords=task.evidence||[];
 const pendingDecisions=(task.decisions||[]).filter(d=>d.status!=='confirmed');
 const uncovered=(task.behaviors||[]).filter(b=>!evidenceRecords.some(e=>(e.behavior_ids||[]).includes(b.id)&&e.status==='passed'&&e.freshness==='当前')).length;
 const stale=evidenceRecords.filter(e=>e.freshness&&e.freshness!=='当前').length;
-const purpose=card($('overview'),'要解决什么问题',task.why||task.summary);
-purpose.append(el('p','完成后：'+text(workflow.visible_result||task.summary)));
-const firstScene=(task.scenarios||[])[0];
-if(firstScene){const sample=el('article',undefined,'card');sample.append(el('h2','用一个例子看懂：'+text(firstScene.title)),el('p',firstScene.kind==='simulation'?'设计模拟 · 展示预期行为，不是执行证据':'记录回放 · 请结合原始证据核对','muted'));const steps=el('ol');(firstScene.steps||[]).forEach(step=>steps.append(el('li',text(step.action)+' → '+text(step.result))));sample.append(steps);$('overview').append(sample);}
-if((task.behaviors||[]).length){const comparison=el('article',undefined,'card');comparison.append(el('h2','这次改变什么'));const t=el('table'),head=el('tr');['原来','现在'].forEach(x=>head.append(el('th',x)));t.append(head);task.behaviors.slice(0,3).forEach(b=>{const r=el('tr');r.append(el('td',text(b.before)),el('td',text(b.after)));t.append(r);});comparison.append(t);$('overview').append(comparison);}
 const decision=pendingDecisions[0];
 const next=el('article',undefined,'card next-action');next.append(el('span',workflow.stage_label||task.stage,'badge'),el('h2',decision?'现在需要你决定':'现在要做的事'));
 if(decision){next.append(el('h3',text(decision.question)),el('p','建议：'+text(decision.recommendation)));const btn=el('button','填写判断');btn.onclick=()=>show('decisions');next.append(btn);if(pendingDecisions.length>1)next.append(el('p','另有 '+(pendingDecisions.length-1)+' 项待决问题，可在详细材料中查看。','muted'));}
 else next.append(el('p',workflow.next_action||'确认上述目标和例子是否符合需求，再开始下一轮实施。'));
 if(workflow.action_owner)next.append(el('p','由谁处理：'+text(workflow.action_owner)));
-$('overview').insertBefore(next,$('overview').children[1]||null);
+$('overview').append(next);
+// VIEW_SCRIPT
+const viewRoot=el('div');$('overview').append(viewRoot);
+const viewUI={el,card,list,text,show};
+const renderView=task.kind==='incident'?renderIncidentView:task.kind==='bugfix'?renderBugfixView:task.kind==='operations'?renderOperationsView:['refactor','performance','migration','upgrade'].includes(task.kind)?renderEngineeringView:renderFeatureView;
+renderView(viewRoot,task,viewUI);
 const checks=el('details');checks.append(el('summary','验收进展与剩余风险'));
 card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据需要重新核对。`);
 list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);$('overview').append(checks);

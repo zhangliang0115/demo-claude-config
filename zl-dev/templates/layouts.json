@@ -1,0 +1,11 @@
+{
+  "feature": "user-story / solution-comparison / delivery / acceptance",
+  "change": "rule-difference / solution / implementation / acceptance",
+  "bugfix": "symptom → reproduce → cause/evidence → fix → regression",
+  "incident": "impact → timeline → hypotheses/actions → recovery",
+  "operations": "scope → runbook → stop/rollback → verification",
+  "refactor": "invariants → structure → regression",
+  "performance": "baseline/target/actual → bottleneck → tradeoffs",
+  "migration": "transform → dry-run → reconcile → restore",
+  "upgrade": "compatibility → unit-sequence → comparison → rollout"
+}

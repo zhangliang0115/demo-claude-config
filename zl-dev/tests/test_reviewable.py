@@ -155,4 +155,13 @@ class ReportTests(unittest.TestCase):
         self.data['kind']='incident'
         self.assertEqual('operations',m.assessed(self.data,None)['workflow_summary']['focus_stage'])
 
+    def test_all_scenario_renderers_are_embedded(self):
+        for kind in m.KINDS:
+            self.data['kind']=kind
+            self.save()
+            output=m.render(self.task).read_text()
+            self.assertNotIn('// VIEW_SCRIPT',output)
+            for renderer in ['renderFeatureView','renderBugfixView','renderIncidentView','renderOperationsView','renderEngineeringView']:
+                self.assertIn('function '+renderer,output)
+
 if __name__=='__main__':unittest.main()

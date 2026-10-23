@@ -172,6 +172,8 @@ def render(task_dir):
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets' / 'report.html').read_text(encoding='utf-8')
     template = template.replace('/* STAGE_STYLES */', (ROOT / 'assets/stages.css').read_text(encoding='utf-8')).replace('// STAGE_SCRIPT', (ROOT / 'assets/stages.js').read_text(encoding='utf-8'))
+    view_scripts = '\n'.join((ROOT / 'assets/views' / (name + '.js')).read_text(encoding='utf-8') for name in ('feature','bugfix','incident','operations','engineering'))
+    template = template.replace('// VIEW_SCRIPT', view_scripts)
     replacements = {'__TASK_DATA__': payload, '__PAGE_TITLE__': html.escape(data['title'])}
     output = re.sub('__TASK_DATA__|__PAGE_TITLE__', lambda match: replacements[match.group()], template)
     target = task_dir / 'report.html'
