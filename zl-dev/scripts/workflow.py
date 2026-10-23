@@ -42,6 +42,9 @@ def summarize(data):
     evidence = data.get('evidence', [])
     pending = [d for d in data.get('decisions', []) if d.get('status') != 'confirmed']
     covered = {ref for e in evidence if e.get('status') == 'passed' and e.get('freshness') == '当前' for ref in e.get('behavior_ids', [])}
+    current_unresolved = [e for e in evidence if e.get('freshness') == '当前' and e.get('status') in {'failed', 'blocked', 'not_run'}]
+    disputed = {ref for e in current_unresolved for ref in e.get('behavior_ids', [])}
+    covered -= disputed
     missing = sum(b['id'] not in covered for b in behaviors)
     stale = sum(e.get('freshness') != '当前' for e in evidence)
     owner = 'AI'
@@ -55,10 +58,10 @@ def summarize(data):
     elif not data.get('implementation'):
         step, focus = 'implement', 'implementation'
         action = 'AI 实现“'+behaviors[0].get('after',data.get('title','当前功能'))+'”的最小切片，并验证相关行为。'
-    elif missing:
+    elif missing or current_unresolved:
         step, focus = 'verify', 'testing'
         ids = [b['id'] for b in behaviors if b['id'] not in covered]
-        action = 'AI 验证 '+ '、'.join(ids[:3])+' 的实际结果；失败先修复，过期证据重跑。'
+        action = 'AI 验证 '+ ('、'.join(ids[:3]) if ids else '未解决的当前检查')+' 的实际结果；失败先修复，过期证据重跑。'
     else:
         step, focus, owner = 'accept', 'acceptance', '你'
         checks = data.get('acceptance', [])
@@ -68,4 +71,4 @@ def summarize(data):
     explicit = data.get('focus_stage')
     if explicit in STAGE_LABELS:
         focus = explicit
-    return dict(visible_sections=PHASE_SECTIONS[focus], **reading_guide(data.get('kind'), focus), step=step, focus_stage=focus, stage_label=STAGE_LABELS[focus], action_owner=owner, next_action=action, visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。', missing_verification_count=missing, stale_evidence_count=stale, pending_decision_count=len(pending))
+    return dict(visible_sections=PHASE_SECTIONS[focus], **reading_guide(data.get('kind'), focus), step=step, focus_stage=focus, stage_label=STAGE_LABELS[focus], action_owner=owner, next_action=action, visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。', missing_verification_count=missing, stale_evidence_count=stale, unresolved_current_evidence_count=len(current_unresolved), pending_decision_count=len(pending))

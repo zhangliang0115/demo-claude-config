@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 import html
 import hashlib
 import json
+import os
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 import re
 import subprocess
@@ -76,9 +79,100 @@ def load(folder):
     return validate(json.loads((Path(folder) / 'feature.json').read_text(encoding='utf-8')))
 
 
-def save(folder, data):
+@contextmanager
+def write_lock(folder):
+    try:
+        import fcntl
+    except ImportError as exc:
+        raise ValueError('当前平台不支持 feature 写锁（需要 fcntl）；只读 locate/status/preflight 仍可使用，未执行写入') from exc
+    with (Path(folder) / '.feature-update.lock').open('a') as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def _replace_locked(folder, data, previous=None):
+    """Caller owns .feature-update.lock; replace in the same filesystem."""
+    target = Path(folder) / 'feature.json'
+    if target.is_symlink():
+        raise ValueError('feature.json 不能是符号链接')
+    payload = (json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode('utf-8')
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=folder, prefix='.feature-update-', delete=False) as temp:
+            temporary = Path(temp.name)
+            if target.exists():
+                os.fchmod(temp.fileno(), target.stat().st_mode & 0o777)
+            temp.write(payload)
+            temp.flush()
+            os.fsync(temp.fileno())
+        if previous is not None and target.read_bytes() != previous:
+            raise ValueError('功能在更新期间发生变化：未覆盖，请重新 locate')
+        os.replace(temporary, target)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return payload
+
+
+def save(folder, data, expected_revision=None):
     validate(data)
-    (Path(folder) / 'feature.json').write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    with write_lock(folder):
+        previous = None
+        if expected_revision is not None:
+            previous = (Path(folder) / 'feature.json').read_bytes()
+            if reviewable.task_revision(previous) != expected_revision:
+                raise ValueError('功能版本冲突：请重新 locate 并合并修改')
+        _replace_locked(folder, data, previous)
+
+
+def locate(folder):
+    folder = Path(folder).resolve()
+    raw = (folder / 'feature.json').read_bytes()
+    data = validate(json.loads(raw))
+    return dict(feature_dir=str(folder), feature_file=str(folder / 'feature.json'),
+                feature_revision=reviewable.task_revision(raw), id=data['id'], title=data['title'],
+                workspace_path=data.get('workspace_path'), phase=data.get('phase'),
+                contract_version=data.get('contract_version'), report=str(folder / 'feature.html') if (folder / 'feature.html').is_file() else None)
+
+
+def update_feature(folder, source, workspace, expected_revision):
+    folder = Path(folder).resolve()
+    target = folder / 'feature.json'
+    if target.is_symlink() or not target.is_file():
+        raise ValueError('目标 feature.json 必须是已有普通文件，不能是符号链接')
+    if not expected_revision:
+        raise ValueError('更新必须提供 locate 返回的 --expect-revision')
+    replacement = validate(json.loads(Path(source).read_bytes()))
+    with write_lock(folder):
+        if target.is_symlink():
+            raise ValueError('目标 feature.json 不能是符号链接')
+        raw = target.read_bytes()
+        original = validate(json.loads(raw))
+        if reviewable.task_revision(raw) != expected_revision:
+            raise ValueError('功能版本冲突：请重新 locate 并合并修改')
+        bound = original.get('workspace_path')
+        if not bound or Path(bound).resolve() != Path(workspace).expanduser().resolve():
+            raise ValueError('功能绑定工作区与 --workspace 不匹配')
+        if replacement.get('id') != original['id'] or replacement.get('workspace_path') != bound:
+            raise ValueError('更新不能改变功能 id 或 workspace_path')
+        original_projects = {p['id']: p for p in original['projects']}
+        new_projects = {p['id']: p for p in replacement['projects']}
+        if set(original_projects) != set(new_projects) or any(original_projects[key]['path'] != new_projects[key]['path'] for key in original_projects):
+            raise ValueError('更新不能改变已绑定的项目 id/path 集合')
+        derived = ('snapshot', 'snapshot_freshness')
+        for key in original_projects:
+            for field in derived:
+                old, new = original_projects[key], new_projects[key]
+                if (field in old) != (field in new) or old.get(field) != new.get(field):
+                    raise ValueError('派生快照只能通过 sync 更新，不能改写 ' + field)
+        for field in ('assessment', 'generated_at'):
+            if (field in original) != (field in replacement) or original.get(field) != replacement.get(field):
+                raise ValueError('更新不能改写派生字段 ' + field)
+        payload = _replace_locked(folder, replacement, raw)
+    return dict(feature_dir=str(folder), feature_revision=reviewable.task_revision(payload), updated=True)
 
 
 def init(folder, title, projects, workspace=None):
@@ -108,6 +202,7 @@ def head(path):
 
 
 def inspect(folder):
+    revision = locate(folder)['feature_revision']
     data = load(folder)
     for p in data['projects']:
         path = Path(p['path'])
@@ -124,7 +219,7 @@ def inspect(folder):
         except OSError:
             observations = ['路径无法读取；不得推断项目职责']
         p['observations'] = observations
-    save(folder, data)
+    save(folder, data, revision)
     return data
 
 
@@ -161,8 +256,9 @@ def repository_fingerprint(path):
 
 def project_snapshot(p):
     path = Path(p['path'])
-    snap = dict(synced_at=now(), availability='available' if path.is_dir() else 'inaccessible', head=head(path), current_fingerprint=None, task_id='', task_stage='', task_contract_version='', contract_match=False, evidence_counts=dict(total=0, passed_current=0, failed=0, stale=0), issues=[])
+    snap = dict(synced_at=now(), availability='available' if path.is_dir() else 'inaccessible', head=head(path), current_fingerprint=None, task_id='', task_stage='', task_contract_version='', contract_match=False, evidence_counts=dict(total=0, passed_current=0, failed=0, stale=0, unresolved_current=0), issues=[])
     task = task_location(p)
+    snap['task_path'] = str(task.expanduser().resolve()) if task else ''
     snap['current_fingerprint'] = repository_fingerprint(path) if path.is_dir() else None
     if not path.is_dir():
         snap['issues'].append('项目路径不存在或无法访问')
@@ -190,11 +286,12 @@ def project_snapshot(p):
             counts['passed_current'] += int(e.get('status') == 'passed' and e['freshness'] == '当前')
             counts['failed'] += int(e.get('status') == 'failed')
             counts['stale'] += int(e['freshness'] != '当前')
+            counts['unresolved_current'] += int(e['freshness'] == '当前' and e.get('status') != 'passed')
         if not child.get('behaviors'):
             snap['issues'].append('尚无可验证的行为约定')
         snap['missing_behaviors'] = child['workflow_summary']['missing_verification_count']
-        if snap['missing_behaviors'] or snap['evidence_counts']['failed'] or snap['evidence_counts']['stale']:
-            snap['issues'].append('项目验证仍有缺口、失败或过期证据')
+        if snap['missing_behaviors'] or snap['evidence_counts']['unresolved_current']:
+            snap['issues'].append('项目当前验证仍有未覆盖行为或未通过证据；历史证据保留供追溯')
         if not snap['evidence_counts']['total']:
             snap['issues'].append('尚无验证证据')
     except (OSError, ValueError, TypeError, AttributeError) as exc:
@@ -203,10 +300,11 @@ def project_snapshot(p):
 
 
 def sync(folder):
+    revision = locate(folder)['feature_revision']
     data = load(folder)
     for p in data['projects']:
         p['snapshot'] = project_snapshot(p)
-    save(folder, data)
+    save(folder, data, revision)
     return data
 
 
@@ -217,7 +315,7 @@ def assessed(data):
     for p in result['projects']:
         previous = p.get('snapshot')
         current = project_snapshot(p)
-        p['snapshot_freshness'] = 'not_synced' if not previous else ('unknown' if not current['current_fingerprint'] else ('current' if all(previous.get(k) == current.get(k) for k in ('current_fingerprint', 'task_contract_version', 'contract_match', 'evidence_counts', 'task_stage', 'issues')) else 'stale'))
+        p['snapshot_freshness'] = 'not_synced' if not previous else ('unknown' if not current['current_fingerprint'] else ('current' if all(previous.get(k) == current.get(k) for k in ('task_path', 'task_id', 'current_fingerprint', 'task_contract_version', 'contract_match', 'evidence_counts', 'task_stage', 'issues')) else 'stale'))
         issues.extend(p['id'] + ': ' + x for x in current['issues'])
         if result.get('contract_version') and p.get('contract_version') != result['contract_version']:
             issues.append(p['id'] + ': 项目基线落后于整体方案版本')
@@ -239,6 +337,48 @@ def assessed(data):
     return result
 
 
+def preflight(folder):
+    """Read-only implementation baseline check; this is not an Edit hook."""
+    data = load(folder)
+    issues = []
+    baseline = data.get('contract_version')
+    if not baseline:
+        issues.append('整体方案尚无 contract_version')
+    if not data['contracts'] or any(c['status'] != 'confirmed' or c['version'] != baseline for c in data['contracts']):
+        issues.append('共享契约尚未全部在当前整体方案版本确认')
+    projects = {p['id']: p for p in data['projects']}
+    if not projects or not data['allocations']:
+        issues.append('尚未登记项目或开发切片')
+    for p in projects.values():
+        if not Path(p['path']).is_dir():
+            issues.append(p['id'] + ': 项目路径不存在或无法访问')
+        if p.get('contract_version') != baseline:
+            issues.append(p['id'] + ': 项目版本与整体方案不一致')
+        task = task_location(p)
+        if task:
+            try:
+                child = reviewable.load(task)
+                binding = child.get('project_path')
+                if binding and Path(binding).resolve() != Path(p['path']).resolve():
+                    issues.append(p['id'] + ': 子任务项目绑定不匹配')
+                if not binding and task.resolve() != Path(p['path']).resolve() and Path(p['path']).resolve() not in task.resolve().parents:
+                    issues.append(p['id'] + ': 外部子任务缺少 project_path 绑定')
+                if (child.get('contract_version') or child.get('feature', {}).get('contract_version')) != baseline:
+                    issues.append(p['id'] + ': 子任务采用的契约版本不匹配')
+            except (OSError, ValueError, TypeError, AttributeError) as exc:
+                issues.append(p['id'] + ': 子任务无法读取: ' + str(exc))
+    allocations = {a['id']: a for a in data['allocations']}
+    for allocation in allocations.values():
+        if allocation.get('contract_version') != baseline:
+            issues.append(allocation['id'] + ': 开发切片版本与整体方案不一致')
+        for dep in allocation.get('depends_on', []):
+            dependency = allocations[dep]
+            if dependency.get('contract_version') != baseline or projects[dependency['project_id']].get('contract_version') != baseline:
+                issues.append(allocation['id'] + ': 依赖 ' + dep + ' 尚未对齐共享契约')
+    return dict(ready_for_implementation=not issues, contract_version=baseline, issues=issues,
+                notice='只读前置核对，不修改快照，不替代人工确认或运行验证，也不能拦截任意代码编辑。')
+
+
 def render(folder):
     data = assessed(load(folder))
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
@@ -254,10 +394,13 @@ def render(folder):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('init', 'inspect', 'sync', 'render', 'status'):
+    for name in ('init', 'inspect', 'sync', 'render', 'status', 'preflight', 'locate', 'update'):
         cmd = sub.add_parser(name)
         cmd.add_argument('folder')
         cmd.add_argument('--workspace', type=Path, default=Path.cwd())
+        if name == 'update':
+            cmd.add_argument('--from-file', type=Path, required=True)
+            cmd.add_argument('--expect-revision', required=True)
         if name == 'init':
             cmd.add_argument('--title', required=True)
             cmd.add_argument('--project', action='append', default=[])
@@ -266,6 +409,8 @@ def main():
         args.folder = resolve_output(args.folder, 'features', args.workspace)
         if args.command == 'init':
             value = init(args.folder, args.title, args.project, args.workspace)
+        elif args.command == 'update':
+            value = update_feature(args.folder, args.from_file, args.workspace, args.expect_revision)
         elif args.command == 'status':
             value = assessed(load(args.folder))
         else:
@@ -273,6 +418,8 @@ def main():
         if isinstance(value, dict):
             value['output_dir'] = str(args.folder)
         print(str(value) if isinstance(value, Path) else json.dumps(value, ensure_ascii=False, indent=2))
+        if args.command == 'preflight' and not value['ready_for_implementation']:
+            raise SystemExit(2)
     except (OSError, ValueError) as exc:
         parser.exit(1, str(exc) + '\n')
 

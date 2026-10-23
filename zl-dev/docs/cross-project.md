@@ -4,7 +4,7 @@
 
 识别候选项目 → 检查现有职责和调用关系 → 设计整个功能 → 确定项目边界与共同契约 → 拆开发任务及依赖 → 分项目实现 → 整体联调与人工核验。
 
-一个功能一个 feature.json 和总览 feature.html，各项目各自一个 task.json/report.html。设计负责人和实施者可一人兼任，也可多人协作；项目数量不等于人员数量。换人或换 agent 要复述理解，同一个人不必人为交接给自己。
+一个功能一个 feature.json 和阶段报告 feature.html，各项目各自一个 task.json/report.html。页面根据 phase 默认打开当前阶段（discovery/design/contracts/implementation/integration，也识别 solution/testing/acceptance 等常用别名），页首读取 design.goal。导航用于查看同一功能的已有材料，不代表每次必须重走所有阶段。各阶段可填写判断和备注并复制给 AI；复制内容含功能编号、契约版本、报告生成时间和阶段，只是草稿，不自动批准方案或写回记录。设计负责人和实施者可一人兼任，也可多人协作；项目数量不等于人员数量。换人或换 agent 要复述理解，同一个人不必人为交接给自己。
 
 ## 第一步：识别，不预分配
 
@@ -20,11 +20,11 @@ contracts 列出跨项目共同约定及版本。每条 {id, version, descriptio
 
 ## 第三步：再分项目开发
 
-allocations 中每条 {id, project_id, summary, depends_on: [], contract_version, status, owner}。owner 可同一个人也可不同人，未知留空。depends_on 引用其他 allocation.id，禁止环。先实现真实依赖；契约已明确时可以采用清楚标记的 mock 并行，但 mock 通过不代表联调通过。
+allocations 中每条 {id, project_id, summary, depends_on: [], contract_version, status, owner}。owner 可同一个人也可不同人，未知留空。depends_on 引用其他 allocation.id，禁止环。业务代码实施前运行 `feature.py preflight /功能目录`。它只读检查当前整体方案基线、所有共享契约确认、项目/子任务版本和切片依赖版本；有缺口返回退出码 2，先解决问题再开始实施。它不是 Edit hook，不能技术上阻止绕过指引的任意编辑，也不会因为通过就证明依赖已实现。先实现真实依赖；契约已明确时可以采用清楚标记的 mock 并行，但 mock 通过不代表联调通过。
 
 projects 每条 {id, path, responsibility, task_path, contract_version, status, owner}。task_path 指向明确的子任务绝对目录（默认在用户 .claude 下），path 为本机仓库路径。外置子任务的 project_path 必须与此项目真实路径一致；不能借用其他项目的证据。为其他机器交接时应重新绑定本机路径，不照搬别人的绝对路径。
 
-子任务额外记录 feature: {id, path, contract_version}，保持子任务的需求与总方案关联。feature.py sync 只读取显式关联任务并汇总，不替任何项目修改代码，不自动创建团队或派发给他人。
+子任务额外记录 feature: {id, path, contract_version}，保持子任务的需求与总方案关联。feature.py sync 只读取显式关联任务并汇总，不替任何项目修改代码，不自动创建团队或派发给他人。`projects[].snapshot` 是派生快照，只能由 sync 更新；AI 不得手改其中计数、问题或新鲜度来使状态变绿。历史失败和过期证据仍计数、保留追溯；当前版本有全部行为覆盖且无当前未通过记录时，历史失败不再永久阻塞。当前失败/阻塞/未执行不能被另一条 passed 简单抵消，未知或未覆盖仍阻塞。
 
 ## 第四步：变更与整体验收
 
@@ -36,11 +36,20 @@ integration 条目 {id, scenario, environment, status, versions: {project_id: de
 
 ```sh
 python3 /插件路径/scripts/feature.py init order-cancel --workspace /工作区 --title "订单取消" --project admin=/工作区/admin --project api=/工作区/api
+python3 /插件路径/scripts/feature.py locate /功能目录
+python3 /插件路径/scripts/feature.py update /功能目录 --workspace /工作区 --from-file /临时目录/feature-next.json --expect-revision <locate返回的feature_revision>
 python3 /插件路径/scripts/feature.py inspect /功能目录
+python3 /插件路径/scripts/feature.py preflight /功能目录
 python3 /插件路径/scripts/feature.py sync /功能目录
 python3 /插件路径/scripts/feature.py render /功能目录
 python3 /插件路径/scripts/feature.py status /功能目录
 ```
+
+更新方案时，先 `locate` 获取精确 feature.json 字节的 `feature_revision`，读取当前 feature.json，以完整对象在可写临时目录准备 `feature-next.json`，再用上述 `update` 导入。源文件权限失败会如实报错；不要通过直接 Write 用户目录绕过环境的写入限制。`update` 校验 JSON、固定功能 id/工作区/项目 id 与路径集合，并拒绝改写派生快照；本命令暂不支持增删或重新绑定项目。`--workspace` 必须匹配初始化记录的工作区。版本冲突时重新 locate、重读合并，不能强行覆盖。更新只保存数据，不生成页面、不确认业务规则；随后按需要 preflight、sync、render。
+
+子任务快照绑定规范化的 task_path 和 task_id；即使代码与行为指纹相同，切换任务后也必须重新 sync。旧快照缺少绑定时按过期待核对处理。
+
+`update`、`inspect` 和 `sync` 共用协作锁并原子替换文件，inspect/sync 还检查读取以来的版本变化。外部编辑器不遵守该锁，不要同时直接编辑 feature.json；这些保护也不提供超越系统权限的写入能力。当前写锁依赖 fcntl，Windows 等缺少它的平台仍可运行 locate/status/preflight 等只读命令，但写入命令会明确报不支持，不进行写入。
 
 总任务默认保存在 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。用 `--workspace <共同工作区绝对路径>` 固定归属；各项目子任务仍按各自项目区分。inspect 写观察，sync 写快照，render 生成 feature.html；这不是后台监听。未同步、不可访问和版本变化都应保留为缺口。不要仅传总目录给原来的 task CLI，它使用另一份 task.json 数据格式。
 

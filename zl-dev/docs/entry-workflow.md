@@ -7,7 +7,7 @@
 - 新描述先判断是否延续当前明确任务。只有一个历史任务也不能据此自动接入新需求。
 - 无参数或明确说“继续”：运行 reviewable.py continue --project，单个任务可继续，多个任务按标题简短询问。
 - 使用返回的真实任务路径，不手算项目路径哈希。不确定是否延续时只问一个简短问题。
-- 新建：reviewable.py init <slug> --project <真实项目绝对路径> --title <标题> --kind <类型>。读取生成 task.json 后维护，render 更新。
+- 新建：reviewable.py init <slug> --project <真实项目绝对路径> --title <标题> --kind <类型>。读取生成 task.json 后按下述安全更新流程维护，render 更新。
 - 所有工具位于 `${CLAUDE_PLUGIN_ROOT}/scripts/`，默认输出 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`。源码仍在业务仓库。脚本参数用独立参数和正确引号，不能将需求拼成可执行代码。
 
 ## 按需读取内部资料
@@ -50,3 +50,22 @@
 - CLAUDE_PLUGIN_ROOT 是指引、脚本与模板所在目录，不是待开发项目。首次执行先用 pwd、git rev-parse --show-toplevel 确认业务项目，将其真实路径作为 --project。源码修改前核对目标文件属于该项目；即使任务是修改插件本身，也不能自动修改已加载插件的安装目录。
 - 本地报告必须返回实际存在的文件绝对链接。未启动并验证 HTTP 服务时，禁止编造 localhost 地址，尤其不能用 localhost:0 占位。
 - 验收或发布阶段已有具体检查项时，检查项及反馈控件应直接出现在主内容区；不要让读者先读完整排障历史再去补充材料找操作。
+
+## 只读定位与安全更新
+
+`/zl-dev:status` 只使用 `reviewable.py locate [任务目录] --project <真实项目>` 和 `status`。locate 返回标题、当前阶段、task_revision、指纹和已有报告路径；报告不存在时 report 为 null，不补建。它不会调用 continue/render/index，也不创建任务目录。continue 是推进入口，会重新渲染报告，不能用于只读查询。
+
+修改记录时先运行 locate，读取完整 task.json，将合并后的完整 JSON 保存到系统临时目录，然后执行：
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" update "<真实任务目录>" --project "<绑定项目绝对路径>" --from-file "<临时JSON路径>" --expect-revision "<locate返回的task_revision>"
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render "<真实任务目录>"
+```
+
+update 使用既有 schema 校验，只允许更新已有、绑定到指定项目的任务，不能改变 id 或 project_path；版本冲突时拒绝覆盖，必须重新读取并合并。可增加 `--expect-fingerprint "<locate返回的fingerprint>"` 检查当前代码及行为契约；它不同于 task_revision，证据和说明变化也会改变 task_revision。fingerprint 为 null 时不能声称已核对代码版本。update 本身不 render；更新失败不执行 render。
+
+在 macOS/Linux 上，同目录临时文件和原子替换保护旧数据，协作 CLI 写入使用文件锁；外部编辑器不遵守锁，不能并发直接编辑 task.json。旧任务缺少绑定时需先人工核对，不能猜测补绑。CLI 不绕过系统权限或 agent 权限：若 ~/.claude 写入遭拒，如实返回失败及待保存内容位置，等待权限解决。禁止改用 Write、cp、其他命令或工作区副本规避明确的权限拒绝，也不能声称未保存内容已落盘。
+
+已有非空 revision 的证据必须保留原 id，不能改绑到新指纹；重跑后新增独立证据 id 并保留旧记录，也可清空 revision 显式标为未绑定。此检查防止误改已有记录，无法证明测试实际执行或防止恶意伪造新证据；不得通过改 id、删除旧记录或先清空再重绑来伪装重跑。
+
+locate/status 返回 HANDOFF.md 的 handoff.path 与 freshness（current/stale/unknown/missing），同时核对精确任务版本和代码/行为指纹；发现过期、旧格式未知或缺失时，用 go 重新核对并按需显式导出，先保留手工补充，status 不自动修复或覆盖交接材料。
