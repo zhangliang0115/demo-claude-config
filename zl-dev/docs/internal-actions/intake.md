@@ -1,11 +1,10 @@
----
-description: 接收他人的方案并复述确认
-argument-hint: "[任务描述或任务目录]"
----
+# 内部动作：intake
 
-读取 `${CLAUDE_PLUGIN_ROOT}/docs/workflow.md`、`docs/team-workflow.md` 和 `docs/schema-reference.md`（后两者也相对插件根目录）。
+此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
-用户参数：$ARGUMENTS
+读取 `${CLAUDE_PLUGIN_ROOT}/docs/entry-workflow.md`、`docs/team-workflow.md` 和 `docs/schema-reference.md`（后两者也相对插件根目录）。
+
+用户参数：当前任务输入（由 go 路由提供）
 
 读取 HANDOFF.md、task.json 与当前项目约定，核对代码和资料版本。填写 handoffs 的接收者复述、范围、疑问和第一步。不同工具/模型不影响字段结构。接收人未明确确认前不得标 accepted。发现矛盾先记录并找对应负责人，不静默重设计。
 

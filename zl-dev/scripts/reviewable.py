@@ -79,6 +79,8 @@ def validate(data):
         raise ValueError('task.json 必须是 version=1 的对象')
     if 'project_path' in data and (not isinstance(data['project_path'], str) or not Path(data['project_path']).is_absolute()):
         raise ValueError('project_path 必须是绝对路径字符串')
+    if 'focus_stage' in data and data['focus_stage'] not in STAGES:
+        raise ValueError('focus_stage 必须为固定阶段名')
     for key in ('id', 'title', 'kind'):
         if not isinstance(data.get(key), str) or not data[key].strip():
             raise ValueError(f'{key} 必须是非空字符串')

@@ -6,13 +6,13 @@ function renderStages(container, task) {
   const make = (tag, value, cls) => { const node=document.createElement(tag); if(value!==undefined)node.textContent=typeof value==='string'?value:JSON.stringify(value); if(cls)node.className=cls; return node; };
   const display = value => value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?value:JSON.stringify(value);
   container.classList.add('stage-workspace');
-  container.append(make('h2','按阶段理解、审查和交接'),make('p','固定模板展示当前记录；缺失不代表已完成。浏览器操作仅形成草稿，不会批准任务或执行生产动作。','warning'));
-  const nav=make('div',undefined,'stage-nav');nav.setAttribute('aria-label','选择工作阶段');const body=make('div');container.append(nav,body);
+  container.append(make('h2','当前阶段材料'),make('p','固定模板展示当前记录；缺失不代表已完成。浏览器操作仅形成草稿，不会批准任务或执行生产动作。','warning'));
+  const nav=make('div',undefined,'stage-controls'),selector=make('select');selector.setAttribute('aria-label','已记录的阶段材料');nav.append(make('label','切换已记录阶段 '),selector);const body=make('div');container.append(nav,body);
   const fieldList = meta => Array.isArray(meta.fields)?meta.fields:[];
   function itemCard(parent,item,fields){const c=make('article',undefined,'card');c.append(make('h3',display(item.title||item.name||item.id)),make('span',display(item.status),'badge'));const dl=make('dl');fields.forEach(([key,label])=>{dl.append(make('dt',label),make('dd',display(item[key])));});c.append(dl);parent.append(c);return c;}
   function table(parent,items,fields){const wrap=make('div',undefined,'stage-tablewrap');wrap.tabIndex=0;wrap.setAttribute('aria-label','阶段记录，可横向滚动');const t=make('table');const h=make('thead'),hr=make('tr');[['id','编号'],['status','状态'],...fields.filter(([k])=>k!=='id'&&k!=='status')].forEach(([,label])=>{const th=make('th',label);th.scope='col';hr.append(th);});h.append(hr);t.append(h);const tbody=make('tbody');items.forEach(item=>{const row=make('tr');[['id'],['status'],...fields.filter(([k])=>k!=='id'&&k!=='status')].forEach(([key])=>row.append(make('td',display(item[key]))));tbody.append(row);});t.append(tbody);wrap.append(t);parent.append(wrap);}
   function exportDraft(stage){const payload={type:'stage-review-draft-not-approval',schema_version:1,task_id:task.id,revision:task.current_fingerprint,stage,created_at:new Date().toISOString(),responses:drafts[stage]||{}};const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const a=make('a');a.href=url;a.download='stage-review-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  function draw(key,label){body.replaceChildren();for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.stage===key));const meta=Array.isArray(catalog)?catalog.find(x=>x.id===key)||{}:catalog[key]||{};const details=(task.stage_details||{})[key]||{};const items=Array.isArray(details.items)?details.items:[];const fields=fieldList(meta);body.append(make('h3',meta.title||label),make('p',display(meta.focus),'muted'),make('p',display(details.summary)));
+  function draw(key,label){body.replaceChildren();selector.value=key;const meta=Array.isArray(catalog)?catalog.find(x=>x.id===key)||{}:catalog[key]||{};const details=(task.stage_details||{})[key]||{};const items=Array.isArray(details.items)?details.items:[];const fields=fieldList(meta);body.append(make('h3',meta.title||label),make('p',display(meta.focus),'muted'),make('p',display(details.summary)));
     const facts=make('div',undefined,'stage-facts');[['purpose','为什么看这一页'],['owner','负责的人'],['decision','人需要判断什么'],['exit_criteria','进入下一阶段的条件']].forEach(([field,title])=>{const box=make('article',undefined,'card');box.append(make('h3',title),make('p',display(details[field]||meta[field])));facts.append(box);});body.append(facts);
     if(!items.length){body.append(make('p','此阶段尚无记录。请按固定字段补充，不能据此判断阶段完成。','warning'));return;}
     if(key==='solution'){
@@ -27,5 +27,11 @@ function renderStages(container, task) {
       body.append(make('p','观察、假设、授权、执行和恢复验证分别记录。此页面不执行运维命令。','warning'));const timeline=make('ol',undefined,'stage-timeline');items.forEach(item=>{const li=make('li');itemCard(li,item,fields);timeline.append(li);});body.append(timeline);
     } else table(body,items,fields);
   }
-  fallback.forEach(([key,label])=>{const button=make('button',label);button.type='button';button.dataset.stage=key;button.setAttribute('aria-pressed','false');button.onclick=()=>draw(key,label);nav.append(button);});draw(...fallback[0]);
+  const available=fallback.filter(([key])=>{const d=(task.stage_details||{})[key];return d&&((d.items||[]).length||d.summary);});
+  if(!available.length){container.append(make('p','当前没有已记录的阶段材料。','muted'));nav.hidden=true;return;}
+  available.forEach(([key,label])=>{const option=make('option',label);option.value=key;selector.append(option);});
+  const focus=task.focus_stage||(task.workflow_summary||{}).focus_stage;
+  const selected=available.find(([key])=>key===focus);
+  selector.onchange=()=>{const entry=available.find(([key])=>key===selector.value);if(entry)draw(...entry);};
+  if(selected){nav.hidden=available.length<2;draw(...selected);}else{const placeholder=make('option','当前阶段暂无扩展材料；选择历史档案');placeholder.value='';selector.prepend(placeholder);selector.value='';body.append(make('p','当前动作请看任务概览。以下仅为已记录阶段的档案，不代表当前工作。','muted'));}
 }

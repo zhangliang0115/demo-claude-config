@@ -1,11 +1,10 @@
----
-description: 运行真实检查并建立规则到证据的关联
-argument-hint: "[任务描述或任务目录]"
----
+# 内部动作：verify
 
-先读取 `${CLAUDE_PLUGIN_ROOT}/docs/workflow.md`，遵循其中的事实、证据、风险和反馈规则。
+此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
-用户参数：$ARGUMENTS
+先读取 `${CLAUDE_PLUGIN_ROOT}/docs/entry-workflow.md`，遵循其中的事实、证据、风险和反馈规则。
+
+用户参数：当前任务输入（由 go 路由提供）
 
 从行为约定制定验证，不仅复述已有测试。读取真实项目工具链，运行相关检查，保留命令、结果及证据位置。先获取 fingerprint，执行检查后再获取 fingerprint；二者一致且检查结果真实时才能将该值写入对应 evidence.revision。若变更则重新验证。失败或未执行保留准确状态。避免将之后更改的业务约定追溯绑定旧测试。渲染报告检查证据状态。
 

@@ -1,4 +1,6 @@
-"""Small, evidence-driven routing shared by CLI and human report."""
+"""Evidence-derived current action; no automatic human approval."""
+STAGE_LABELS = {'requirements':'理解需求','solution':'确定方案','implementation':'开发中','testing':'验证中','acceptance':'待人工核验','operations':'排查与运维','handoff':'上下文交接','review':'审查中','release':'发布准备'}
+
 def summarize(data):
     behaviors = data.get('behaviors', [])
     evidence = data.get('evidence', [])
@@ -6,14 +8,28 @@ def summarize(data):
     covered = {ref for e in evidence if e.get('status') == 'passed' and e.get('freshness') == '当前' for ref in e.get('behavior_ids', [])}
     missing = sum(b['id'] not in covered for b in behaviors)
     stale = sum(e.get('freshness') != '当前' for e in evidence)
+    owner = 'AI'
     if not data.get('summary') or not behaviors:
-        step, action = 'understand', 'AI 读取相关实现，给出最小行为例子与推荐方案；只集中询问影响结果的未知项。'
+        step, focus = 'understand', 'requirements'
+        action = 'AI 先查清“'+data.get('title','当前需求')+'”的现状，给出一个具体输入与预期结果，再推进明确的工作。'
     elif pending:
-        step, action = 'decide', '处理列出的业务决定；可独立进行的已授权工作继续推进。'
+        step, focus, owner = 'decide', 'solution', '你'
+        first = pending[0]
+        action = '请确认：'+first.get('question','待确认的业务规则')+'；建议：'+first.get('recommendation','AI 尚未给出建议，请先补充依据。')
     elif not data.get('implementation'):
-        step, action = 'implement', '按明确行为完成一个可验证的小切片，再运行实际检查。'
+        step, focus = 'implement', 'implementation'
+        action = 'AI 实现“'+behaviors[0].get('after',data.get('title','当前功能'))+'”的最小切片，并验证相关行为。'
     elif missing:
-        step, action = 'verify', '补齐缺少或过期的验证；失败则修复后重跑，不重新解释整个项目。'
+        step, focus = 'verify', 'testing'
+        ids = [b['id'] for b in behaviors if b['id'] not in covered]
+        action = 'AI 验证 '+ '、'.join(ids[:3])+' 的实际结果；失败先修复，过期证据重跑。'
     else:
-        step, action = 'accept', '请人按验收步骤核验关键路径；当前证据覆盖不等于人工接受或上线完成。'
-    return dict(step=step, next_action=action, visible_result=data.get('summary') or '尚未形成可核对的行为说明', missing_verification_count=missing, stale_evidence_count=stale, pending_decision_count=len(pending))
+        step, focus, owner = 'accept', 'acceptance', '你'
+        checks = data.get('acceptance', [])
+        action = '请亲自核验：'+(checks[0] if checks else '关键用户路径；AI 需先给出可操作步骤。')
+    if data.get('kind') in {'incident','operations'} and step != 'accept':
+        focus = 'operations'
+    explicit = data.get('focus_stage')
+    if explicit in STAGE_LABELS:
+        focus = explicit
+    return dict(step=step, focus_stage=focus, stage_label=STAGE_LABELS[focus], action_owner=owner, next_action=action, visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。', missing_verification_count=missing, stale_evidence_count=stale, pending_decision_count=len(pending))

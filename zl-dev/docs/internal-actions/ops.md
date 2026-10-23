@@ -1,11 +1,10 @@
----
-description: 日常运维检查与受控变更
-argument-hint: "[任务描述或任务目录]"
----
+# 内部动作：ops
 
-读取 `${CLAUDE_PLUGIN_ROOT}/docs/workflow.md`、`docs/team-workflow.md` 和 `docs/schema-reference.md`（后两者也相对插件根目录）。
+此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
-用户参数：$ARGUMENTS
+读取 `${CLAUDE_PLUGIN_ROOT}/docs/entry-workflow.md`、`docs/team-workflow.md` 和 `docs/schema-reference.md`（后两者也相对插件根目录）。
+
+用户参数：当前任务输入（由 go 路由提供）
 
 创建 operations 任务，记录环境/目标、操作卡、授权范围、观察指标、停止条件、恢复办法。区分计划、已执行与验证完成。未经授权不做生产写操作。按固定 HTML 展示检查、结果和待决事项。
 

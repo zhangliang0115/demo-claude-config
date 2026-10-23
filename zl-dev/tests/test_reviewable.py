@@ -145,4 +145,14 @@ class ReportTests(unittest.TestCase):
         self.assertEqual('accept',m.assessed(self.data,'rev')['workflow_summary']['step'])
         self.assertEqual('verify',m.assessed(self.data,'other')['workflow_summary']['step'])
 
+    def test_current_action_is_specific(self):
+        self.data.update(summary='取消订单',decisions=[dict(id='D1',question='历史订单能取消吗？',recommendation='先只支持新订单',status='pending')])
+        result=m.assessed(self.data,None)['workflow_summary']
+        self.assertIn('历史订单能取消吗',result['next_action'])
+        self.assertEqual('你',result['action_owner'])
+        self.assertEqual('solution',result['focus_stage'])
+    def test_incident_focus(self):
+        self.data['kind']='incident'
+        self.assertEqual('operations',m.assessed(self.data,None)['workflow_summary']['focus_stage'])
+
 if __name__=='__main__':unittest.main()

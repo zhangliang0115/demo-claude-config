@@ -1,9 +1,8 @@
----
-description: 先整体设计跨项目功能，再分配各项目开发与整体联调
-argument-hint: "[功能需求、候选项目路径或已有功能目录]"
----
+# 内部动作：feature
 
-读取 `${CLAUDE_PLUGIN_ROOT}/docs/cross-project.md` 和 `docs/workflow.md`。用户输入：$ARGUMENTS。
+此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
+
+读取 `${CLAUDE_PLUGIN_ROOT}/docs/cross-project.md` 和 `docs/entry-workflow.md`。用户输入：当前任务输入（由 go 路由提供）。
 
 先确认可访问的候选项目范围，只读检查各项目约定、入口、调用关系和现有能力，再做整个功能的设计。不要预先按“前端/后端”目录名猜职责，也不要先分发模糊需求让各项目独立设计。
 

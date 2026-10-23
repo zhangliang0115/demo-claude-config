@@ -5,7 +5,7 @@
 /* STAGE_STYLES */
 </style>
 <header><span id="kind"></span><h1 id="title"></h1><p id="summary"></p><span class="badge" id="stage"></span></header>
-<main><div class="quick-actions"><button id="home-button" type="button">现在看什么</button><button id="detail-toggle" type="button" aria-expanded="false" aria-controls="reading-tools">展开详细材料</button></div><div id="reading-tools" class="reading-tools" hidden><label for="view-mode">按当前职责阅读：</label> <select id="view-mode"><option value="overview">需求提出者：目标和待决问题</option><option value="design">方案负责人：设计和假设</option><option value="handoffs">实施者：交接和范围</option><option value="evidence">验收者：证据和人工核验</option><option value="operations">运维人员：操作与恢复</option></select><p class="muted">按需查看阶段材料；关键决定和验证缺口在首页集中展示。</p><nav aria-label="阅读顺序" id="nav"></nav></div><section class="panel" id="overview"></section><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
+<main><section class="panel" id="overview"></section><details class="reading-tools" id="reading-tools"><summary>按需查看详细材料</summary><div class="quick-actions"><label for="section-select">材料：</label><select id="section-select" aria-label="选择详细材料"></select><button id="show-section" type="button">查看</button><button id="home-button" type="button">返回任务概览</button></div></details><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
 <script id="task-data" type="application/json">__TASK_DATA__</script>
 <script>
 'use strict';
@@ -15,37 +15,35 @@ function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefine
 function text(value){return value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?value:JSON.stringify(value);}
 function card(parent,title,body){const n=el('article',undefined,'card');n.append(el('h3',title),el('p',text(body)));parent.append(n);return n;}
 function list(parent,title,items){const c=card(parent,title,items.length?'':'尚未记录');if(items.length){c.lastChild.remove();const ul=el('ul');items.forEach(x=>ul.append(el('li',text(x))));c.append(ul);}return c;}
-$('title').textContent=task.title;$('kind').textContent=task.kind_label;$('summary').textContent=text(task.summary);$('stage').textContent=text(task.stage);document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
-const tabs=[['overview','现在看什么'],['stage-views','阶段工作台'],['scenarios','场景演示'],['behavior','业务变化'],['implementation','实现解释'],['decisions','需要你决定'],['evidence','验证证据'],['design','方案与职责'],['handoffs','跨人交接'],['operations','生产与运维']];
-function detailsOpen(open){$('reading-tools').hidden=!open;$('detail-toggle').setAttribute('aria-expanded',String(open));$('detail-toggle').textContent=open?'收起详细材料':'展开详细材料';}
-$('detail-toggle').onclick=()=>detailsOpen($('reading-tools').hidden);
-$('home-button').onclick=()=>{show('overview');detailsOpen(false);};
-$('view-mode').onchange=()=>show($('view-mode').value);
-function show(id){if(id!=='overview')detailsOpen(true);tabs.forEach(([key])=>{$(key).hidden=key!==id;$('tab-'+key).setAttribute('aria-selected',String(key===id));});}
-tabs.forEach(([key,label])=>{const b=el('button',label);b.id='tab-'+key;b.setAttribute('aria-controls',key);b.setAttribute('aria-selected',String(key==='overview'));b.onclick=()=>show(key);$('nav').append(b);});
+$('title').textContent=task.title;$('kind').textContent=task.kind_label;$('summary').textContent=text(task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage)+(/模拟|演示/.test(task.stage||'')?' · '+task.stage:'');document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
+const tabs=[['overview','任务概览'],['stage-views','当前阶段材料'],['scenarios','场景演示'],['behavior','业务变化'],['implementation','实现解释'],['decisions','需要你决定'],['evidence','验证证据'],['design','方案与职责'],['handoffs','交接记录'],['operations','生产与运维']];
+const has=key=>Array.isArray(task[key])&&task[key].length>0;
+const populated={overview:true,'stage-views':Object.values(task.stage_details||{}).some(x=>x&&((x.items||[]).length||x.summary)),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
+function detailsOpen(open){$('reading-tools').open=open;}
+function show(id){if(!$(id))return;tabs.forEach(([key])=>{if($(key))$(key).hidden=key!==id;});if(id!=='overview'){detailsOpen(true);$('section-select').value=id;}else detailsOpen(false);}
+$('home-button').onclick=()=>show('overview');
+tabs.filter(([key])=>key!=='overview'&&populated[key]).forEach(([key,label])=>{const option=el('option',label);option.value=key;$('section-select').append(option);});
+$('show-section').onclick=()=>show($('section-select').value);
+if(!$('section-select').children.length)$('reading-tools').hidden=true;
 const workflow=task.workflow_summary||{};
 const evidenceRecords=task.evidence||[];
 const pendingDecisions=(task.decisions||[]).filter(d=>d.status!=='confirmed');
 const uncovered=(task.behaviors||[]).filter(b=>!evidenceRecords.some(e=>(e.behavior_ids||[]).includes(b.id)&&e.status==='passed'&&e.freshness==='当前')).length;
 const stale=evidenceRecords.filter(e=>e.freshness&&e.freshness!=='当前').length;
-$('overview').append(el('h2','现在看什么', 'overview-heading'));
-const intro=el('div',undefined,'cards');$('overview').append(intro);
-card(intro,'这次要得到什么',workflow.visible_result||task.summary||task.why);
-card(intro,'当前进展',workflow.status||task.stage);
-const next=card($('overview'),'下一步行动',workflow.next_action||'先查看场景与目标行为，确认理解；根据待决问题和验证缺口安排下一步。');next.classList.add('next-action');
-const jumpActions=el('div',undefined,'quick-actions');next.append(jumpActions);
-[['scenarios','看具体场景'],['evidence','查验证证据']].forEach(([target,label])=>{const button=el('button',label);button.onclick=()=>show(target);jumpActions.append(button);});
-const decisionBox=el('article',undefined,'card');decisionBox.append(el('h3','需要你判断'));
-if(!pendingDecisions.length)decisionBox.append(el('p','当前记录中没有待决问题；这不代表已完成人工验收。'));
-pendingDecisions.slice(0,3).forEach(d=>{const item=el('div',undefined,'warning decision-preview');item.append(el('h3',text(d.question)),el('p','建议：'+text(d.recommendation)));decisionBox.append(item);});
-if(pendingDecisions.length){decisionBox.append(el('p',`共 ${pendingDecisions.length} 项待决问题，首页最多展示 3 项。`));const button=el('button','处理决策并导出反馈');button.onclick=()=>show('decisions');decisionBox.append(button);}
-$('overview').append(decisionBox);
-const verification=card($('overview'),'哪些还不能据此判定通过',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据未标记为当前。`);
-if(!(task.behaviors||[]).length)verification.append(el('p','尚无行为约定，无法计算覆盖率。','muted'));
-if(!evidenceRecords.length)verification.append(el('p','尚无运行证据。页面演示不代表实际功能已通过。','muted'));
-list($('overview'),'你可以亲自这样验收',task.acceptance||[]);
-const changes=el('details');changes.append(el('summary','查看变化、范围与风险'));
-list(changes,'自上次更新后的变化',task.changes||[]);card(changes,'为什么做',task.why);card(changes,'范围与边界',task.scope);list(changes,'风险与未覆盖项',task.risks||[]);card(changes,'停用与恢复',task.rollback);if(task.project_path)card(changes,'关联源码项目',task.project_path);$('overview').append(changes);
+const purpose=card($('overview'),'要解决什么问题',task.why||task.summary);
+purpose.append(el('p','完成后：'+text(workflow.visible_result||task.summary)));
+const firstScene=(task.scenarios||[])[0];
+if(firstScene){const sample=el('article',undefined,'card');sample.append(el('h2','用一个例子看懂：'+text(firstScene.title)),el('p',firstScene.kind==='simulation'?'设计模拟 · 展示预期行为，不是执行证据':'记录回放 · 请结合原始证据核对','muted'));const steps=el('ol');(firstScene.steps||[]).forEach(step=>steps.append(el('li',text(step.action)+' → '+text(step.result))));sample.append(steps);$('overview').append(sample);}
+if((task.behaviors||[]).length){const comparison=el('article',undefined,'card');comparison.append(el('h2','这次改变什么'));const t=el('table'),head=el('tr');['原来','现在'].forEach(x=>head.append(el('th',x)));t.append(head);task.behaviors.slice(0,3).forEach(b=>{const r=el('tr');r.append(el('td',text(b.before)),el('td',text(b.after)));t.append(r);});comparison.append(t);$('overview').append(comparison);}
+const decision=pendingDecisions[0];
+const next=el('article',undefined,'card next-action');next.append(el('span',workflow.stage_label||task.stage,'badge'),el('h2',decision?'现在需要你决定':'现在要做的事'));
+if(decision){next.append(el('h3',text(decision.question)),el('p','建议：'+text(decision.recommendation)));const btn=el('button','填写判断');btn.onclick=()=>show('decisions');next.append(btn);if(pendingDecisions.length>1)next.append(el('p','另有 '+(pendingDecisions.length-1)+' 项待决问题，可在详细材料中查看。','muted'));}
+else next.append(el('p',workflow.next_action||'确认上述目标和例子是否符合需求，再开始下一轮实施。'));
+if(workflow.action_owner)next.append(el('p','由谁处理：'+text(workflow.action_owner)));
+$('overview').insertBefore(next,$('overview').children[1]||null);
+const checks=el('details');checks.append(el('summary','验收进展与剩余风险'));
+card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据需要重新核对。`);
+list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);$('overview').append(checks);
 const sceneHints={feature:'选择用户操作，理解正常及异常路径。',change:'比较规则调整前后，关注历史数据和生效范围。',bugfix:'先看复现条件，再看修复如何阻断问题。',refactor:'结构可以变化，对外行为应保持。',performance:'比较相同条件下的基线与结果。',migration:'核对数据转换、异常处理和恢复路径。',upgrade:'关注兼容性变化与新旧实现的一致性。',incident:'区分现场事实、诊断假设、止损动作和恢复证据。',operations:'先确认操作范围与授权，再核对执行结果和恢复条件。'};
 $('scenarios').append(el('h2','从一个具体例子理解'),el('p',sceneHints[task.kind]));const sceneButtons=el('div',undefined,'scene-buttons'),sceneContent=el('div');$('scenarios').append(sceneButtons,sceneContent);
 function scene(index){sceneContent.replaceChildren();[...sceneButtons.children].forEach((b,i)=>b.classList.toggle('active',i===index));const s=task.scenarios[index];card(sceneContent,s.title,s.kind==='simulation'?'设计模拟：用于理解预期行为，未证明实际实现成功。':'记录回放：来自任务提供的记录，请对照证据确认来源。');(s.steps||[]).forEach((step,i)=>{const n=el('div',undefined,'step');n.append(el('h3',`${i+1}. ${text(step.action)}`),el('p',text(step.result)));sceneContent.append(n);});}
