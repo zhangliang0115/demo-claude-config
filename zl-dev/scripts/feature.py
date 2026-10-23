@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 import reviewable
+from storage import resolve_output
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,6 +23,8 @@ def now():
 def validate(data):
     if not isinstance(data, dict) or data.get('version') != 1:
         raise ValueError('feature.json 必须是 version=1 的对象')
+    if 'workspace_path' in data and (not isinstance(data['workspace_path'], str) or not Path(data['workspace_path']).is_absolute()):
+        raise ValueError('workspace_path 必须是绝对路径字符串')
     for key in ('id', 'title'):
         if not isinstance(data.get(key), str) or not data[key].strip():
             raise ValueError(key + ' 必须非空')
@@ -78,7 +81,7 @@ def save(folder, data):
     (Path(folder) / 'feature.json').write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
 
-def init(folder, title, projects):
+def init(folder, title, projects, workspace=None):
     folder = Path(folder).resolve()
     if (folder / 'feature.json').exists():
         raise ValueError('feature.json 已存在，拒绝覆盖')
@@ -90,7 +93,7 @@ def init(folder, title, projects):
         if Path(path).resolve() == folder:
             raise ValueError('功能目录不能作为项目自身')
         rows.append(dict(id=ident, path=str(Path(path).resolve()), observations=[], responsibility='', task_path='', contract_version='', status='unassigned'))
-    data = dict(version=1, id=folder.name, title=title, owner='当前负责人', mode='flexible', phase='discovery', contract_version='', design=dict(goal='',flow='',boundaries='',decisions=''), projects=rows, contracts=[], allocations=[], integration=[])
+    data = dict(version=1, workspace_path=str(Path(workspace or Path.cwd()).expanduser().resolve()), id=folder.name, title=title, owner='当前负责人', mode='flexible', phase='discovery', contract_version='', design=dict(goal='',flow='',boundaries='',decisions=''), projects=rows, contracts=[], allocations=[], integration=[])
     validate(data)
     folder.mkdir(parents=True, exist_ok=True)
     save(folder, data)
@@ -168,9 +171,13 @@ def project_snapshot(p):
         return snap
     try:
         # A task from another repository cannot supply this project's evidence.
-        if task.resolve() != path.resolve() and path.resolve() not in task.resolve().parents:
-            raise ValueError('子任务必须位于对应项目目录内')
         child_data = reviewable.load(task)
+        binding = child_data.get('project_path')
+        if binding is not None:
+            if Path(binding).resolve() != path.resolve():
+                raise ValueError('子任务 project_path 与对应项目不匹配')
+        elif task.resolve() != path.resolve() and path.resolve() not in task.resolve().parents:
+            raise ValueError('外部子任务必须明确绑定对应项目 project_path')
         snap['current_fingerprint'] = reviewable.fingerprint(task)
         child = reviewable.assessed(child_data, snap['current_fingerprint'])
         version = child.get('contract_version') or child.get('feature', {}).get('contract_version', '')
@@ -242,17 +249,21 @@ def main():
     for name in ('init', 'inspect', 'sync', 'render', 'status'):
         cmd = sub.add_parser(name)
         cmd.add_argument('folder')
+        cmd.add_argument('--workspace', type=Path, default=Path.cwd())
         if name == 'init':
             cmd.add_argument('--title', required=True)
             cmd.add_argument('--project', action='append', default=[])
     args = parser.parse_args()
     try:
+        args.folder = resolve_output(args.folder, 'features', args.workspace)
         if args.command == 'init':
-            value = init(args.folder, args.title, args.project)
+            value = init(args.folder, args.title, args.project, args.workspace)
         elif args.command == 'status':
             value = assessed(load(args.folder))
         else:
             value = globals()[args.command](args.folder)
+        if isinstance(value, dict):
+            value['output_dir'] = str(args.folder)
         print(str(value) if isinstance(value, Path) else json.dumps(value, ensure_ascii=False, indent=2))
     except (OSError, ValueError) as exc:
         parser.exit(1, str(exc) + '\n')

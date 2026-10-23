@@ -5,12 +5,12 @@ HTML 是首要交付，`task.json` 是事实来源。页面不能代替代码、
 ## 项目和任务
 
 1. 读取项目自己的 CLAUDE.md、AGENTS.md 和相关开发说明。先查现状，不臆造构建命令、框架或目录。
-2. 任务目录默认为当前项目 `.zl-dev/tasks/<slug>/`，slug 用简短英文字母、数字、连字符。传入已有目录时继续原任务；多个候选且无法判定时请用户指定，不覆盖别的任务。
+2. 先确定当前业务项目的真实根路径（不要把产出目录当项目）。任务目录默认为用户目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，以项目真实绝对路径区分同名项目，slug 用简短英文字母、数字、连字符。传入已有目录时继续原任务；多个候选且无法判定时请用户指定，不覆盖别的任务。
 3. 工具仅依赖 Python 3.9+ 标准库：
    ```sh
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" init ".zl-dev/tasks/<slug>" --title "任务名称" --kind feature
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render ".zl-dev/tasks/<slug>"
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" status ".zl-dev/tasks/<slug>"
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" init "<slug>" --project "<项目绝对路径>" --title "任务名称" --kind feature
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render "<slug>" --project "<项目绝对路径>"
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" status "<slug>" --project "<项目绝对路径>"
    ```
    这是模板：替换占位符，用独立参数和正确 shell 引号，不把用户描述拼接成可执行脚本。
 4. 先阅读 init 生成的 task.json，保持字段类型和结构，按实际数据编辑。不要创造与渲染器不兼容的新格式；参照插件示例和 `docs/schema-reference.md`。一次阶段结束后渲染，返回 report.html 绝对路径。
@@ -58,3 +58,5 @@ HTML 中的勾选和反馈属于本地草稿，不能直接成为仓库审批或
 
 ## 跨项目功能
 同一功能涉及多个项目时，改用 cross-project.md 的整体设计流程；feature.json 是功能总方案，task.json 是各项目实施材料。人员可以一人或多人，不以人员数量决定项目边界。
+
+新任务使用 slug + --project；每次 init 后读取返回的绝对路径，后续引用该路径，不能手算路径哈希。同名项目通过真实路径哈希区分；切换工作目录后应明确 --project，避免误建到其他项目。日志、截图和交接包都保存在该任务目录。代码与项目配置仍写回原业务仓库。

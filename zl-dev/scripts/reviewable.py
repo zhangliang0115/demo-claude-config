@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 import subprocess
 import sys
+from storage import project_root, resolve_output, task_project
 
 KINDS = {'feature': '新功能：使用场景与异常路径', 'change': '业务调整：规则差异与生效范围', 'bugfix': '缺陷修复：复现、根因与回归', 'refactor': '重构：结构变化与行为保持', 'performance': '性能优化：同条件基线与代价', 'migration': '数据迁移：转换、核对与恢复', 'upgrade': '技术升级：兼容性与行为对比'}
 KINDS.update({'incident': '生产事件：影响、止损、诊断与恢复', 'operations': '日常运维：检查、变更、验证与恢复'})
@@ -27,7 +28,10 @@ def fingerprint(task_dir):
     """Fingerprint HEAD + tracked and untracked nonignored contents, excluding reports."""
     task_dir = Path(task_dir).resolve()
     try:
-        root = Path(git(['rev-parse', '--show-toplevel'], task_dir).decode().strip()).resolve()
+        project = task_project(task_dir)
+        if project is None or not project.is_dir():
+            return None
+        root = Path(git(['rev-parse', '--show-toplevel'], project).decode().strip()).resolve()
         try:
             head = git(['rev-parse', 'HEAD'], root).strip()
         except subprocess.CalledProcessError:
@@ -37,7 +41,7 @@ def fingerprint(task_dir):
         task_file = task_dir / 'task.json'
         if task_file.exists():
             contract = json.loads(task_file.read_text(encoding='utf-8'))
-            contract = {k: contract.get(k) for k in ('kind', 'summary', 'why', 'scope', 'behaviors', 'scenarios', 'acceptance', 'assumptions', 'design', 'handoffs', 'operations', 'stage_details', 'feature', 'contract_version')}
+            contract = {k: contract.get(k) for k in ('project_path', 'kind', 'summary', 'why', 'scope', 'behaviors', 'scenarios', 'acceptance', 'assumptions', 'design', 'handoffs', 'operations', 'stage_details', 'feature', 'contract_version')}
             digest.update(json.dumps(contract, sort_keys=True, ensure_ascii=False).encode('utf-8'))
         for raw in sorted(names):
             if not raw:
@@ -62,6 +66,8 @@ def fingerprint(task_dir):
 def validate(data):
     if not isinstance(data, dict) or data.get('version') != 1:
         raise ValueError('task.json 必须是 version=1 的对象')
+    if 'project_path' in data and (not isinstance(data['project_path'], str) or not Path(data['project_path']).is_absolute()):
+        raise ValueError('project_path 必须是绝对路径字符串')
     for key in ('id', 'title', 'kind'):
         if not isinstance(data.get(key), str) or not data[key].strip():
             raise ValueError(f'{key} 必须是非空字符串')
@@ -204,14 +210,22 @@ def export_handoff(task_dir):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['init', 'render', 'status', 'fingerprint', 'index', 'handoff'])
-    parser.add_argument('task_dir', type=Path)
+    parser.add_argument('task_dir', nargs='?')
+    parser.add_argument('--project', type=Path, default=Path.cwd())
     parser.add_argument('--title', default='待定义任务')
     parser.add_argument('--kind', choices=KINDS, default='feature')
     args = parser.parse_args()
     try:
+        if args.command == 'index':
+            args.task_dir = Path(args.task_dir).expanduser().resolve() if args.task_dir else project_root(args.project) / 'tasks'
+            args.task_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            if not args.task_dir:
+                raise ValueError('请提供任务名称或明确路径')
+            args.task_dir = resolve_output(args.task_dir, 'tasks', args.project)
         if args.command == 'init':
             args.task_dir.mkdir(parents=True, exist_ok=True)
-            data = dict(version=1, id=args.task_dir.name, title=args.title, kind=args.kind, summary='', why='', scope='', stage='需求待确认', behaviors=[], scenarios=[], roles=[], assumptions=[], design=[], handoffs=[], timeline=[], operations=[], implementation=[], decisions=[], evidence=[], risks=[], changes=[], acceptance=[], rollback='待定义', stage_details=stage_skeleton())
+            data = dict(version=1, project_path=str(args.project.expanduser().resolve()), id=args.task_dir.name, title=args.title, kind=args.kind, summary='', why='', scope='', stage='需求待确认', behaviors=[], scenarios=[], roles=[], assumptions=[], design=[], handoffs=[], timeline=[], operations=[], implementation=[], decisions=[], evidence=[], risks=[], changes=[], acceptance=[], rollback='待定义', stage_details=stage_skeleton())
             with (args.task_dir / 'task.json').open('x', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             print(render(args.task_dir))

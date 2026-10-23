@@ -22,7 +22,7 @@ contracts 列出跨项目共同约定及版本。每条 {id, version, descriptio
 
 allocations 中每条 {id, project_id, summary, depends_on: [], contract_version, status, owner}。owner 可同一个人也可不同人，未知留空。depends_on 引用其他 allocation.id，禁止环。先实现真实依赖；契约已明确时可以采用清楚标记的 mock 并行，但 mock 通过不代表联调通过。
 
-projects 每条 {id, path, responsibility, task_path, contract_version, status, owner}。task_path 指向明确的子任务目录，path 为本机仓库路径。为其他机器交接时应重新绑定本机路径，不照搬别人的绝对路径。
+projects 每条 {id, path, responsibility, task_path, contract_version, status, owner}。task_path 指向明确的子任务绝对目录（默认在用户 .claude 下），path 为本机仓库路径。外置子任务的 project_path 必须与此项目真实路径一致；不能借用其他项目的证据。为其他机器交接时应重新绑定本机路径，不照搬别人的绝对路径。
 
 子任务额外记录 feature: {id, path, contract_version}，保持子任务的需求与总方案关联。feature.py sync 只读取显式关联任务并汇总，不替任何项目修改代码，不自动创建团队或派发给他人。
 
@@ -35,14 +35,14 @@ integration 条目 {id, scenario, environment, status, versions: {project_id: de
 ## CLI 和持久化
 
 ```sh
-python3 /插件路径/scripts/feature.py init /功能目录 --title "订单取消" --project admin=/工作区/admin --project api=/工作区/api
+python3 /插件路径/scripts/feature.py init order-cancel --workspace /工作区 --title "订单取消" --project admin=/工作区/admin --project api=/工作区/api
 python3 /插件路径/scripts/feature.py inspect /功能目录
 python3 /插件路径/scripts/feature.py sync /功能目录
 python3 /插件路径/scripts/feature.py render /功能目录
 python3 /插件路径/scripts/feature.py status /功能目录
 ```
 
-总任务可放在共同工作区 `.zl-dev/features/order-cancel/` 或共享方案仓库。inspect 写观察，sync 写快照，render 生成 feature.html；这不是后台监听。未同步、不可访问和版本变化都应保留为缺口。不要仅传总目录给原来的 task CLI，它使用另一份 task.json 数据格式。
+总任务默认保存在 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。用 `--workspace <共同工作区绝对路径>` 固定归属；各项目子任务仍按各自项目区分。inspect 写观察，sync 写快照，render 生成 feature.html；这不是后台监听。未同步、不可访问和版本变化都应保留为缺口。不要仅传总目录给原来的 task CLI，它使用另一份 task.json 数据格式。
 
 ## 完整示例：一个人或多人都一样
 

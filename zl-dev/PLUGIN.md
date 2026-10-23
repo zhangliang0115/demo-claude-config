@@ -3,7 +3,7 @@
 ## 基本信息
 
 - 插件名：`zl-dev`
-- 当前版本：`0.4.0`
+- 当前版本：`0.5.0`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
@@ -44,7 +44,7 @@
 
 ## 产物与存储
 
-默认写入业务项目 `.zl-dev/tasks/<slug>/`：
+默认写入用户目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`：
 - `task.json`：结构化事实、方案、交接和证据记录。
 - `report.html`：可离线打开的交互页面。
 - `HANDOFF.md`：其他人员和 agent 的接手说明。

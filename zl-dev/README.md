@@ -2,7 +2,7 @@
 
 [插件完整描述](PLUGIN.md) · [标准插件清单](.claude-plugin/plugin.json) · [仓库安装清单](../.claude-plugin/marketplace.json)
 
-把模糊需求、方案、交接、实现、测试、人工核验和生产运维放进同一套固定交互式 HTML。版本 0.4.0，Python 3.9+，标准库，无 CDN、无账号或 Artifact 发布依赖。
+把模糊需求、方案、交接、实现、测试、人工核验和生产运维放进同一套固定交互式 HTML。版本 0.5.0，Python 3.9+，标准库，无 CDN、无账号或 Artifact 发布依赖。
 
 ## 安装
 
@@ -63,7 +63,7 @@ claude plugin validate --strict zl-dev
 
 ## 团队职责和数据约定
 
-阅读 [团队协议](docs/team-workflow.md)、[基础工作流](docs/workflow.md)、[数据格式和 CLI](docs/schema-reference.md)。默认任务保存在业务仓库 `.zl-dev/tasks/<slug>/`，交接时将 JSON、HTML、HANDOFF.md 及必要证据一并移交。不要提交密钥或未脱敏生产日志。
+阅读 [团队协议](docs/team-workflow.md)、[基础工作流](docs/workflow.md)、[数据格式和 CLI](docs/schema-reference.md)。默认任务保存在用户目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，交接时将 JSON、HTML、HANDOFF.md 及必要证据一并移交。不要提交密钥或未脱敏生产日志。
 
 ## 当前边界
 
@@ -75,10 +75,25 @@ claude plugin validate --strict zl-dev
 
 ## 名称变更
 
-0.4.0 起 marketplace 名称为 `zl-dev-marketplace`，插件及目录名为 `zl-dev`，命令前缀为 `/zl-dev:`。旧安装不会自动转换为新插件，请按上面的新名称安装，再按需要卸载旧插件。新任务默认保存在 `.zl-dev/tasks/`；已有任务目录不会自动移动，可把原任务目录显式传给命令继续使用。
+0.2.1 起 marketplace 名称为 `zl-dev-marketplace`，插件及目录名为 `zl-dev`，命令前缀为 `/zl-dev:`。旧安装不会自动转换为新插件，请按上面的新名称安装，再按需要卸载旧插件。新任务默认保存在用户 `~/.claude/zl-dev/projects/` 下按项目区分；已有任务目录不会自动移动，可把原任务目录显式传给命令继续使用。
 
-## 阶段工作台（0.4.0）
+## 阶段工作台（0.3.0）
 新增九个阶段专用展示，共用固定字段、布局及交互：需求对照、方案比较、交接对照、实施偏差、审查筛选、测试步骤回放、人工验收草稿、发布检查、运维时间线。进入示例后点击“阶段工作台”。AI 只填数据，未知字段和无效证据引用会被拒绝。详见 [模板协议](docs/stage-templates.md)。这不是在线审批或业务执行器；回放来自记录，验收交互仅生成草稿。
 
 ## 跨项目功能
 `/zl-dev:feature` 先读取候选项目的实际实现并整体设计，再按职责拆项目子任务。支持一个人跨多个项目或多人分工，共用一个功能方案和固定总览。总览显示项目识别、整体设计、共同契约、项目任务依赖和整体联调；详见 [完整命令与示例](docs/cross-project.md)。
+
+## 产出目录（0.5.0）
+
+```text
+~/.claude/zl-dev/projects/
+├── orders-<路径哈希>/tasks/cancel-order/
+│   ├── task.json
+│   ├── report.html
+│   └── HANDOFF.md
+└── workspace-<路径哈希>/features/cancel-order/
+    ├── feature.json
+    └── feature.html
+```
+
+目录键由项目名与真实绝对路径的 SHA-256 前 12 位组成；同名不同路径不会混在一起。跨项目功能以明确工作区归档，各子项目任务仍独立归档。记录绑定的原项目路径，验证继续读取原仓库。显式旧路径兼容，不自动迁移历史任务。仓库自带 examples 是演示资源，不是用户任务产出。

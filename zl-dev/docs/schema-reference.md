@@ -38,3 +38,19 @@ HTML 导出 decision-draft.json，不直接改 task.json，不代表审批或接
 
 ## stage_details 扩展
 可选对象，键只能取 templates/stages.json 中的九个阶段。新任务默认有骨架。字段、枚举、步骤与证据引用由 validate 强制校验；具体见 [阶段模板协议](stage-templates.md)。stage_details 内容变化会使旧证据需要重新核对；HTML 中的草稿修改不写回文件。
+
+## 用户级项目存储（0.5.0）
+
+新任务的 `project_path` 保存原项目真实绝对路径。产出目录在用户 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`；代码指纹读取 project_path 的源码，不能对 `.claude` 目录计算代码指纹。项目不存在时返回未知，不回退到其他仓库。旧任务缺少绑定时仍按原任务所在 Git 仓库定位。
+
+```sh
+python3 scripts/reviewable.py init cancel-order --project /workspace/orders --title "取消订单" --kind feature
+python3 scripts/reviewable.py render cancel-order --project /workspace/orders
+python3 scripts/reviewable.py status cancel-order --project /workspace/orders
+```
+
+位置参数是简单 slug 时按用户目录解析，`--project` 省略时使用当前目录；传入绝对路径或含路径分隔符的路径则继续支持原显式目录。日常插件必须使用默认用户目录，仅在用户明确指定旧目录或测试示例时使用显式路径。slug 不得为 . 或 ..。
+
+跨项目 features 使用 `--workspace` 指定总任务归属，子任务分别使用自己的 `--project`。用户目录任务跨机器交接时更新 project_path/workspace_path 和关联 task_path；重新绑定后旧证据必须重新核验。所有历史任务保留，不会自动复制、移动或删除。
+
+`reviewable.py index --project /项目绝对路径` 会生成该项目 tasks/index.html。跨项目 CLI 的 JSON 响应带 output_dir，供后续定位；render 则直接返回 feature.html 的绝对路径。不要用 shell 引号包裹 `~` 来期望 shell 展开；优先使用 slug + --project/--workspace 或脚本返回的绝对路径。
