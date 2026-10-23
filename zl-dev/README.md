@@ -2,7 +2,7 @@
 
 [插件完整描述](PLUGIN.md) · [标准插件清单](.claude-plugin/plugin.json) · [仓库安装清单](../.claude-plugin/marketplace.json)
 
-把模糊需求、方案、交接、实现、测试、人工核验和生产运维放进同一套固定交互式 HTML。版本 0.5.0，Python 3.9+，标准库，无 CDN、无账号或 Artifact 发布依赖。
+把模糊需求、方案、交接、实现、测试、人工核验和生产运维放进同一套固定交互式 HTML。版本 0.6.0，Python 3.9+，标准库，无 CDN、无账号或 Artifact 发布依赖。
 
 ## 安装
 
@@ -25,22 +25,18 @@ claude --plugin-dir /本仓库绝对路径/zl-dev
 
 安装后按客户端提示重载；输入 `/zl-dev:` 检查命令。其他 agent 工具不能直接加载 Claude 命令，但能读取 `HANDOFF.md` 并调用同一 Python CLI。
 
-## 最常用路线
+## 日常只需一个入口
 
 ```text
-/zl-dev:start 我们希望减少客服处理取消订单的工作，但具体规则尚未确定
-/zl-dev:design <任务目录>
-/zl-dev:handoff <任务目录>
+/zl-dev:go 给订单列表增加按客户筛选，请先看现有实现并推进到可验收。
 ```
-下一位同事：
+
+后续反馈或恢复：
 ```text
-/zl-dev:intake <任务目录>
-/zl-dev:build <任务目录>
-/zl-dev:review <任务目录>
-/zl-dev:verify <任务目录>
-/zl-dev:handoff <任务目录>
+/zl-dev:go 继续，筛选后翻页也需要保留条件。
 ```
-生产问题用 `/zl-dev:incident`；日常检查或运维变更用 `/zl-dev:ops`。`spec`、`plan` 可控制单独阶段，`status` 可随时继续。低风险明确任务可自动连续推进，不要求每人手动执行全部命令。
+
+AI 负责定位任务、理解、实现、验证和更新页面。单个任务自动定位，多个任务先列出供选择。你看首页的变化、最多三项决策和验证缺口即可。需要时再展开详细材料。原 start/spec/design/build 等命令保留给精确控制，不再是日常必走的步骤。
 
 ## 固定页面
 

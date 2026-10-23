@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 import subprocess
 import sys
+from workflow import summarize
 from storage import project_root, resolve_output, task_project
 
 KINDS = {'feature': '新功能：使用场景与异常路径', 'change': '业务调整：规则差异与生效范围', 'bugfix': '缺陷修复：复现、根因与回归', 'refactor': '重构：结构变化与行为保持', 'performance': '性能优化：同条件基线与代价', 'migration': '数据迁移：转换、核对与恢复', 'upgrade': '技术升级：兼容性与行为对比'}
@@ -22,6 +23,16 @@ def stage_skeleton():
 
 def git(args, cwd):
     return subprocess.check_output(['git', *args], cwd=cwd, stderr=subprocess.DEVNULL)
+
+
+def semantic_contract(data):
+    contract = {k: data.get(k) for k in ('project_path','kind','scope','acceptance','feature','contract_version')}
+    contract['behaviors'] = [{k:b.get(k) for k in ('id','before','after')} for b in data.get('behaviors',[])]
+    contract['scenarios'] = data.get('scenarios',[])
+    details = data.get('stage_details',{})
+    fields = {'requirements':('id','original','interpretation','boundary','example'), 'solution':('id','name','approach','flow'), 'acceptance':('id','scenario','instruction','expected')}
+    contract['stage_contract'] = {key:[{field:item.get(field) for field in names} for item in details.get(key,{}).get('items',[])] for key,names in fields.items()}
+    return contract
 
 
 def fingerprint(task_dir):
@@ -41,7 +52,7 @@ def fingerprint(task_dir):
         task_file = task_dir / 'task.json'
         if task_file.exists():
             contract = json.loads(task_file.read_text(encoding='utf-8'))
-            contract = {k: contract.get(k) for k in ('project_path', 'kind', 'summary', 'why', 'scope', 'behaviors', 'scenarios', 'acceptance', 'assumptions', 'design', 'handoffs', 'operations', 'stage_details', 'feature', 'contract_version')}
+            contract = semantic_contract(contract)
             digest.update(json.dumps(contract, sort_keys=True, ensure_ascii=False).encode('utf-8'))
         for raw in sorted(names):
             if not raw:
@@ -146,6 +157,7 @@ def assessed(data, current):
     from datetime import datetime, timezone
     result['generated_at'] = datetime.now(timezone.utc).isoformat()
     result['current_fingerprint'] = current
+    result['workflow_summary'] = summarize(result)
     result['stage_catalog'] = STAGES
     result['kind_label'] = KINDS[result['kind']]
     return result
@@ -209,7 +221,7 @@ def export_handoff(task_dir):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['init', 'render', 'status', 'fingerprint', 'index', 'handoff'])
+    parser.add_argument('command', choices=['init', 'render', 'status', 'fingerprint', 'index', 'handoff', 'continue'])
     parser.add_argument('task_dir', nargs='?')
     parser.add_argument('--project', type=Path, default=Path.cwd())
     parser.add_argument('--title', default='待定义任务')
@@ -221,7 +233,11 @@ def main():
             args.task_dir.mkdir(parents=True, exist_ok=True)
         else:
             if not args.task_dir:
-                raise ValueError('请提供任务名称或明确路径')
+                candidates = sorted((project_root(args.project) / 'tasks').glob('*/task.json'))
+                if len(candidates) != 1:
+                    print(json.dumps({'action':'choose_or_start','tasks':[str(p.parent) for p in candidates],'message':'没有任务时直接描述需求；多个任务时请选择一个，避免接错任务。'},ensure_ascii=False))
+                    return 0
+                args.task_dir = str(candidates[0].parent)
             args.task_dir = resolve_output(args.task_dir, 'tasks', args.project)
         if args.command == 'init':
             args.task_dir.mkdir(parents=True, exist_ok=True)
@@ -229,6 +245,9 @@ def main():
             with (args.task_dir / 'task.json').open('x', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             print(render(args.task_dir))
+        elif args.command == 'continue':
+            data = assessed(load(args.task_dir), fingerprint(args.task_dir))
+            print(json.dumps(dict(task_dir=str(args.task_dir), report=str(render(args.task_dir)), **data['workflow_summary']),ensure_ascii=False,indent=2))
         elif args.command == 'handoff':
             print(export_handoff(args.task_dir))
         elif args.command == 'index':
@@ -239,7 +258,7 @@ def main():
             print(fingerprint(args.task_dir) or 'UNKNOWN')
         else:
             data = assessed(load(args.task_dir), fingerprint(args.task_dir))
-            print(json.dumps({'title': data['title'], 'stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'fingerprint': data['current_fingerprint'], 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'stage_pending': {key: {'decision': section.get('decision', ''), 'pending_items': [item.get('id') for item in section.get('items', []) if item.get('status') != 'done']} for key, section in data.get('stage_details', {}).items()}, 'next_step': '先处理待决问题与接手确认；否则按当前阶段执行并补充真实证据' }, ensure_ascii=False, indent=2))
+            print(json.dumps({'title': data['title'], 'stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'fingerprint': data['current_fingerprint'], 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'stage_pending': {key: {'decision': section.get('decision', ''), 'pending_items': [item.get('id') for item in section.get('items', []) if item.get('status') != 'done']} for key, section in data.get('stage_details', {}).items()}, 'next_step': data['workflow_summary']['next_action'] }, ensure_ascii=False, indent=2))
     except (OSError, ValueError, KeyError) as exc:
         print(f'错误：{exc}', file=sys.stderr)
         return 1

@@ -54,3 +54,8 @@ python3 scripts/reviewable.py status cancel-order --project /workspace/orders
 跨项目 features 使用 `--workspace` 指定总任务归属，子任务分别使用自己的 `--project`。用户目录任务跨机器交接时更新 project_path/workspace_path 和关联 task_path；重新绑定后旧证据必须重新核验。所有历史任务保留，不会自动复制、移动或删除。
 
 `reviewable.py index --project /项目绝对路径` 会生成该项目 tasks/index.html。跨项目 CLI 的 JSON 响应带 output_dir，供后续定位；render 则直接返回 feature.html 的绝对路径。不要用 shell 引号包裹 `~` 来期望 shell 展开；优先使用 slug + --project/--workspace 或脚本返回的绝对路径。
+
+## 0.6.0 路由与证据
+continue [任务目录或 slug] --project /项目路径：省略任务时仅在恰好一个任务的情况下恢复；0 或多个返回候选清单。不会执行开发命令。返回 next_action 与 step（understand/decide/implement/verify/accept），供 AI 继续；accept 表示待人工核验，不是已验收。
+
+workflow_summary 是渲染时计算结果，不让 AI 填写完成度。指纹仅使用 semantic_contract 明确选择的行为字段；阶段 testing/review 的结果、handoffs、人员和展示摘要不参与。阶段 requirements/solution 的核心内容及 acceptance 预期仍参与。旧证据需重新验证。

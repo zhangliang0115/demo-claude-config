@@ -190,6 +190,11 @@ def project_snapshot(p):
             counts['passed_current'] += int(e.get('status') == 'passed' and e['freshness'] == '当前')
             counts['failed'] += int(e.get('status') == 'failed')
             counts['stale'] += int(e['freshness'] != '当前')
+        if not child.get('behaviors'):
+            snap['issues'].append('尚无可验证的行为约定')
+        snap['missing_behaviors'] = child['workflow_summary']['missing_verification_count']
+        if snap['missing_behaviors'] or snap['evidence_counts']['failed'] or snap['evidence_counts']['stale']:
+            snap['issues'].append('项目验证仍有缺口、失败或过期证据')
         if not snap['evidence_counts']['total']:
             snap['issues'].append('尚无验证证据')
     except (OSError, ValueError, TypeError, AttributeError) as exc:
@@ -227,8 +232,9 @@ def assessed(data):
         issues.append('尚未确认项目分工')
     if not result['contracts'] or any(c['status'] != 'confirmed' for c in result['contracts']):
         issues.append('共享约定尚未全部确认')
-    issues.append('各项目状态不代表跨项目端到端通过；联调及人工核验需要单独记录')
-    result['assessment'] = dict(ready_for_integration=False, issues=issues)
+    if not result['projects']:
+        issues.append('尚未登记项目')
+    result['assessment'] = dict(ready_for_integration=not issues, issues=issues, delivery='待人工核验；联调准备就绪不代表交付完成')
     result['generated_at'] = now()
     return result
 

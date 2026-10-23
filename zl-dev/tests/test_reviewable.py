@@ -75,10 +75,10 @@ class ReportTests(unittest.TestCase):
             out=m.render(self.task).read_text()
             self.assertNotIn('<script>bad</script>',out)
             self.assertIn('生产与运维',out)
-    def test_handoff_change_invalidates(self):
+    def test_reporting_handoff_does_not_invalidate(self):
         before=m.fingerprint(self.task)
         self.data['handoffs']=[dict(id='H1',status='pending',readback='new scope')];self.save()
-        self.assertNotEqual(before,m.fingerprint(self.task))
+        self.assertEqual(before,m.fingerprint(self.task))
     def test_invalid_handoff_state(self):
         self.data['handoffs']=[dict(status='auto-approved')]
         with self.assertRaises(ValueError):m.validate(self.data)
@@ -106,7 +106,7 @@ class ReportTests(unittest.TestCase):
         with self.assertRaises(ValueError):m.validate(self.data)
     def test_stage_contract_invalidates_and_escapes(self):
         before=m.fingerprint(self.task)
-        self.data['stage_details']={'requirements': {'summary':'</script><img onerror=alert(1)>','items':[]}}
+        self.data['stage_details']={'requirements': {'summary':'report','items':[dict(id='R1',status='pending',interpretation='</script><img onerror=alert(1)>')]}}
         self.save()
         self.assertNotEqual(before,m.fingerprint(self.task))
         out=m.render(self.task).read_text()
@@ -131,5 +131,18 @@ class ReportTests(unittest.TestCase):
         self.data['feature']['contract_version']='v2'
         self.save()
         self.assertNotEqual(before,m.fingerprint(self.task))
+
+    def test_test_reporting_keeps_evidence_current(self):
+        before=m.fingerprint(self.task)
+        self.data['stage_details']={'testing':{'items':[dict(id='T1',status='done',mode='recorded',actual='passed',source='logs')]}}
+        self.save()
+        self.assertEqual(before,m.fingerprint(self.task))
+    def test_workflow_routing(self):
+        self.assertEqual('understand',m.assessed(self.data,None)['workflow_summary']['step'])
+        self.data.update(summary='change',implementation=[{'title':'code'}])
+        self.assertEqual('verify',m.assessed(self.data,None)['workflow_summary']['step'])
+        self.data['evidence']=[dict(id='E1',status='passed',behavior_ids=['B1'],revision='rev')]
+        self.assertEqual('accept',m.assessed(self.data,'rev')['workflow_summary']['step'])
+        self.assertEqual('verify',m.assessed(self.data,'other')['workflow_summary']['step'])
 
 if __name__=='__main__':unittest.main()

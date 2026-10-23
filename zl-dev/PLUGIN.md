@@ -3,7 +3,7 @@
 ## 基本信息
 
 - 插件名：`zl-dev`
-- 当前版本：`0.5.0`
+- 当前版本：`0.6.0`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
@@ -86,3 +86,5 @@ claude --plugin-dir /本仓库绝对路径/zl-dev
 
 ## 跨项目功能入口
 `/zl-dev:feature`：先识别候选项目与现有职责，再整体设计、确认共同契约、分配项目切片和依赖，最后整体联调。实施可一人或多人；人员独立于项目边界。详见 [用法与示例](docs/cross-project.md)。
+
+日常入口 `/zl-dev:go`：描述需求或反馈，AI 连续推进并更新同一页。专业阶段入口保留为可选控制。
