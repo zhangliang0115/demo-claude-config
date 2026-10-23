@@ -174,6 +174,8 @@ def render(task_dir):
     template = template.replace('/* STAGE_STYLES */', (ROOT / 'assets/stages.css').read_text(encoding='utf-8')).replace('// STAGE_SCRIPT', (ROOT / 'assets/stages.js').read_text(encoding='utf-8'))
     view_scripts = '\n'.join((ROOT / 'assets/views' / (name + '.js')).read_text(encoding='utf-8') for name in ('feature','bugfix','incident','operations','engineering'))
     template = template.replace('// VIEW_SCRIPT', view_scripts)
+    if '/* REPORT_THEME */' in template:
+        template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
     replacements = {'__TASK_DATA__': payload, '__PAGE_TITLE__': html.escape(data['title'])}
     output = re.sub('__TASK_DATA__|__PAGE_TITLE__', lambda match: replacements[match.group()], template)
     target = task_dir / 'report.html'

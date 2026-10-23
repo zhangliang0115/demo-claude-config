@@ -243,6 +243,8 @@ def render(folder):
     data = assessed(load(folder))
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets/feature.html').read_text(encoding='utf-8')
+    if '/* REPORT_THEME */' in template:
+        template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
     replacements = {'__FEATURE_DATA__': payload, '__FEATURE_TITLE__': html.escape(data['title'])}
     target = Path(folder) / 'feature.html'
     target.write_text(re.sub('__FEATURE_DATA__|__FEATURE_TITLE__', lambda m: replacements[m.group()], template), encoding='utf-8')
