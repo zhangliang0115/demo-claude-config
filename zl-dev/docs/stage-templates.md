@@ -61,7 +61,7 @@ at：时间 | observation：事实与影响 | hypothesis：诊断假设 | action
 - testing.mode 为 simulation/recorded，必须明确；steps 为 action/expected/actual 字符串对象数组。步骤回放只展示保存的记录，不执行测试。截图和日志位置按文本展示，不加载远端不可信资源。
 - evidence_ids 可关联已有 evidence.id，不允许悬空引用。真实测试仍需实际命令、环境、时间和结果证据。
 - solution 展示结构化方案比较和流程说明，不声称自动生成了可运行产品原型。
-- acceptance 的页面选择与备注只导出草稿，并绑定 task_id、版本及阶段，不直接改变已确认记录。人明确回传后再核对版本并更新。
+- acceptance 的页面选择与备注只生成可复制反馈，并绑定 task_id、版本及阶段，不直接改变已确认记录。人明确回传后再核对版本并更新。
 - release 的授权和执行结果必须分别填写；HTML 永远不会执行发布、回滚或生产命令。
 
 ## 各命令填写责任
