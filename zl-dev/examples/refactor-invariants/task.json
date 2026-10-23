@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "id": "refactor-invariants",
+  "title": "重构：先看哪些行为不能变",
+  "kind": "refactor",
+  "summary": "拆分订单服务中的重复校验逻辑。",
+  "why": "拆分订单服务中的重复校验逻辑。",
+  "scope": "只调整结构，接口返回和权限规则保持。",
+  "stage": "模拟模板 · 未操作真实环境",
+  "behaviors": [
+    {
+      "id": "B1",
+      "before": "散落多处的归属校验",
+      "after": "统一校验，外部行为不变",
+      "status": "演示约定，未验证"
+    }
+  ],
+  "scenarios": [],
+  "implementation": [],
+  "decisions": [],
+  "evidence": [],
+  "risks": [
+    "演示资料，不代表已实施或验证。"
+  ],
+  "changes": [],
+  "acceptance": [
+    "真实执行后记录观察结果；本示例不能作为通过证据。"
+  ],
+  "rollback": "待真实任务设计恢复办法。",
+  "roles": [],
+  "assumptions": [],
+  "design": [],
+  "handoffs": [],
+  "timeline": [],
+  "focus_stage": "implementation",
+  "stage_details": {},
+  "operations": [],
+  "demo": {
+    "category": "工程",
+    "purpose": "先核对不变量，再审查结构变化和回归",
+    "read_order": [
+      "先读任务目标",
+      "看本场景的主要事实和例子",
+      "处理当前动作或反馈"
+    ],
+    "simulation": true,
+    "order": 99
+  }
+}

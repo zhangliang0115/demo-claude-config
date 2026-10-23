@@ -17,3 +17,6 @@
 
 ## 紧凑视觉规范（0.9.0）
 report-theme.css 是所有报告最后加载的共享视觉层：正文14px，适度行距；页头、卡片和表格收紧间距。桌面主内容与当前动作并排，手机单列；详情仍原位展开。各场景保留自己的信息结构，共用颜色、字体、密度和交互。不得在任务 HTML 中另写覆盖样式。
+
+## 场景总览与阅读提示（0.10.0）
+examples/index.html 是模拟场景入口，按读者要解决的问题分类并指向不同页面。使用 build_demo_gallery.py 统一生成；示例 tasks 可以有 demo: {category,purpose,read_order,simulation:true,order}。真实任务不填写 demo。报告首屏的阅读提示根据 kind/focus 计算，页内跳转只指向真实存在的专用内容；不使用空链接或占位流程。

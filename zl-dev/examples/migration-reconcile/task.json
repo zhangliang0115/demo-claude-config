@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "id": "migration-reconcile",
+  "title": "数据迁移：先预演，再核对",
+  "kind": "migration",
+  "summary": "将订单旧状态映射为新状态。",
+  "why": "将订单旧状态映射为新状态。",
+  "scope": "演示规则；不操作真实数据。",
+  "stage": "模拟模板 · 未操作真实环境",
+  "behaviors": [
+    {
+      "id": "B1",
+      "before": "旧状态值",
+      "after": "对应新状态并保留异常清单",
+      "status": "演示约定，未验证"
+    }
+  ],
+  "scenarios": [],
+  "implementation": [],
+  "decisions": [],
+  "evidence": [],
+  "risks": [
+    "演示资料，不代表已实施或验证。"
+  ],
+  "changes": [],
+  "acceptance": [
+    "真实执行后记录观察结果；本示例不能作为通过证据。"
+  ],
+  "rollback": "在真实迁移前准备备份、反向映射和核对步骤。",
+  "roles": [],
+  "assumptions": [],
+  "design": [],
+  "handoffs": [],
+  "timeline": [],
+  "focus_stage": "implementation",
+  "stage_details": {},
+  "operations": [],
+  "demo": {
+    "category": "工程",
+    "purpose": "检查转换、预演、异常记录和恢复路径",
+    "read_order": [
+      "先读任务目标",
+      "看本场景的主要事实和例子",
+      "处理当前动作或反馈"
+    ],
+    "simulation": true,
+    "order": 99
+  }
+}

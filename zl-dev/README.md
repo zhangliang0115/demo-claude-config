@@ -40,15 +40,22 @@ AI 按需进入 [跨项目流程](docs/cross-project.md)，共用整体方案和
 
 ## 存储与边界
 
-版本 0.9.0，Python 3.9+ 标准库。任务默认存放于 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/`，跨项目功能放于归属工作区的 `features/`。原仓库保存业务代码，产出绑定原项目路径。旧任务不自动搬迁。
+版本 0.10.0，Python 3.9+ 标准库。任务默认存放于 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/`，跨项目功能放于归属工作区的 `features/`。原仓库保存业务代码，产出绑定原项目路径。旧任务不自动搬迁。
 
 页面是离线快照；反馈填好后直接复制到 AI 会话，需明确回传，不能直接当作批准。模拟案例不代表代码运行成功。完整模型会话尚需真实项目试用，CLI 测试不能替代这种评测。旧版阶段命令已撤下，统一改用 go 描述操作；更新后按客户端提示重载。
+
+## 先从场景总览开始
+
+[打开 13 个场景页面](examples/index.html)。每张卡说明这页用来判断什么和先看哪里。可分别查看需求、方案、开发、验收、排障、运维与工程专项；这些是模拟资料，不是实际项目状态。
+
+每页顶端给出“这页用来、先看、你需要”，并可返回总览。真实任务不会出现模拟案例入口。
 
 ## 示例与验证
 
 [任务示例](examples/order-cancellation/report.html) · [生产事件](examples/production-incident/report.html) · [跨项目功能](examples/cross-project-cancel/feature.html)
 
 ```sh
+python3 zl-dev/scripts/build_demo_gallery.py
 python3 -m unittest discover -s zl-dev/tests -v
 claude plugin validate --strict .
 claude plugin validate --strict zl-dev
@@ -56,5 +63,5 @@ claude plugin validate --strict zl-dev
 
 [插件说明](PLUGIN.md) · [技术数据格式](docs/schema-reference.md) · [入口与官方参考](docs/entry-workflow.md)
 
-## 场景专用页面（0.9.0）
+## 场景专用页面（0.10.0）
 事项类型决定信息结构，当前阶段决定优先内容。需求设计展示用户流程与方案比较；Bug 展示复现与根因证据；生产事件展示影响和处置时间线；运维展示操作序列与恢复。重构、性能、迁移和升级分别使用工程专项结构。它们是独立视图模块，不是同一 Tab 换标题。详见 [场景布局协议](docs/scenario-layouts.md)。

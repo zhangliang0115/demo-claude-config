@@ -365,5 +365,16 @@
       ]
     }
   },
-  "focus_stage": "solution"
+  "focus_stage": "solution",
+  "demo": {
+    "category": "方案",
+    "purpose": "确认完整流程、候选方案和范围",
+    "read_order": [
+      "完整使用流程",
+      "对比方案和边界",
+      "回答历史订单问题"
+    ],
+    "simulation": true,
+    "order": 2
+  }
 }

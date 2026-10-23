@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "id": "performance-baseline",
+  "title": "性能优化：先看测量，不看口号",
+  "kind": "performance",
+  "summary": "减少订单列表查询等待时间。",
+  "why": "减少订单列表查询等待时间。",
+  "scope": "相同环境、数据规模和负载下比较。",
+  "stage": "模拟模板 · 未操作真实环境",
+  "behaviors": [
+    {
+      "id": "B1",
+      "before": "基线尚未测量",
+      "after": "以真实基线确定目标",
+      "status": "演示约定，未验证"
+    }
+  ],
+  "scenarios": [],
+  "implementation": [],
+  "decisions": [],
+  "evidence": [],
+  "risks": [
+    "演示资料，不代表已实施或验证。"
+  ],
+  "changes": [],
+  "acceptance": [
+    "真实执行后记录观察结果；本示例不能作为通过证据。"
+  ],
+  "rollback": "待真实任务设计恢复办法。",
+  "roles": [],
+  "assumptions": [],
+  "design": [],
+  "handoffs": [],
+  "timeline": [],
+  "focus_stage": "implementation",
+  "stage_details": {
+    "testing": {
+      "purpose": "同条件比较",
+      "owner": "待指定",
+      "summary": "演示测量格式",
+      "decision": "需先确认可重复负载",
+      "exit_criteria": "实际测量与正确性检查完成",
+      "items": [
+        {
+          "id": "T1",
+          "status": "pending",
+          "case": "订单列表响应",
+          "mode": "simulation",
+          "environment": "待指定；无真实负载",
+          "expected": "基线和目标待测量后确定",
+          "actual": "未测量，不能计算提升率",
+          "source": "无真实记录"
+        }
+      ]
+    }
+  },
+  "operations": [],
+  "demo": {
+    "category": "工程",
+    "purpose": "核对环境、基线、目标和真实测量缺口",
+    "read_order": [
+      "先读任务目标",
+      "看本场景的主要事实和例子",
+      "处理当前动作或反馈"
+    ],
+    "simulation": true,
+    "order": 99
+  }
+}

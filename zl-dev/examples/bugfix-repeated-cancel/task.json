@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "id": "duplicate-stock",
+  "id": "bugfix-repeated-cancel",
   "title": "修复重复取消导致库存多加的问题",
   "kind": "bugfix",
   "summary": "先复现重复请求，再核对状态转换是否只触发一次库存释放。",
@@ -82,5 +82,16 @@
   ],
   "stage_details": {},
   "focus_stage": "testing",
-  "operations": []
+  "operations": [],
+  "demo": {
+    "category": "排障",
+    "purpose": "先复现，再核对原因和修复证据",
+    "read_order": [
+      "先读任务目标",
+      "看本场景的主要事实和例子",
+      "处理当前动作或反馈"
+    ],
+    "simulation": true,
+    "order": 99
+  }
 }

@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "id": "upgrade-compatibility",
+  "title": "技术升级：先检查兼容性",
+  "kind": "upgrade",
+  "summary": "升级运行环境并保持已有订单业务。",
+  "why": "升级运行环境并保持已有订单业务。",
+  "scope": "目标版本和依赖矩阵需在真实项目中确认。",
+  "stage": "模拟模板 · 未操作真实环境",
+  "behaviors": [
+    {
+      "id": "B1",
+      "before": "旧环境运行结果",
+      "after": "新环境同输入结果与旧环境一致",
+      "status": "演示约定，未验证"
+    }
+  ],
+  "scenarios": [],
+  "implementation": [],
+  "decisions": [],
+  "evidence": [],
+  "risks": [
+    "演示资料，不代表已实施或验证。"
+  ],
+  "changes": [],
+  "acceptance": [
+    "真实执行后记录观察结果；本示例不能作为通过证据。"
+  ],
+  "rollback": "待真实任务设计恢复办法。",
+  "roles": [],
+  "assumptions": [],
+  "design": [],
+  "handoffs": [],
+  "timeline": [],
+  "focus_stage": "implementation",
+  "stage_details": {},
+  "operations": [],
+  "demo": {
+    "category": "工程",
+    "purpose": "看兼容性、试点顺序及新旧对比证据",
+    "read_order": [
+      "先读任务目标",
+      "看本场景的主要事实和例子",
+      "处理当前动作或反馈"
+    ],
+    "simulation": true,
+    "order": 99
+  }
+}

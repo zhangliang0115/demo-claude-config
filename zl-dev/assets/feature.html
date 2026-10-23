@@ -11,6 +11,7 @@ function el(tag,value,cls){const n=document.createElement(tag);if(value!==undefi
 function card(parent,title,body){const c=el('article',undefined,'card');c.append(el('h3',title));if(body!==undefined)c.append(el('p',body));parent.append(c);return c;}
 function table(parent,headers,rows){const w=el('div',undefined,'tablewrap'),t=el('table'),thead=el('thead'),tr=el('tr');headers.forEach(h=>{const n=el('th',h);n.scope='col';tr.append(n);});thead.append(tr);t.append(thead);const b=el('tbody');rows.forEach(row=>{const r=el('tr');row.forEach(v=>r.append(el('td',text(v))));b.append(r);});if(!rows.length){const r=el('tr'),d=el('td','尚未记录，请补齐后再判断。');d.colSpan=headers.length;r.append(d);b.append(r);}t.append(b);w.append(t);parent.append(w);}
 const projects=arr(f.projects),contracts=arr(f.contracts),allocations=arr(f.allocations),integration=arr(f.integration);
+if(f.demo&&f.demo.simulation){const back=el('a','模拟示例：返回场景总览');back.href='../index.html';back.style.cssText='display:block;margin-bottom:10px;color:#137c73';document.querySelector('header').prepend(back);}
 $('title').textContent=text(f.title||f.name||f.id);$('summary').textContent=text(f.summary||f.goal);$('meta').textContent='功能编号：'+text(f.id)+' · 负责人：'+text(f.owner)+' · 生成时间：'+text(f.generated_at);
 const tabs=[['discovery','1 项目识别'],['design','2 整体设计'],['contracts','3 功能边界与契约'],['progress','4 项目开发进度'],['integration','5 整体联调']];
 function show(id){tabs.forEach(([key])=>{$(key).hidden=key!==id;$('tab-'+key).setAttribute('aria-selected',String(key===id));});}

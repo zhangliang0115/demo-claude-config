@@ -4,10 +4,11 @@
 [hidden]{display:none!important}.reading-tools{margin:20px 0}.quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.next-action{border-top:4px solid #166779}.decision-preview{border-left:3px solid #d99b28}.overview-heading{margin-top:0}
 .scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px}.scene-action{border-left:4px solid #166779}.scene-timeline{padding-left:24px;border-left:3px solid #759ba7}.scene-timeline>li{padding:0 0 20px 12px}.scene-matrix{overflow-x:auto}.scene-matrix table{min-width:520px}.scene-flow{display:flex;gap:12px;overflow-x:auto;padding:12px 0}.scene-flow>.card{min-width:220px;flex:1}dt{font-weight:600}dd{margin:4px 0 14px;overflow-wrap:anywhere}
 .material{background:#fff;border:1px solid #d6e0e5;border-radius:10px;margin:12px 0;padding:16px}.material>summary{font-size:17px;font-weight:600;min-height:28px}.material>.panel{margin-top:20px}
+.reading-brief{display:flex;gap:8px 24px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid #d6e0e5;font-size:13px}.reading-brief p{margin:0}.reading-brief strong{color:#176478}.reading-links{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;margin:0 0 10px}.reading-links a,.demo-notice a{color:#176478;text-underline-offset:3px}.demo-notice{font-size:13px;margin:0 0 10px;color:#875c18}.scene-grid>*{scroll-margin-top:16px}
 /* STAGE_STYLES */
 /* REPORT_THEME */
 </style>
-<header><span id="kind"></span><h1 id="title"></h1><p id="summary"></p><span class="badge" id="stage"></span></header>
+<header><div id="demo-notice" hidden></div><span id="kind"></span><h1 id="title"></h1><p id="summary"></p><span class="badge" id="stage"></span><div class="reading-brief" id="reading-brief"></div></header>
 <main><section class="panel" id="overview"></section><section class="reading-tools" id="reading-tools"><h2>补充依据与反馈</h2></section><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
 <script id="task-data" type="application/json">__TASK_DATA__</script>
 <script>
@@ -35,6 +36,11 @@ const has=key=>Array.isArray(task[key])&&task[key].length>0;
 const populated={overview:true,'stage-views':Object.values(task.stage_details||{}).some(x=>x&&((x.items||[]).length||x.summary)),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
 function show(id){const section=$(id);if(!section)return;const fold=section.closest('details.material');if(fold)fold.open=true;section.scrollIntoView({behavior:'smooth',block:'start'});}
 const workflow=task.workflow_summary||{};
+[['page_purpose','这页用来'],['read_first','先看'],['human_action','你需要']].forEach(([key,label])=>{if(!workflow[key])return;const line=el('p');line.append(el('strong',label+'：'),document.createTextNode(text(workflow[key])));$('reading-brief').append(line);});
+if(task.demo===true||(task.demo&&task.demo.simulation===true)){
+  const notice=$('demo-notice');notice.hidden=false;notice.className='demo-notice';notice.append(document.createTextNode('模拟示例 · 不是实际项目进度或运行证据 · '));const gallery=el('a','查看其他场景');gallery.href='../index.html';notice.append(gallery);
+}
+
 const evidenceRecords=task.evidence||[];
 const pendingDecisions=(task.decisions||[]).filter(d=>d.status!=='confirmed');
 const uncovered=(task.behaviors||[]).filter(b=>!evidenceRecords.some(e=>(e.behavior_ids||[]).includes(b.id)&&e.status==='passed'&&e.freshness==='当前')).length;
@@ -50,6 +56,9 @@ const viewRoot=el('div');$('overview').append(viewRoot);
 const viewUI={el,card,list,text,show};
 const renderView=task.kind==='incident'?renderIncidentView:task.kind==='bugfix'?renderBugfixView:task.kind==='operations'?renderOperationsView:['refactor','performance','migration','upgrade'].includes(task.kind)?renderEngineeringView:renderFeatureView;
 renderView(viewRoot,task,viewUI);
+const destinations=[...viewRoot.children].filter(node=>node.querySelector('h2,h3')).slice(0,3);
+if(destinations.length){const links=el('div',undefined,'reading-links');links.setAttribute('aria-label','本页阅读定位');destinations.forEach((node,index)=>{node.id='reading-section-'+index;const link=el('a',node.querySelector('h2,h3').textContent);link.href='#'+node.id;links.append(link);});viewRoot.prepend(links);}
+
 const checks=el('details');checks.append(el('summary','验收进展与剩余风险'));
 card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据需要重新核对。`);
 list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);$('overview').append(checks);

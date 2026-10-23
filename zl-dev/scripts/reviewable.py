@@ -185,6 +185,9 @@ def render(task_dir):
 
 def build_index(task_root):
     task_root = Path(task_root)
+    if task_root.resolve() == (ROOT / 'examples').resolve():
+        from build_demo_gallery import build
+        return build(task_root)
     rows = []
     from urllib.parse import quote
     for source in sorted(task_root.glob('*/task.json')):
