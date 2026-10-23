@@ -3,10 +3,11 @@
 :root{font-family:system-ui,-apple-system,sans-serif;color:#182c39;background:#eef2f4}*{box-sizing:border-box}body{margin:0}header{background:#123748;color:white;padding:36px max(24px,calc((100vw - 1120px)/2))}header p{color:#c9dde5}h1{font-size:32px;margin:12px 0}h2{font-size:23px}h3{font-size:17px}main{max-width:1168px;margin:auto;padding:24px}nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}button{cursor:pointer;background:white;border:1px solid #bdcbd2;border-radius:8px;padding:10px 16px;color:#234556;font:inherit}button[aria-selected=true],button.active{background:#166779;color:white;border-color:#166779}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #d99b28;outline-offset:2px}.panel[hidden]{display:none}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:16px}.card{background:white;border:1px solid #d6e0e5;border-radius:12px;padding:20px;margin-bottom:16px}.badge{display:inline-block;border-radius:20px;padding:5px 11px;background:#e3eef1;font-size:13px;color:#244b59}.warning{border-left:4px solid #bd8121;background:#fff9eb;padding:16px;border-radius:5px}.muted{color:#637580;font-size:14px}p,li,td{line-height:1.7;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef3f5;padding:14px;border-radius:8px}table{border-collapse:collapse;width:100%;background:white}td,th{text-align:left;padding:14px;border-bottom:1px solid #dce5e9;vertical-align:top}th{background:#e6eef2}.tablewrap{overflow:auto}.scene-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.step{border-left:3px solid #238396;padding:4px 20px;margin:20px 0}select{font:inherit;max-width:100%;padding:10px;border-radius:8px}input,textarea{font:inherit;padding:12px;border:1px solid #bacbd2;border-radius:7px;width:100%}textarea{min-height:85px}details{margin-top:12px}summary{cursor:pointer;color:#176478}footer{margin:32px 0;color:#637580;font-size:13px}
 [hidden]{display:none!important}.reading-tools{margin:20px 0}.quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.next-action{border-top:4px solid #166779}.decision-preview{border-left:3px solid #d99b28}.overview-heading{margin-top:0}
 .scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px}.scene-action{border-left:4px solid #166779}.scene-timeline{padding-left:24px;border-left:3px solid #759ba7}.scene-timeline>li{padding:0 0 20px 12px}.scene-matrix{overflow-x:auto}.scene-matrix table{min-width:520px}.scene-flow{display:flex;gap:12px;overflow-x:auto;padding:12px 0}.scene-flow>.card{min-width:220px;flex:1}dt{font-weight:600}dd{margin:4px 0 14px;overflow-wrap:anywhere}
+.material{background:#fff;border:1px solid #d6e0e5;border-radius:10px;margin:12px 0;padding:16px}.material>summary{font-size:17px;font-weight:600;min-height:28px}.material>.panel{margin-top:20px}
 /* STAGE_STYLES */
 </style>
 <header><span id="kind"></span><h1 id="title"></h1><p id="summary"></p><span class="badge" id="stage"></span></header>
-<main><section class="panel" id="overview"></section><details class="reading-tools" id="reading-tools"><summary>按需查看详细材料</summary><div class="quick-actions"><label for="section-select">材料：</label><select id="section-select" aria-label="选择详细材料"></select><button id="show-section" type="button">查看</button><button id="home-button" type="button">返回任务概览</button></div></details><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
+<main><section class="panel" id="overview"></section><section class="reading-tools" id="reading-tools"><h2>补充依据与反馈</h2></section><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
 <script id="task-data" type="application/json">__TASK_DATA__</script>
 <script>
 'use strict';
@@ -29,12 +30,7 @@ $('title').textContent=task.title;$('kind').textContent=task.kind_label;$('summa
 const tabs=[['overview','任务概览'],['stage-views','当前阶段材料'],['scenarios','场景演示'],['behavior','业务变化'],['implementation','实现解释'],['decisions','需要你决定'],['evidence','验证证据'],['design','方案与职责'],['handoffs','交接记录'],['operations','生产与运维']];
 const has=key=>Array.isArray(task[key])&&task[key].length>0;
 const populated={overview:true,'stage-views':Object.values(task.stage_details||{}).some(x=>x&&((x.items||[]).length||x.summary)),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
-function detailsOpen(open){$('reading-tools').open=open;}
-function show(id){if(!$(id))return;tabs.forEach(([key])=>{if($(key))$(key).hidden=key!==id;});if(id!=='overview'){detailsOpen(true);$('section-select').value=id;}else detailsOpen(false);}
-$('home-button').onclick=()=>show('overview');
-tabs.filter(([key])=>key!=='overview'&&populated[key]).forEach(([key,label])=>{const option=el('option',label);option.value=key;$('section-select').append(option);});
-$('show-section').onclick=()=>show($('section-select').value);
-if(!$('section-select').children.length)$('reading-tools').hidden=true;
+function show(id){const section=$(id);if(!section)return;const fold=section.closest('details.material');if(fold)fold.open=true;section.scrollIntoView({behavior:'smooth',block:'start'});}
 const workflow=task.workflow_summary||{};
 const evidenceRecords=task.evidence||[];
 const pendingDecisions=(task.decisions||[]).filter(d=>d.status!=='confirmed');
@@ -77,4 +73,8 @@ recordCards('operations','诊断、操作与恢复',task.operations||[],[['id','
 
 // STAGE_SCRIPT
 renderStages($('stage-views'), task);
+let materialCount=0;
+tabs.filter(([key])=>key!=='overview'&&populated[key]).forEach(([key,label])=>{const fold=el('details',undefined,'material');fold.id='material-'+key;fold.append(el('summary',label));const content=$(key);content.hidden=false;fold.append(content);$('reading-tools').append(fold);materialCount++;});
+$('reading-tools').hidden=materialCount===0;
+
 </script></html>
