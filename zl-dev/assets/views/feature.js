@@ -1,64 +1,41 @@
-/* Feature views share typography, but each phase has a different reading path. */
+/* Phase-specific editorial documents; controls remain in the shared decision rail. */
 function renderFeatureView(parent, task, ui) {
-  const {el, card, list, text, show} = ui;
+  const {el, text} = ui;
   const stage = (task.workflow_summary || {}).focus_stage || task.focus_stage || 'requirements';
   parent.dataset.layout = 'feature-' + stage;
   const items = key => ((task.stage_details || {})[key] || {}).items || [];
-  const block = (title, body) => card(parent, title, body);
+  let number = 0;
+  function section(title, intro) {
+    const box=el('section',undefined,'document-section'),heading=el('div',undefined,'section-heading');
+    heading.append(el('span',String(++number).padStart(2,'0'),'section-number'),el('h2',title));box.append(heading);
+    if(intro)box.append(el('p',intro,'section-intro'));parent.append(box);return box;
+  }
+  function row(parent,label,value){if(value===undefined||value===null||value==='')return;const r=el('div',undefined,'document-row');r.append(el('strong',label),el('p',text(value)));parent.append(r);}
   function stories(title) {
-    const box = block(title, '场景说明只代表记录的预期；执行结果见验证证据。');
-    const scenarios = task.scenarios || [];
-    if (!scenarios.length) { box.append(el('p', '尚未记录具体场景。')); return; }
-    const selector = el('select'); selector.setAttribute('aria-label', '选择业务场景');
-    scenarios.forEach((s, i) => { const option = el('option', s.title || '场景 ' + (i + 1)); option.value = i; selector.append(option); });
-    const flow = el('ol', undefined, 'scene-timeline');
-    function draw() { flow.replaceChildren(); const s = scenarios[Number(selector.value)]; flow.append(el('li', '性质：' + text(s.kind))); (s.steps || []).forEach(step => { const row = el('li'); row.append(el('strong', text(step.action)), el('p', '预期：' + text(step.result || step.expected))); flow.append(row); }); }
-    selector.onchange = draw; box.append(selector, flow); draw();
+    const box=section(title),scenarios=task.scenarios||[];
+    if(!scenarios.length){box.append(el('p','尚未记录具体操作路径。','muted'));return;}
+    const controls=el('div',undefined,'scene-buttons'),flow=el('ol',undefined,'journey-list'),caption=el('p',undefined,'journey-caption');
+    function draw(index){flow.replaceChildren();[...controls.children].forEach((b,i)=>{b.classList.toggle('active',i===index);b.setAttribute('aria-pressed',String(i===index));});const s=scenarios[index];caption.textContent=s.kind==='simulation'?'预期流程 · 设计模拟，尚不代表已实现':'记录回放 · 请结合原始证据核对';(s.steps||[]).forEach((step,i)=>{const r=el('li'),copy=el('div',undefined,'journey-copy');copy.append(el('h3',text(step.action)),el('p',text(step.result||step.expected)));r.append(el('span',String(i+1).padStart(2,'0'),'journey-number'),copy);flow.append(r);});}
+    scenarios.forEach((s,i)=>{const b=el('button',s.title||'场景 '+(i+1));b.type='button';b.onclick=()=>draw(i);controls.append(b);});
+    if(scenarios.length>1)box.append(controls);box.append(caption,flow);draw(0);
   }
-  function questions() {
-    const box = block('现在需要确认', '以下事项没有答案时，不能假定已经同意。');
-    const pending = (task.decisions || []).filter(d => d.status !== 'confirmed');
-    if (!pending.length) box.append(el('p', '尚未记录待决事项；这不代表所有业务边界已确认。'));
-    pending.forEach(d => { const item = el('div', undefined, 'scene-action'); item.append(el('strong', text(d.question)), el('p', '建议：' + text(d.recommendation))); box.append(item); });
-    const btn = el('button', '填写并复制反馈'); btn.onclick = () => show('decisions'); box.append(btn);
-  }
-  function changes() {
-    const box = block('业务前后对照', '按实际记录核对行为变化。');
-    (task.behaviors || []).forEach(b => { const row = el('article', undefined, 'scene-grid'); row.append(el('p', text(b.id) + ' · 原来：' + text(b.before)), el('p', '现在要求：' + text(b.after)), el('p', '状态：' + text(b.status))); box.append(row); });
-    if (!(task.behaviors || []).length) box.append(el('p', '尚未记录行为变化。'));
-  }
-  function evidence() {
-    const box = block('真实验证记录', '模拟、未执行及待核验结果不能当作通过。');
-    (task.evidence || []).forEach(e => { const row = el('article'); row.append(el('strong', text(e.status)+' · '+text(e.freshness)), el('p', text(e.summary)), el('p', '执行命令：' + text(e.command)), el('p', '版本：' + text(e.revision))); box.append(row); });
-    if (!(task.evidence || []).length) box.append(el('p', '没有执行证据。'));
-    items('testing').forEach(t => card(box, text(t.case), '预期：' + text(t.expected) + '\n实际：' + text(t.actual) + '\n模式：' + text(t.mode) + '；环境：' + text(t.environment)));
-  }
-  if (stage === 'requirements') {
-    parent.classList.add('scene-requirements');
-    block('用户遇到了什么问题', task.why || task.summary);
-    items('requirements').forEach(r => block('原话与理解', '原始描述：' + text(r.original) + '\n当前理解：' + text(r.interpretation) + '\n边界：' + text(r.boundary)));
-    stories('用一个具体故事理解需求'); block('本次范围', task.scope); questions();
-  } else if (stage === 'solution') {
-    parent.classList.add('scene-solution'); stories('完整使用流程');
-    const grid = el('div', undefined, 'scene-grid'); parent.append(grid);
-    const designs = task.design || [];
-    designs.forEach(d => card(grid, text(d.title), text(d.description) + '\n取舍：' + text(d.tradeoffs) + '\n状态：' + text(d.status)));
-    items('solution').forEach(d => card(grid, text(d.name), '路径：' + text(d.flow) + '\n实现方式：' + text(d.approach) + '\n收益：' + text(d.benefit) + '\n代价：' + text(d.cost) + '\n风险：' + text(d.risk)));
-    if (!designs.length && !items('solution').length) card(grid, '候选方案尚未记录', '需要先分析现有系统，不自动补造方案。');
-    block('边界与不做的事情', task.scope); questions();
-  } else if (stage === 'testing' || stage === 'acceptance') {
-    parent.classList.add('scene-acceptance');
-    list(parent, '请先亲自操作这些步骤', task.acceptance || []);
-    items('acceptance').forEach(a => block(text(a.scenario), '操作：' + text(a.instruction) + '\n预期：' + text(a.expected) + '\n实际：' + text(a.actual) + '\n核验结果：' + text(a.result)));
-    stories('选择要验收的业务路径'); evidence(); questions();
-  } else {
-    parent.classList.add('scene-delivery');
-    const records = items('implementation');
-    records.forEach(r => block(text(r.planned), '实际：' + text(r.actual) + '\n偏差：' + text(r.deviation) + '\n影响：' + text(r.impact) + '\n源码：' + text(r.source)));
-    (task.implementation || []).forEach(r => block('实际改动', typeof r === 'string' ? r : text(r.title)+'：'+text(r.description)+'；代码位置：'+text(r.files)));
-    if (!records.length && !(task.implementation || []).length) block('尚无实施记录', '设计方案不能作为实现完成的证据。');
-    changes();
-    items('review').forEach(r => block(text(r.severity) + ' · ' + text(r.finding), '位置：' + text(r.source) + '\n修复：' + text(r.fix) + '\n复查：' + text(r.recheck)));
-    list(parent, '接下来需要验证', task.acceptance || []); evidence(); questions();
+  function behavior(){const box=section('业务变化与保持项'),rows=el('div',undefined,'document-rows');(task.behaviors||[]).forEach(b=>{const item=el('div',undefined,'behavior-comparison');item.append(el('span',text(b.id),'muted'));row(item,'原来',b.before);row(item,'现在',b.after);if(b.status)item.append(el('p',text(b.status),'muted'));rows.append(item);});box.append(rows);if(!(task.behaviors||[]).length)box.append(el('p','尚未记录具体行为约定。','muted'));}
+  function evidence(){const box=section('验证结果','仅实际执行的记录支持验收；演示不等于验证通过。');(task.evidence||[]).forEach(e=>{const r=el('div',undefined,'evidence-line');r.append(el('span',text(e.status)+' · '+text(e.freshness),'badge'),el('h3',text(e.summary)));const d=el('details');d.append(el('summary','核对执行记录'));row(d,'命令',e.command);row(d,'版本',e.revision);r.append(d);box.append(r);});if(!(task.evidence||[]).length)box.append(el('p','尚无执行证据。','muted'));items('testing').forEach(t=>{const r=el('div',undefined,'document-row');r.append(el('strong',text(t.case)));row(r,'预期',t.expected);row(r,'实际',t.actual);box.append(r);});}
+  if(stage==='requirements'){
+    const box=section('需求是这样理解的');items('requirements').forEach(r=>{row(box,'原始描述',r.original);row(box,'当前理解',r.interpretation);row(box,'待明确边界',r.boundary);});if(!items('requirements').length)box.append(el('p',text(task.why||task.summary)));
+    stories('用户将如何操作');behavior();
+  }else if(stage==='solution'){
+    stories('用户将如何操作');
+    const box=section('建议这样实现'),designs=task.design||[];
+    designs.forEach((d,i)=>{const line=el('article',undefined,'design-line');line.append(el('span',String(i+1).padStart(2,'0'),'design-number'),el('h3',text(d.title)),el('p',text(d.description)));if(d.tradeoffs)row(line,'取舍',d.tradeoffs);if(d.alternatives){const detail=el('details');detail.append(el('summary','其他选择与比较'),el('p',text(d.alternatives)));line.append(detail);}box.append(line);});
+    items('solution').forEach(d=>{const line=el('article',undefined,'design-line');line.append(el('h3',text(d.name)));row(line,'路径',d.flow);row(line,'实现',d.approach);row(line,'收益',d.benefit);row(line,'代价',d.cost);row(line,'风险',d.risk);box.append(line);});
+    if(!designs.length&&!items('solution').length)box.append(el('p','方案尚未记录，需要先核对现有系统。','muted'));
+    behavior();
+  }else if(stage==='testing'||stage==='acceptance'){
+    const box=section('按这些步骤验收'),steps=el('ol',undefined,'acceptance-list');(task.acceptance||[]).forEach(a=>steps.append(el('li',text(a))));box.append(steps);
+    items('acceptance').forEach(a=>{const line=el('article',undefined,'document-rows');line.append(el('h3',text(a.scenario)));row(line,'操作',a.instruction);row(line,'预期',a.expected);row(line,'实际',a.actual);row(line,'结果',a.result);box.append(line);});stories('核对完整业务路径');evidence();
+  }else{
+    const box=section('本轮实际完成的内容');items('implementation').forEach(r=>{const line=el('article',undefined,'design-line');line.append(el('h3',text(r.planned)));row(line,'实际',r.actual);row(line,'偏差',r.deviation);row(line,'影响',r.impact);row(line,'代码位置',r.source);box.append(line);});(task.implementation||[]).forEach(r=>{const line=el('article',undefined,'design-line');line.append(el('h3',typeof r==='string'?r:text(r.title)));if(typeof r!=='string'){line.append(el('p',text(r.description)));row(line,'代码位置',r.files);}box.append(line);});if(!box.querySelector('article'))box.append(el('p','尚无实施记录。设计方案不代表已经实现。','muted'));behavior();evidence();
+    if(items('review').length){const review=section('审查发现');items('review').forEach(r=>{const line=el('article',undefined,'design-line');line.append(el('h3',text(r.severity)+' · '+text(r.finding)));row(line,'位置',r.source);row(line,'修复',r.fix);row(line,'复查',r.recheck);review.append(line);});}
   }
 }

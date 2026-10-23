@@ -23,9 +23,9 @@ def build(examples=None):
         kind = data.get('kind', 'feature')
         fallback = {'incident': '运维', 'operations': '运维', 'bugfix': '排障', 'performance': '工程', 'migration': '工程', 'upgrade': '工程', 'refactor': '工程'}
         category = demo.get('category', fallback.get(kind, '需求'))
-        stage = data.get('focus_stage') or data.get('workflow', {}).get('focus_stage', '')
+        stage = 'cross-project' if is_feature else (data.get('focus_stage') or data.get('workflow', {}).get('focus_stage') or ('operations' if kind in ('incident', 'operations') else 'requirements'))
         entries.append(dict(
-            id=data.get('id', source.parent.name), title=data['title'], category=category,
+            id=data.get('id', source.parent.name), title=data['title'], category=category, stage=stage,
             purpose=demo.get('purpose', data.get('summary', '了解整体流程、边界与当前动作')),
             read_order=demo.get('read_order', ['先看目标与当前动作', '再看场景和关键证据']),
             phase=STAGE_LABELS.get(stage, data.get('stage', '跨项目整体设计' if is_feature else '场景示例')),

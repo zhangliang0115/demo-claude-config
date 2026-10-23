@@ -9,15 +9,8 @@ function renderIncidentView(parent, task, ui) {
   const section = (title, cls) => { const node = el('section', undefined, cls || 'card'); node.append(el('h2', title)); parent.append(node); return node; };
   const field = (node, label, value) => { const line = el('p'); line.append(el('strong', label + '：'), el('span', text(value))); node.append(line); };
   const impact = section(focus === 'acceptance' ? '恢复核验现场' : focus === 'release' ? '生产变更与观察窗口' : '事件现场', 'card incident-impact');
-  field(impact, '事件', task.title);
   field(impact, '当前状态', task.stage);
   field(impact, '影响范围 / 环境', task.scope || ops.map(o => [o.environment, o.impact].filter(Boolean).join(' · ')).filter(Boolean).join('\n'));
-  field(impact, '处置目标', task.why);
-  field(impact, '当前判断', task.summary);
-  const needed = section('现在需要人决定什么', 'card incident-decision');
-  const pending = arr(task.decisions).filter(d => d.status !== 'confirmed');
-  if (!pending.length) needed.append(el('p', '尚未记录待决事项；这不代表已获操作授权。'));
-  pending.forEach(d => { const row = el('article'); row.append(el('h3', text(d.question))); field(row, '建议', d.recommendation); field(row, '决定人', d.owner); field(row, '状态', d.status); needed.append(row); });
 
   function actions() {
     const active = section('当前处置动作', 'card incident-actions');
