@@ -31,11 +31,9 @@ function renderStages(container, task) {
       body.append(make('p','观察、假设、授权、执行和恢复验证分别记录。此页面不执行运维命令。','warning'));const timeline=make('ol',undefined,'stage-timeline');items.forEach(item=>{const li=make('li');itemCard(li,item,fields);timeline.append(li);});body.append(timeline);
     } else table(body,items,fields);
   }
-  const available=fallback.filter(([key])=>{const d=(task.stage_details||{})[key];return d&&((d.items||[]).length||d.summary);});
-  if(!available.length){container.append(make('p','当前没有已记录的阶段材料。','muted'));nav.hidden=true;return;}
-  available.forEach(([key,label])=>{const option=make('option',label);option.value=key;selector.append(option);});
   const focus=task.focus_stage||(task.workflow_summary||{}).focus_stage;
-  const selected=available.find(([key])=>key===focus);
-  selector.onchange=()=>{const entry=available.find(([key])=>key===selector.value);if(entry)draw(...entry);};
-  if(selected){nav.hidden=available.length<2;draw(...selected);}else{const placeholder=make('option','当前阶段暂无扩展材料；选择历史档案');placeholder.value='';selector.prepend(placeholder);selector.value='';body.append(make('p','当前动作请看任务概览。以下仅为已记录阶段的档案，不代表当前工作。','muted'));}
+  nav.hidden=true;
+  const selected=fallback.find(([key])=>key===focus);
+  if(selected)draw(...selected);
+  else body.append(make('p','当前阶段尚未明确，请先核对任务概览。','muted'));
 }

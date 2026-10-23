@@ -33,7 +33,7 @@ function list(parent,title,items){const c=card(parent,title,items.length?'':'尚
 $('title').textContent=task.title;$('kind').textContent=task.kind_label;$('summary').textContent=text(task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage)+(/模拟|演示/.test(task.stage||'')?' · '+task.stage:'');document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
 const tabs=[['overview','任务概览'],['stage-views','当前阶段材料'],['scenarios','场景演示'],['behavior','业务变化'],['implementation','实现解释'],['decisions','需要你决定'],['evidence','验证证据'],['design','方案与职责'],['handoffs','交接记录'],['operations','生产与运维']];
 const has=key=>Array.isArray(task[key])&&task[key].length>0;
-const populated={overview:true,'stage-views':Object.values(task.stage_details||{}).some(x=>x&&((x.items||[]).length||x.summary)),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
+const populated={overview:true,'stage-views':(()=>{const x=(task.stage_details||{})[(task.workflow_summary||{}).focus_stage];return !!(x&&((x.items||[]).length||x.summary));})(),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
 function show(id){const section=$(id);if(!section)return;const fold=section.closest('details.material');if(fold)fold.open=true;section.scrollIntoView({behavior:'smooth',block:'start'});}
 const workflow=task.workflow_summary||{};
 [[task.why,'为什么要做'],[task.scope,'本次范围'],[workflow.next_action,workflow.action_owner==='你'?'现在请你':'接下来由 AI']].forEach(([value,label])=>{if(!value)return;const line=el('p');line.append(el('strong',label+'：'),document.createTextNode(text(value)));$('reading-brief').append(line);});
@@ -59,9 +59,9 @@ renderView(viewRoot,task,viewUI);
 const destinations=[...viewRoot.children].filter(node=>node.querySelector('h2,h3')).slice(0,3);
 if(destinations.length){const links=el('div',undefined,'reading-links');links.setAttribute('aria-label','本页阅读定位');destinations.forEach((node,index)=>{node.id='reading-section-'+index;const link=el('a',node.querySelector('h2,h3').textContent);link.href='#'+node.id;links.append(link);});viewRoot.prepend(links);}
 
-const checks=el('details');checks.append(el('summary','验收进展与剩余风险'));
-card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据需要重新核对。`);
-list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);$('overview').append(checks);
+const checks=el('details');checks.append(el('summary','本阶段的范围与风险'));
+if(['review','testing','acceptance','operations','release'].includes(workflow.focus_stage))card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据需要重新核对。`);
+if(['testing','acceptance','release'].includes(workflow.focus_stage))list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);$('overview').append(checks);
 const sceneHints={feature:'选择用户操作，理解正常及异常路径。',change:'比较规则调整前后，关注历史数据和生效范围。',bugfix:'先看复现条件，再看修复如何阻断问题。',refactor:'结构可以变化，对外行为应保持。',performance:'比较相同条件下的基线与结果。',migration:'核对数据转换、异常处理和恢复路径。',upgrade:'关注兼容性变化与新旧实现的一致性。',incident:'区分现场事实、诊断假设、止损动作和恢复证据。',operations:'先确认操作范围与授权，再核对执行结果和恢复条件。'};
 $('scenarios').append(el('h2','从一个具体例子理解'),el('p',sceneHints[task.kind]));const sceneButtons=el('div',undefined,'scene-buttons'),sceneContent=el('div');$('scenarios').append(sceneButtons,sceneContent);
 function scene(index){sceneContent.replaceChildren();[...sceneButtons.children].forEach((b,i)=>b.classList.toggle('active',i===index));const s=task.scenarios[index];card(sceneContent,s.title,s.kind==='simulation'?'设计模拟：用于理解预期行为，未证明实际实现成功。':'记录回放：来自任务提供的记录，请对照证据确认来源。');(s.steps||[]).forEach((step,i)=>{const n=el('div',undefined,'step');n.append(el('h3',`${i+1}. ${text(step.action)}`),el('p',text(step.result)));sceneContent.append(n);});}
@@ -86,7 +86,7 @@ recordCards('operations','诊断、操作与恢复',task.operations||[],[['id','
 // STAGE_SCRIPT
 renderStages($('stage-views'), task);
 let materialCount=0;
-tabs.filter(([key])=>key!=='overview'&&populated[key]).forEach(([key,label])=>{const fold=el('details',undefined,'material');fold.id='material-'+key;fold.append(el('summary',label));const content=$(key);content.hidden=false;fold.append(content);$('reading-tools').append(fold);materialCount++;});
+tabs.filter(([key])=>key!=='overview'&&populated[key]&&(workflow.visible_sections||[]).includes(key)).forEach(([key,label])=>{const fold=el('details',undefined,'material');fold.id='material-'+key;fold.append(el('summary',label));const content=$(key);content.hidden=false;fold.append(content);$('reading-tools').append(fold);materialCount++;});
 $('reading-tools').hidden=materialCount===0;
 
 </script></html>

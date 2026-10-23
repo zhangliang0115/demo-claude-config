@@ -164,4 +164,15 @@ class ReportTests(unittest.TestCase):
             for renderer in ['renderFeatureView','renderBugfixView','renderIncidentView','renderOperationsView','renderEngineeringView']:
                 self.assertIn('function '+renderer,output)
 
+    def test_current_phase_material_scope(self):
+        self.data['focus_stage']='solution'
+        scope=m.assessed(self.data,None)['workflow_summary']['visible_sections']
+        self.assertIn('design',scope)
+        self.assertNotIn('handoffs',scope)
+        self.assertNotIn('operations',scope)
+        self.data['focus_stage']='acceptance'
+        scope=m.assessed(self.data,None)['workflow_summary']['visible_sections']
+        self.assertIn('evidence',scope)
+        self.assertNotIn('design',scope)
+
 if __name__=='__main__':unittest.main()

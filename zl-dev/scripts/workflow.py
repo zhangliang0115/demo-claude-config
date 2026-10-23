@@ -25,6 +25,18 @@ def reading_guide(kind, focus):
     values = specialty.get(kind, stages.get(focus, stages['requirements']))
     return dict(zip(('page_purpose', 'read_first', 'human_action'), values))
 
+PHASE_SECTIONS = {
+    'requirements':['scenarios','behavior','decisions','stage-views'],
+    'solution':['scenarios','design','decisions','stage-views'],
+    'implementation':['implementation','behavior','decisions','stage-views'],
+    'review':['implementation','evidence','decisions','stage-views'],
+    'testing':['scenarios','evidence','stage-views'],
+    'acceptance':['evidence','decisions','stage-views'],
+    'operations':['operations','evidence','decisions','stage-views'],
+    'release':['operations','evidence','decisions','stage-views'],
+    'handoff':['handoffs','behavior','decisions','stage-views'],
+}
+
 def summarize(data):
     behaviors = data.get('behaviors', [])
     evidence = data.get('evidence', [])
@@ -56,4 +68,4 @@ def summarize(data):
     explicit = data.get('focus_stage')
     if explicit in STAGE_LABELS:
         focus = explicit
-    return dict(**reading_guide(data.get('kind'), focus), step=step, focus_stage=focus, stage_label=STAGE_LABELS[focus], action_owner=owner, next_action=action, visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。', missing_verification_count=missing, stale_evidence_count=stale, pending_decision_count=len(pending))
+    return dict(visible_sections=PHASE_SECTIONS[focus], **reading_guide(data.get('kind'), focus), step=step, focus_stage=focus, stage_label=STAGE_LABELS[focus], action_owner=owner, next_action=action, visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。', missing_verification_count=missing, stale_evidence_count=stale, pending_decision_count=len(pending))
