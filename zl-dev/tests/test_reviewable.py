@@ -1,3 +1,4 @@
+import html
 import importlib.util
 import json
 from pathlib import Path
@@ -89,6 +90,25 @@ class ReportTests(unittest.TestCase):
         out=m.render(self.task).read_text()
         payload=out.split('<script id="task-data" type="application/json">')[1].split('</script>')[0]
         self.assertEqual(json.loads(payload)['title'],self.data['title'])
+
+    def test_page_title_uses_current_stage(self):
+        from workflow import STAGE_LABELS
+        for stage, label in STAGE_LABELS.items():
+            self.data['focus_stage'] = stage
+            self.save()
+            out = m.render(self.task).read_text()
+            self.assertIn('<title>' + html.escape(self.data['title']) + ' · ' + label + '</title>', out)
+            self.assertNotIn('__STAGE_LABEL__', out)
+
+    def test_page_title_escapes_special_characters(self):
+        self.data['title'] = '取消 & <订单> "历史" __STAGE_LABEL__'
+        self.data['focus_stage'] = 'operations'
+        self.save()
+        out = m.render(self.task).read_text()
+        self.assertIn('<title>' + html.escape(self.data['title']) + ' · 排查与运维</title>', out)
+        self.assertNotIn('<title>取消 & <订单>', out)
+        payload = out.split('<script id="task-data" type="application/json">')[1].split('</script>')[0]
+        self.assertEqual(json.loads(payload)['title'], self.data['title'])
 
     def test_stage_unknown_fields_rejected(self):
         self.data['stage_details']={'unknown': {}}

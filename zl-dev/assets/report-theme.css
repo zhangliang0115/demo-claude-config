@@ -23,3 +23,5 @@ header .eyebrow{color:var(--accent);font-size:10px;font-weight:700;letter-spacin
 
 /* Specialty reports share the document surface; only facts needing separation are boxed. */
 .report-story>div>section.card{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:24px 0;margin:0;box-shadow:none}.report-story>div>section.card:last-child{border-bottom:0}.report-story>div>section.card>h2{font-size:19px;margin:0 0 16px}.report-story>div>section.card>p{font-size:13px;color:#596271}.report-story .stage-compare>article{min-width:0}.report-story .stage-compare h3{font-size:14px}
+
+.acceptance-check label{font-size:12px;color:var(--muted)}.acceptance-check select{margin-left:8px}.acceptance-check textarea{min-height:62px}.acceptance-check>p{font-size:13px;margin:8px 0}.acceptance-check>h3{font-size:16px}.acceptance-check{box-shadow:none}

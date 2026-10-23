@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>__PAGE_TITLE__ · 理解与验收</title>
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>__PAGE_TITLE__ · __STAGE_LABEL__</title>
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#182c39;background:#eef2f4}*{box-sizing:border-box}body{margin:0}header{background:#123748;color:white;padding:36px max(24px,calc((100vw - 1120px)/2))}header p{color:#c9dde5}h1{font-size:32px;margin:12px 0}h2{font-size:23px}h3{font-size:17px}main{max-width:1168px;margin:auto;padding:24px}nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}button{cursor:pointer;background:white;border:1px solid #bdcbd2;border-radius:8px;padding:10px 16px;color:#234556;font:inherit}button[aria-selected=true],button.active{background:#166779;color:white;border-color:#166779}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #d99b28;outline-offset:2px}.panel[hidden]{display:none}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:16px}.card{background:white;border:1px solid #d6e0e5;border-radius:12px;padding:20px;margin-bottom:16px}.badge{display:inline-block;border-radius:20px;padding:5px 11px;background:#e3eef1;font-size:13px;color:#244b59}.warning{border-left:4px solid #bd8121;background:#fff9eb;padding:16px;border-radius:5px}.muted{color:#637580;font-size:14px}p,li,td{line-height:1.7;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef3f5;padding:14px;border-radius:8px}table{border-collapse:collapse;width:100%;background:white}td,th{text-align:left;padding:14px;border-bottom:1px solid #dce5e9;vertical-align:top}th{background:#e6eef2}.tablewrap{overflow:auto}.scene-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.step{border-left:3px solid #238396;padding:4px 20px;margin:20px 0}select{font:inherit;max-width:100%;padding:10px;border-radius:8px}input,textarea{font:inherit;padding:12px;border:1px solid #bacbd2;border-radius:7px;width:100%}textarea{min-height:85px}details{margin-top:12px}summary{cursor:pointer;color:#176478}footer{margin:32px 0;color:#637580;font-size:13px}
 [hidden]{display:none!important}.reading-tools{margin:20px 0}.quick-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.next-action{border-top:4px solid #166779}.decision-preview{border-left:3px solid #d99b28}.overview-heading{margin-top:0}
@@ -67,10 +67,11 @@ updateDecisionFeedback=feedbackComposer(next,task,workflow.stage_label||task.sta
 const viewRoot=el('div');story.append(viewRoot);
 const viewUI={el,card,list,text,show};
 const renderView=task.kind==='incident'?renderIncidentView:task.kind==='bugfix'?renderBugfixView:task.kind==='operations'?renderOperationsView:['refactor','performance','migration','upgrade'].includes(task.kind)?renderEngineeringView:renderFeatureView;
-renderView(viewRoot,task,viewUI);
+const stageInline=['acceptance','release'].includes(workflow.focus_stage)&&populated['stage-views'];
+if(stageInline)renderStages(viewRoot,task);else renderView(viewRoot,task,viewUI);
 const checks=el('details');checks.append(el('summary','本阶段的范围与风险'));
 if(['review','testing','acceptance','operations','release'].includes(workflow.focus_stage))card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据需要重新核对。`);
-if(['testing','acceptance','release'].includes(workflow.focus_stage))list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);story.append(checks);
+if(!stageInline&&['testing','acceptance','release'].includes(workflow.focus_stage))list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);story.append(checks);
 const sceneHints={feature:'选择用户操作，理解正常及异常路径。',change:'比较规则调整前后，关注历史数据和生效范围。',bugfix:'先看复现条件，再看修复如何阻断问题。',refactor:'结构可以变化，对外行为应保持。',performance:'比较相同条件下的基线与结果。',migration:'核对数据转换、异常处理和恢复路径。',upgrade:'关注兼容性变化与新旧实现的一致性。',incident:'区分现场事实、诊断假设、止损动作和恢复证据。',operations:'先确认操作范围与授权，再核对执行结果和恢复条件。'};
 $('scenarios').append(el('h2','从一个具体例子理解'),el('p',sceneHints[task.kind]));const sceneButtons=el('div',undefined,'scene-buttons'),sceneContent=el('div');$('scenarios').append(sceneButtons,sceneContent);
 function scene(index){sceneContent.replaceChildren();[...sceneButtons.children].forEach((b,i)=>b.classList.toggle('active',i===index));const s=task.scenarios[index];card(sceneContent,s.title,s.kind==='simulation'?'设计模拟：用于理解预期行为，未证明实际实现成功。':'记录回放：来自任务提供的记录，请对照证据确认来源。');(s.steps||[]).forEach((step,i)=>{const n=el('div',undefined,'step');n.append(el('h3',`${i+1}. ${text(step.action)}`),el('p',text(step.result)));sceneContent.append(n);});}
@@ -93,9 +94,9 @@ $('operations').append(el('p','此页面不执行生产操作。建议动作、�
 recordCards('operations','诊断、操作与恢复',task.operations||[],[['id','编号'],['type','诊断 / 变更 / 止损 / 恢复'],['environment','环境与目标范围'],['impact','用户影响'],['observation','已观察事实'],['hypothesis','待验证假设'],['action','计划动作'],['authorization','授权来源与范围'],['stop_condition','停止条件'],['rollback','恢复办法'],['result','实际结果'],['verification','恢复验证'],['status','状态'],['owner','负责人']]);
 
 // STAGE_SCRIPT
-renderStages($('stage-views'), task);
+if(!stageInline)renderStages($('stage-views'), task);
 let materialCount=0;
-tabs.filter(([key])=>key!=='overview'&&key!=='decisions'&&populated[key]&&(workflow.visible_sections||[]).includes(key)).forEach(([key,label])=>{const fold=el('details',undefined,'material');fold.id='material-'+key;fold.append(el('summary',label));const content=$(key);content.hidden=false;fold.append(content);$('reading-tools').append(fold);materialCount++;});
+tabs.filter(([key])=>key!=='overview'&&key!=='decisions'&&!(stageInline&&key==='stage-views')&&populated[key]&&(workflow.visible_sections||[]).includes(key)).forEach(([key,label])=>{const fold=el('details',undefined,'material');fold.id='material-'+key;fold.append(el('summary',label));const content=$(key);content.hidden=false;fold.append(content);$('reading-tools').append(fold);materialCount++;});
 $('reading-tools').hidden=materialCount===0;
 
 </script></html>

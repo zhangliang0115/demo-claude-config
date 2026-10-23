@@ -176,8 +176,12 @@ def render(task_dir):
     template = template.replace('// VIEW_SCRIPT', view_scripts)
     if '/* REPORT_THEME */' in template:
         template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
-    replacements = {'__TASK_DATA__': payload, '__PAGE_TITLE__': html.escape(data['title'])}
-    output = re.sub('__TASK_DATA__|__PAGE_TITLE__', lambda match: replacements[match.group()], template)
+    replacements = {
+        '__TASK_DATA__': payload,
+        '__PAGE_TITLE__': html.escape(data['title']),
+        '__STAGE_LABEL__': html.escape(data['workflow_summary']['stage_label']),
+    }
+    output = re.sub('__TASK_DATA__|__PAGE_TITLE__|__STAGE_LABEL__', lambda match: replacements[match.group()], template)
     target = task_dir / 'report.html'
     target.write_text(output, encoding='utf-8')
     return target
