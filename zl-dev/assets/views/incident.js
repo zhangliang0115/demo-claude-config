@@ -4,7 +4,8 @@ function renderIncidentView(parent, task, ui) {
   const arr = value => Array.isArray(value) ? value : [];
   const text = value => value === undefined || value === null || value === '' ? '尚未采集' : typeof value === 'string' ? value : JSON.stringify(value);
   const ops = arr(task.operations);
-  const focus = task.focus_stage || (task.workflow_summary || {}).focus_stage || 'operations';
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage || 'operations';
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
   parent.classList.add('incident-workspace');
   const section = (title, cls) => { const node = el('section', undefined, cls || 'card'); node.append(el('h2', title)); parent.append(node); return node; };
   const field = (node, label, value) => { const line = el('p'); line.append(el('strong', label + '：'), el('span', text(value))); node.append(line); };
@@ -26,20 +27,23 @@ function renderIncidentView(parent, task, ui) {
   function recovery() {
     const box = section('是否真的恢复', 'card incident-recovery');
     const evidence = arr(task.evidence);
-    const stale = evidence.filter(e => e.stale === true || e.freshness === 'stale' || e.status === 'stale');
-    const passed = evidence.filter(e => ['pass', 'passed'].includes(e.status) && !stale.includes(e));
-    box.append(el('p', '记录 ' + evidence.length + ' 条 · 当前标记通过 ' + passed.length + ' 条 · 标记过期 ' + stale.length + ' 条。数量不构成恢复结论。'));
+    const verification = (task.workflow_summary || {}).verification;
+    const counts = verification && verification.current_status_counts;
+    box.append(el('p', counts && Number.isInteger(counts.passed) && Number.isInteger(verification.historical_evidence_count)
+      ? '记录 ' + evidence.length + ' 条 · 当前标记通过 ' + counts.passed + ' 条 · 历史记录 ' + verification.historical_evidence_count + ' 条。数量不构成恢复结论。'
+      : '记录 ' + evidence.length + ' 条 · 当前通过与历史数量尚未核对，不能据此认定恢复。'));
     const standards = arr(task.behaviors);
     if (!standards.length) field(box, '恢复标准', undefined);
     standards.forEach(b => field(box, '恢复标准 ' + text(b.id), b.after));
     if (!evidence.length) box.append(el('p', '尚未采集恢复证据。'));
     evidence.forEach(e => {
       const detail = el('details'); detail.append(el('summary', text(e.id) + ' · ' + text(e.status) + ' · ' + text(e.summary)));
+      detail.append(el('p', origin(e), 'evidence-origin'));
       [['source', '来源'], ['executed_at', '执行时间'], ['revision', '代码版本'], ['command', '验证命令'], ['freshness', '新鲜度'], ['stale', '过期标记']].forEach(([key, label]) => field(detail, label, e[key]));
       const snippet = e.output || e.snippet || e.raw || e.log;
       detail.append(el('pre', text(snippet))); box.append(detail);
     });
-    if (focus === 'acceptance') { const list = el('ol'); arr(task.acceptance).forEach(a => list.append(el('li', text(a)))); box.append(el('h3', '人工恢复核验'), list); }
+    if (focus === 'acceptance') { const list = el('ol'); (arr((((task.stage_details || {}).acceptance || {}).items)).length ? arr(task.stage_details.acceptance.items).map(item => [item.scenario,item.instruction,item.expected].filter(Boolean).join('；')) : arr(task.acceptance)).forEach(a => list.append(el('li', text(a)))); box.append(el('h3', '人工恢复核验'), list); }
     if (focus === 'release') field(box, '整体恢复 / 回滚办法', task.rollback);
   }
   if (focus === 'acceptance') { recovery(); actions(); } else { actions(); }

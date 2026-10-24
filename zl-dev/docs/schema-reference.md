@@ -61,3 +61,26 @@ continue [任务目录或 slug] --project /项目路径：省略任务时仅在�
 workflow_summary 是渲染时计算结果，不让 AI 填写完成度。指纹仅使用 semantic_contract 明确选择的行为字段；阶段 testing/review 的结果、handoffs、人员和展示摘要不参与。阶段 requirements/solution 的核心内容及 acceptance 预期仍参与。旧证据需重新验证。
 
 时间展示统一为 `yyyy-MM-dd HH:mm:ss`，时区 Asia/Shanghai（UTC+8）。原始数据保留带时区的 ISO 时间，页面与复制反馈格式化显示，不改变证据记录本身。
+
+## 显式执行与可重新核算的测试回执
+
+内部 CLI（不是新增斜杠命令）：
+
+```bash
+python3 scripts/reviewable.py verify /任务目录 --project /源码项目 --format unittest --behavior B1 --timeout 120 -- python3 -m unittest discover -s tests
+python3 scripts/reviewable.py verify /任务目录 --project /源码项目 --format junit --behavior B1 --behavior B2 --result-file /本次唯一结果路径.xml -- pytest --junitxml=/本次唯一结果路径.xml
+```
+
+只执行调用者显式提供的 argv，以绑定项目为 cwd、shell=False；不会从 task.json、HTML 或 prepare_command 读取并运行命令。调用者仍须检查实际测试的环境和外部连接。JUnit 结果必须为本轮新文件；建议放在源码外或 Git 忽略的测试输出目录，避免结果文件本身改变源码指纹。执行不保证测试真正覆盖所引用行为。
+
+每次运行在任务 `runs/verify-<唯一ID>/` 保留 stdout.log、stderr.log、receipt.json；JUnit 额外保存 result.xml。超时结束本次进程组并保留记录。回执记录 argv/cwd、开始结束时间、进程退出码、运行前后任务 revision 与代码/行为指纹、task 身份、行为引用、日志 SHA256 和解析统计。只在指纹和任务 revision 稳定时，以 CAS 追加独立 evidence，不修改已有证据，不渲染 HTML；冲突时只保留回执。返回 0 必须已追加证据、非零测试实际通过、没有跳过且版本稳定。
+
+支持 unittest 的唯一 Ran N + OK/FAILED 摘要及 JUnit 的实际 testcase；0 项、跳过项、未知格式、缺摘要、非零退出、超时均不能成为 passed。单个输入文件只解析前述 16 MiB 上限以内的完整内容，超出则不解析，不记通过；这个限制不限制子进程写盘量，执行期间的原始 stdout/stderr 可能很大。部分 skip 也采用保守策略，不记 passed；如需单独证明未跳过的相关行为，应显式选择并重跑独立检查，不能隐藏跳过项。输出中的测试名或日志可以被程序伪造；**日志解析不等价业务覆盖或身份认证，不抵抗有本地写权限者同时伪造日志与回执**。
+
+新增 evidence 可引用 `verification_receipt: {path: "runs/verify-.../receipt.json", sha256: "..."}`。报告/status 的 assessed 会重新检查回执哈希、任务与行为身份、原始日志哈希并重新解析；派生 `verification_source` 为 `parsed_result`、`claim`（旧记录/仅模型声明）或 `invalid`。合法解析派生 `parsed_result={format,counts:{total,passed,failed,errors,skipped},status}`；模型手填这两项会被覆盖。无效回执保留 `claimed_status`，有效 status 降为 not_run，不能使任务就绪。读取不会执行测试或改写文件。
+
+## 可选人工核验上下文
+
+`acceptance_setup` 可选对象，只允许字符串字段 `environment/prepare_command/entry_url/baseline/stop/notes`。entry_url 仅 http/https 或空；命令只展示，绝不自动执行。这些前置约定参与行为指纹，改变后旧证据过期。
+
+acceptance、release 阶段条目可选 `reviewed_revision`（字符串）、`reviewer_kind`（human/ai/unknown，旧记录默认 unknown）、`verification_mode`（manual/assisted/automated，旧记录默认 manual）。执行者与核验方式不能由页面替人认证。核验版本、执行者、actual/result 等反馈元数据不参与行为指纹；已定义的场景、操作与预期仍参与。

@@ -275,7 +275,7 @@ def project_snapshot(p):
         elif task.resolve() != path.resolve() and path.resolve() not in task.resolve().parents:
             raise ValueError('外部子任务必须明确绑定对应项目 project_path')
         snap['current_fingerprint'] = reviewable.fingerprint(task)
-        child = reviewable.assessed(child_data, snap['current_fingerprint'])
+        child = reviewable.assessed(child_data, snap['current_fingerprint'], task)
         version = child.get('contract_version') or child.get('feature', {}).get('contract_version', '')
         snap.update(task_id=child['id'], task_stage=child.get('stage', ''), task_contract_version=version, contract_match=bool(p.get('contract_version')) and version == p.get('contract_version'))
         if not snap['contract_match']:
@@ -289,6 +289,12 @@ def project_snapshot(p):
             counts['unresolved_current'] += int(e['freshness'] == '当前' and e.get('status') != 'passed')
         if not child.get('behaviors'):
             snap['issues'].append('尚无可验证的行为约定')
+        # Technical readiness consumes the same high-risk review gates as the child report.
+        # Business decisions remain visible in the child, rather than being mislabeled failed tests.
+        snap['technical_blockers'] = [b for b in child['workflow_summary']['blockers']
+                                      if b['type'] == 'review' and b['severity'] in {'P0', 'P1'}]
+        for blocker in snap['technical_blockers']:
+            snap['issues'].append('审查 ' + blocker['severity'] + ' ' + blocker['id'] + ': ' + blocker['summary'])
         snap['missing_behaviors'] = child['workflow_summary']['missing_verification_count']
         if snap['missing_behaviors'] or snap['evidence_counts']['unresolved_current']:
             snap['issues'].append('项目当前验证仍有未覆盖行为或未通过证据；历史证据保留供追溯')
@@ -315,7 +321,7 @@ def assessed(data):
     for p in result['projects']:
         previous = p.get('snapshot')
         current = project_snapshot(p)
-        p['snapshot_freshness'] = 'not_synced' if not previous else ('unknown' if not current['current_fingerprint'] else ('current' if all(previous.get(k) == current.get(k) for k in ('task_path', 'task_id', 'current_fingerprint', 'task_contract_version', 'contract_match', 'evidence_counts', 'task_stage', 'issues')) else 'stale'))
+        p['snapshot_freshness'] = 'not_synced' if not previous else ('unknown' if not current['current_fingerprint'] else ('current' if all(previous.get(k) == current.get(k) for k in ('task_path', 'task_id', 'current_fingerprint', 'task_contract_version', 'contract_match', 'evidence_counts', 'task_stage', 'technical_blockers', 'issues')) else 'stale'))
         issues.extend(p['id'] + ': ' + x for x in current['issues'])
         if result.get('contract_version') and p.get('contract_version') != result['contract_version']:
             issues.append(p['id'] + ': 项目基线落后于整体方案版本')

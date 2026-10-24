@@ -1,7 +1,8 @@
 /* Operations use a scoped runbook; the HTML never executes an operation. */
 function renderOperationsView(parent, task, ui) {
   const {el, card, list, text, show} = ui;
-  const focus = task.focus_stage || (task.workflow_summary || {}).focus_stage;
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage;
   const releasing = focus === 'release';
   const recovering = focus === 'acceptance';
   parent.classList.add('scene-operations');
@@ -23,10 +24,13 @@ function renderOperationsView(parent, task, ui) {
     results.append(el('h3', text(op.id)), el('p', '实际结果：' + text(op.result)), el('p', '恢复 / 结果核验：' + text(op.verification)));
   });
   (task.evidence || []).forEach(e => {
-    results.append(el('p', text(e.id) + ' · ' + text(e.status) + ' · ' + text(e.freshness)), el('p', text(e.summary)), el('p', '来源：' + text(e.source)));
+    results.append(el('p', text(e.id) + ' · ' + text(e.status) + ' · ' + text(e.freshness)), el('p', text(e.summary)), el('p', origin(e), 'evidence-origin'), el('p', '来源：' + text(e.source)));
   });
   if (!operations.length && !(task.evidence || []).length) results.append(el('p', '没有执行或恢复证据。'));
-  list(results, '人工核验', task.acceptance || []);
+  if (['testing', 'acceptance'].includes(focus)) {
+    const checks = (((task.stage_details || {}).acceptance || {}).items || []);
+    list(results, '人工核验', checks.length ? checks.map(item => [item.scenario, item.instruction, item.expected].filter(Boolean).join('；')) : task.acceptance || []);
+  }
   if (recovering) parent.append(results);
 
   if (releasing) {

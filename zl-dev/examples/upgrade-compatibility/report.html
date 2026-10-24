@@ -35,11 +35,14 @@ header .eyebrow{color:var(--accent);font-size:10px;font-weight:700;letter-spacin
 
 .acceptance-check label{font-size:12px;color:var(--muted)}.acceptance-check select{margin-left:8px}.acceptance-check textarea{min-height:62px}.acceptance-check>p{font-size:13px;margin:8px 0}.acceptance-check>h3{font-size:16px}.acceptance-check{box-shadow:none}
 
+/* Current action and human verification stay distinct from editable drafts. */
+.current-blockers{padding:10px 10px 10px 26px;background:#fff9ee;border-left:3px solid #bd9349;border-radius:5px}.optional-feedback{border-top:1px solid var(--line);padding-top:12px}.optional-feedback>summary{font-size:12px}.action-reason{color:#647083}.acceptance-setup{border:1px solid #dce2ef;background:#f8faff;padding:16px;border-radius:8px;margin:16px 0 22px}.setup-row{padding:8px 0;border-top:1px solid var(--line);font-size:12px}.setup-row strong{display:block;font-size:11px;color:var(--muted)}.setup-row p{margin:4px 0}.setup-row textarea{margin:6px 0;font-family:ui-monospace,monospace;font-size:11px}.recorded-review{padding:12px 14px;border-left:3px solid #acb5c7;background:var(--soft);margin:14px 0}.recorded-review h4{margin:0 0 6px}.recorded-review p{font-size:12px;margin:4px 0}.verification-mode,.evidence-origin{font-size:11px;color:var(--muted)}
+
 </style>
 <div class="report-toolbar"><a class="report-brand" href="#">ZL <span>DEV</span></a><div class="report-meta"><span id="task-id"></span><span id="stage"></span><time id="generated-time"></time></div><div id="demo-notice" hidden></div></div>
 <header class="report-hero"><p class="eyebrow" id="phase-heading"></p><h1 id="title"></h1><p id="summary" class="hero-summary"></p><dl id="reading-brief" class="hero-facts"></dl></header>
 <main><section class="panel" id="overview"></section><section class="reading-tools" id="reading-tools"><h2>补充依据与反馈</h2></section><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
-<script id="task-data" type="application/json">{"version": 1, "id": "upgrade-compatibility", "title": "技术升级：先检查兼容性", "kind": "upgrade", "summary": "升级运行环境并保持已有订单业务。", "why": "升级运行环境并保持已有订单业务。", "scope": "目标版本和依赖矩阵需在真实项目中确认。", "stage": "模拟模板 · 未操作真实环境", "behaviors": [{"id": "B1", "before": "旧环境运行结果", "after": "新环境同输入结果与旧环境一致", "status": "演示约定，未验证"}], "scenarios": [], "implementation": [], "decisions": [], "evidence": [], "risks": ["演示资料，不代表已实施或验证。"], "changes": [], "acceptance": ["真实执行后记录观察结果；本示例不能作为通过证据。"], "rollback": "待真实任务设计恢复办法。", "roles": [], "assumptions": [], "design": [], "handoffs": [], "timeline": [], "focus_stage": "implementation", "stage_details": {}, "operations": [], "demo": {"category": "工程", "purpose": "看兼容性、试点顺序及新旧对比证据", "read_order": ["先读任务目标", "看本场景的主要事实和例子", "处理当前动作或反馈"], "simulation": true, "order": 99}, "generated_at": "2026-10-23T23:05:41.928088+00:00", "current_fingerprint": "74e240042190c9c2c0cef1884c575929ce9a9c5bf33dc8fb23e10011722518c4", "workflow_summary": {"visible_sections": ["implementation", "behavior", "decisions", "stage-views"], "page_purpose": "理解版本兼容性和升级范围", "read_first": "兼容性差异与试点，再看行为对比", "human_action": "确认接受的变化，并核对未验证项", "step": "implement", "focus_stage": "implementation", "stage_label": "开发中", "action_owner": "AI", "next_action": "AI 实现“新环境同输入结果与旧环境一致”的最小切片，并验证相关行为。", "visible_result": "升级运行环境并保持已有订单业务。", "missing_verification_count": 1, "stale_evidence_count": 0, "unresolved_current_evidence_count": 0, "pending_decision_count": 0}, "stage_catalog": {"requirements": {"title": "需求理解", "focus": "核对原始描述与解释，明确边界和验收例子。", "fields": [["original", "原始描述"], ["interpretation", "理解结果"], ["boundary", "范围与非目标"], ["example", "验收例子"]]}, "solution": {"title": "方案设计", "focus": "并排比较候选方案、交互路径和取舍。", "fields": [["name", "方案名称"], ["approach", "如何工作"], ["benefit", "收益"], ["cost", "成本与代价"], ["risk", "风险"], ["flow", "交互或架构流程"]]}, "handoff": {"title": "下发与接手", "focus": "对照交出内容与接收者复述，暴露理解差异。", "fields": [["deliverable", "交出范围与版本"], ["receiver", "接收人"], ["readback", "接收者理解"], ["gap", "差异与疑问"], ["next_action", "第一步"]]}, "implementation": {"title": "实施过程", "focus": "对照计划与实际，解释变更和影响。", "fields": [["planned", "计划切片"], ["actual", "实际实现"], ["deviation", "偏差与原因"], ["impact", "影响范围"], ["source", "代码位置"]]}, "review": {"title": "代码审查", "focus": "按严重程度查看发现、修复和复查证据。", "fields": [["severity", "严重程度"], ["finding", "发现与成立条件"], ["source", "代码位置"], ["fix", "修复说明"], ["recheck", "复查结果"]]}, "testing": {"title": "自动测试与 E2E", "focus": "逐步查看预期、实际与证据；模拟不代表执行。", "fields": [["case", "测试场景"], ["mode", "simulation / recorded"], ["environment", "环境与前置条件"], ["expected", "预期结果"], ["actual", "实际结果"], ["source", "日志或截图位置"]]}, "acceptance": {"title": "人工验收", "focus": "人亲自核验关键场景；页面选择只生成草稿。", "fields": [["scenario", "验收场景"], ["instruction", "操作步骤"], ["expected", "预期"], ["actual", "人工实际观察"], ["reviewer", "核验人"], ["result", "接受 / 退回 / 未核验"]]}, "release": {"title": "发布与回滚", "focus": "核对放行条件、观察指标、停止条件及恢复办法。", "fields": [["check", "发布检查项"], ["environment", "目标环境"], ["authorization", "授权记录"], ["metric", "观察指标及阈值"], ["stop", "停止条件"], ["rollback", "回退步骤"], ["actual", "执行结果"]]}, "operations": {"title": "运维与复盘", "focus": "沿事件时间线区分事实、假设、动作与恢复证据。", "fields": [["at", "时间"], ["observation", "事实与影响"], ["hypothesis", "诊断假设"], ["action", "动作及授权"], ["verification", "恢复指标 / 用户路径"], ["followup", "防复发行动及负责人"]]}}, "kind_label": "技术升级：兼容性与行为对比"}</script>
+<script id="task-data" type="application/json">{"version": 1, "id": "upgrade-compatibility", "title": "技术升级：先检查兼容性", "kind": "upgrade", "summary": "升级运行环境并保持已有订单业务。", "why": "升级运行环境并保持已有订单业务。", "scope": "目标版本和依赖矩阵需在真实项目中确认。", "stage": "模拟模板 · 未操作真实环境", "behaviors": [{"id": "B1", "before": "旧环境运行结果", "after": "新环境同输入结果与旧环境一致", "status": "演示约定，未验证"}], "scenarios": [], "implementation": [], "decisions": [], "evidence": [], "risks": ["演示资料，不代表已实施或验证。"], "changes": [], "acceptance": ["真实执行后记录观察结果；本示例不能作为通过证据。"], "rollback": "待真实任务设计恢复办法。", "roles": [], "assumptions": [], "design": [], "handoffs": [], "timeline": [], "focus_stage": "implementation", "stage_details": {}, "operations": [], "demo": {"category": "工程", "purpose": "看兼容性、试点顺序及新旧对比证据", "read_order": ["先读任务目标", "看本场景的主要事实和例子", "处理当前动作或反馈"], "simulation": true, "order": 99}, "generated_at": "2026-10-24T08:05:59.480316+00:00", "current_fingerprint": "449948a74a1cf0f69fd14cedfbdbf7181b18be2f93087ca151c1ba1a1c1817c3", "workflow_summary": {"visible_sections": ["implementation", "behavior", "decisions", "stage-views"], "page_purpose": "理解版本兼容性和升级范围", "read_first": "兼容性差异与试点，再看行为对比", "human_action": "确认接受的变化，并核对未验证项", "step": "implement", "focus_stage": "implementation", "requested_focus_stage": "implementation", "stage_label": "开发中", "action_owner": "AI", "next_action": "AI 实现“新环境同输入结果与旧环境一致”的最小切片，并验证相关行为。", "primary_action": {"owner": "AI", "title": "AI 实现“新环境同输入结果与旧环境一致”的最小切片，并验证相关行为。", "reason": "行为已明确，尚无实际实施记录。", "kind": "implement"}, "blockers": [], "review_warnings": [], "verification": {"covered_behavior_ids": [], "missing_behavior_ids": ["B1"], "current_unresolved_evidence_ids": [], "historical_evidence_count": 0, "current_source_counts": {"claim": 0, "parsed_result": 0, "invalid": 0}, "current_status_counts": {"passed": 0, "failed": 0, "blocked": 0, "not_run": 0, "unknown": 0}, "historical_status_counts": {"passed": 0, "failed": 0, "blocked": 0, "not_run": 0, "unknown": 0}}, "visible_result": "升级运行环境并保持已有订单业务。", "missing_verification_count": 1, "stale_evidence_count": 0, "unresolved_current_evidence_count": 0, "pending_decision_count": 0}, "stage_catalog": {"requirements": {"title": "需求理解", "focus": "核对原始描述与解释，明确边界和验收例子。", "fields": [["original", "原始描述"], ["interpretation", "理解结果"], ["boundary", "范围与非目标"], ["example", "验收例子"]]}, "solution": {"title": "方案设计", "focus": "并排比较候选方案、交互路径和取舍。", "fields": [["name", "方案名称"], ["approach", "如何工作"], ["benefit", "收益"], ["cost", "成本与代价"], ["risk", "风险"], ["flow", "交互或架构流程"]]}, "handoff": {"title": "下发与接手", "focus": "对照交出内容与接收者复述，暴露理解差异。", "fields": [["deliverable", "交出范围与版本"], ["receiver", "接收人"], ["readback", "接收者理解"], ["gap", "差异与疑问"], ["next_action", "第一步"]]}, "implementation": {"title": "实施过程", "focus": "对照计划与实际，解释变更和影响。", "fields": [["planned", "计划切片"], ["actual", "实际实现"], ["deviation", "偏差与原因"], ["impact", "影响范围"], ["source", "代码位置"]]}, "review": {"title": "代码审查", "focus": "按严重程度查看发现、修复和复查证据。", "fields": [["severity", "严重程度"], ["finding", "发现与成立条件"], ["source", "代码位置"], ["fix", "修复说明"], ["recheck", "复查结果"]]}, "testing": {"title": "自动测试与 E2E", "focus": "逐步查看预期、实际与证据；模拟不代表执行。", "fields": [["case", "测试场景"], ["mode", "simulation / recorded"], ["environment", "环境与前置条件"], ["expected", "预期结果"], ["actual", "实际结果"], ["source", "日志或截图位置"]]}, "acceptance": {"title": "人工验收", "focus": "人亲自核验关键场景；页面选择只生成草稿。", "fields": [["scenario", "验收场景"], ["instruction", "操作步骤"], ["expected", "预期"], ["actual", "人工实际观察"], ["reviewer", "核验人"], ["result", "接受 / 退回 / 未核验"]]}, "release": {"title": "发布与回滚", "focus": "核对放行条件、观察指标、停止条件及恢复办法。", "fields": [["check", "发布检查项"], ["environment", "目标环境"], ["authorization", "授权记录"], ["metric", "观察指标及阈值"], ["stop", "停止条件"], ["rollback", "回退步骤"], ["actual", "执行结果"]]}, "operations": {"title": "运维与复盘", "focus": "沿事件时间线区分事实、假设、动作与恢复证据。", "fields": [["at", "时间"], ["observation", "事实与影响"], ["hypothesis", "诊断假设"], ["action", "动作及授权"], ["verification", "恢复指标 / 用户路径"], ["followup", "防复发行动及负责人"]]}}, "kind_label": "技术升级：兼容性与行为对比"}</script>
 <script>
 'use strict';
 function formatTimes(value){return String(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g,stamp=>{const time=new Date(stamp);if(Number.isNaN(time.getTime()))return stamp;const d=new Date(time.getTime()+8*60*60*1000),pad=n=>String(n).padStart(2,'0');return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());});}
@@ -57,6 +60,7 @@ function feedbackComposer(parent,task,stage,buildBody){
   button.onclick=async()=>{const value=preview.value;try{if(!navigator.clipboard||!navigator.clipboard.writeText)throw new Error('Clipboard unavailable');await navigator.clipboard.writeText(value);status.textContent=preview.value===value?'反馈已复制，请粘贴到开发会话。':'已复制点击时的反馈；内容已变化，请重新复制。';}catch(_){box.querySelector('details').open=true;preview.focus();preview.select();preview.setSelectionRange(0,preview.value.length);status.textContent='浏览器未能自动复制，已选中文本，请按 Ctrl+C 或 Cmd+C 复制。';}};
   const detail=el('details',undefined,'feedback-preview');detail.append(el('summary','查看将复制的内容'),label);const actions=el('div',undefined,'feedback-actions');actions.append(button,status);box.append(actions,detail);parent.append(box);update();return update;
 }
+function evidenceOrigin(e){return e.verification_source==='parsed_result'?'结构化结果已解析；仍需核对执行环境与原始来源。':e.verification_source==='invalid'?'结果回执无效 · 不可采信，已降级为未执行，请重新验证。':'模型记录 · 尚未独立解析结果，不是执行真实性证明。';}
 function card(parent,title,body){const n=el('article',undefined,'card');n.append(el('h3',title),el('p',text(body)));parent.append(n);return n;}
 function list(parent,title,items){const c=card(parent,title,items.length?'':'尚未记录');if(items.length){c.lastChild.remove();const ul=el('ul');items.forEach(x=>ul.append(el('li',text(x))));c.append(ul);}return c;}
 $('title').textContent=task.title;$('task-id').textContent=text(task.id);$('generated-time').textContent=formatTimes(task.generated_at||'');$('summary').textContent=text(task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage);$('phase-heading').textContent='当前阶段 · '+$('stage').textContent;document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
@@ -72,12 +76,20 @@ if(task.demo===true||(task.demo&&task.demo.simulation===true)){
 
 const evidenceRecords=task.evidence||[];
 const pendingDecisions=(task.decisions||[]).filter(d=>d.status!=='confirmed');
-const uncovered=(task.behaviors||[]).filter(b=>!evidenceRecords.some(e=>(e.behavior_ids||[]).includes(b.id)&&e.status==='passed'&&e.freshness==='当前')).length;
-const stale=evidenceRecords.filter(e=>e.freshness&&e.freshness!=='当前').length;
+const verification=workflow.verification||{};
+const uncovered=verification.missing_behavior_ids?.length??workflow.missing_verification_count??0;
+const stale=verification.historical_evidence_count??workflow.stale_evidence_count??0;
+const unresolved=verification.current_unresolved_evidence_ids?.length??workflow.unresolved_current_evidence_count??0;
+const primary=workflow.primary_action||{owner:workflow.action_owner,action:workflow.next_action};
+const humanPrimary=primary.owner==='你'||primary.owner==='human';
 const decision=pendingDecisions[0];
 const layout=$('overview'),story=el('div',undefined,'report-story'),sidebar=el('aside',undefined,'review-sidebar');
 layout.classList.add('report-layout');layout.append(story,sidebar);
-const next=el('article',undefined,'decision-panel');next.append(el('p',workflow.action_owner==='AI'?'下一步工作':'待你确认','eyebrow'),el('h2',decision?text(decision.question):'接下来做什么'));
+const next=el('article',undefined,'decision-panel');next.dataset.actionOwner=primary.owner||'unknown';next.append(el('p',humanPrimary?'现在需要你':'AI 继续处理','eyebrow'),el('h2',text(humanPrimary&&primary.kind==='decide'&&decision?.question?decision.question:(primary.title||primary.action||workflow.next_action||'当前行动待核实'))));
+if(primary.reason)next.append(el('p',text(primary.reason),'action-reason'));
+const blockers=(workflow.blockers||[]).filter(b=>typeof b==='string'||b.type!=='decision');
+if(blockers.length){const blocked=el('ul',undefined,'current-blockers'),line=b=>el('li',typeof b==='string'?b:text(b.summary||b.message||b.reason||b.label||b.action||b.title));blockers.slice(0,3).forEach(b=>blocked.append(line(b)));next.append(blocked);if(blockers.length>3){const more=el('details'),rest=el('ul');more.append(el('summary','还有 '+(blockers.length-3)+' 项待处理'));blockers.slice(3).forEach(b=>rest.append(line(b)));more.append(rest);next.append(more);}}
+let feedbackHost=next;if(!humanPrimary){feedbackHost=el('details',undefined,'optional-feedback');feedbackHost.append(el('summary','其他待决与反馈（AI 需先处理当前阻塞）'));next.append(feedbackHost);}
 const notes=Object.create(null);let updateDecisionFeedback=()=>{};
 function decisionInput(parent,d,primary){
  if(d.reason)parent.append(el('p',text(d.reason),'decision-context'));
@@ -86,11 +98,11 @@ function decisionInput(parent,d,primary){
  if(d.impact)parent.append(el('p','影响：'+text(d.impact),'muted'));
  const label=el('label','补充意见（选填）','feedback-label'),area=el('textarea');area.rows=2;area.placeholder='填写条件、疑问或其他选择…';area.setAttribute('aria-label',`${d.id} 决策草稿`);area.oninput=()=>{notes[d.id+'-comment']=area.value;updateDecisionFeedback();};label.append(area);parent.append(label);
 }
-if(decision)decisionInput(next,decision,true);
-else {next.append(el('p',workflow.next_action||'核对当前阶段结果，记录你的反馈。'));const label=el('label','你的反馈','feedback-label'),area=el('textarea');area.rows=3;area.setAttribute('aria-label','当前阶段反馈');area.placeholder='哪里符合预期，哪里还需要调整？';area.oninput=()=>{notes.general=area.value;updateDecisionFeedback();};label.append(area);next.append(label);}
-if(pendingDecisions.length>1){const more=el('details',undefined,'more-decisions');more.append(el('summary','还有 '+(pendingDecisions.length-1)+' 项待确认'));pendingDecisions.slice(1).forEach(d=>{const item=el('section');item.append(el('h3',text(d.question)));decisionInput(item,d,false);more.append(item);});next.append(more);}
+if(decision){if(!humanPrimary)feedbackHost.append(el('h3',text(decision.question)));decisionInput(feedbackHost,decision,true);}
+else {const label=el('label','你的反馈','feedback-label'),area=el('textarea');area.rows=3;area.setAttribute('aria-label','当前阶段反馈');area.placeholder='哪里符合预期，哪里还需要调整？';area.oninput=()=>{notes.general=area.value;updateDecisionFeedback();};label.append(area);feedbackHost.append(label);}
+if(pendingDecisions.length>1){const more=el('details',undefined,'more-decisions');more.append(el('summary','还有 '+(pendingDecisions.length-1)+' 项待确认'));pendingDecisions.slice(1).forEach(d=>{const item=el('section');item.append(el('h3',text(d.question)));decisionInput(item,d,false);more.append(item);});feedbackHost.append(more);}
 sidebar.append(next);
-updateDecisionFeedback=feedbackComposer(next,task,workflow.stage_label||task.stage,()=>{const body=pendingDecisions.map(d=>{const choice=(notes[d.id]||'').trim(),comment=(notes[d.id+'-comment']||'').trim();return choice||comment?`问题 ${d.id}：${d.question}\n我的判断：${choice||'尚未选择'}${comment?'\n补充：'+comment:''}`:'';}).filter(Boolean);if((notes.general||'').trim())body.push(notes.general.trim());return body.join('\n\n');});
+updateDecisionFeedback=feedbackComposer(feedbackHost,task,workflow.stage_label||task.stage,()=>{const body=pendingDecisions.map(d=>{const choice=(notes[d.id]||'').trim(),comment=(notes[d.id+'-comment']||'').trim();return choice||comment?`问题 ${d.id}：${d.question}\n我的判断：${choice||'尚未选择'}${comment?'\n补充：'+comment:''}`:'';}).filter(Boolean);if((notes.general||'').trim())body.push(notes.general.trim());return body.join('\n\n');});
 /* Phase-specific editorial documents; controls remain in the shared decision rail. */
 function renderFeatureView(parent, task, ui) {
   const {el, text} = ui;
@@ -113,7 +125,7 @@ function renderFeatureView(parent, task, ui) {
     if(scenarios.length>1)box.append(controls);box.append(caption,flow);draw(0);
   }
   function behavior(){const box=section('业务变化与保持项'),rows=el('div',undefined,'document-rows');(task.behaviors||[]).forEach(b=>{const item=el('div',undefined,'behavior-comparison');item.append(el('span',text(b.id),'muted'));row(item,'原来',b.before);row(item,'现在',b.after);if(b.status)item.append(el('p',text(b.status),'muted'));rows.append(item);});box.append(rows);if(!(task.behaviors||[]).length)box.append(el('p','尚未记录具体行为约定。','muted'));}
-  function evidence(){const box=section('验证结果','仅实际执行的记录支持验收；演示不等于验证通过。');(task.evidence||[]).forEach(e=>{const r=el('div',undefined,'evidence-line');r.append(el('span',text(e.status)+' · '+text(e.freshness),'badge'),el('h3',text(e.summary)));const d=el('details');d.append(el('summary','核对执行记录'));row(d,'命令',e.command);row(d,'版本',e.revision);r.append(d);box.append(r);});if(!(task.evidence||[]).length)box.append(el('p','尚无执行证据。','muted'));items('testing').forEach(t=>{const r=el('div',undefined,'document-row');r.append(el('strong',text(t.case)));row(r,'预期',t.expected);row(r,'实际',t.actual);box.append(r);});}
+  function evidence(){const box=section('验证结果','仅实际执行的记录支持验收；演示不等于验证通过。');(task.evidence||[]).forEach(e=>{const r=el('div',undefined,'evidence-line');r.append(el('span',text(e.status)+' · '+text(e.freshness),'badge'),el('h3',text(e.summary)));r.append(el('p',evidenceOrigin(e),'evidence-origin'));const d=el('details');d.append(el('summary','核对执行记录'));if(e.verification_source==='parsed_result'&&e.parsed_result)row(d,'解析结果',e.parsed_result);row(d,'命令',e.command);row(d,'版本',e.revision);r.append(d);box.append(r);});if(!(task.evidence||[]).length)box.append(el('p','尚无执行证据。','muted'));items('testing').forEach(t=>{const r=el('div',undefined,'document-row');r.append(el('strong',text(t.case)));row(r,'预期',t.expected);row(r,'实际',t.actual);box.append(r);});}
   if(stage==='requirements'){
     const box=section('需求是这样理解的');items('requirements').forEach(r=>{row(box,'原始描述',r.original);row(box,'当前理解',r.interpretation);row(box,'待明确边界',r.boundary);});if(!items('requirements').length)box.append(el('p',text(task.why||task.summary)));
     stories('用户将如何操作');behavior();
@@ -125,7 +137,7 @@ function renderFeatureView(parent, task, ui) {
     if(!designs.length&&!items('solution').length)box.append(el('p','方案尚未记录，需要先核对现有系统。','muted'));
     behavior();
   }else if(stage==='testing'||stage==='acceptance'){
-    const box=section('按这些步骤验收'),steps=el('ol',undefined,'acceptance-list');(task.acceptance||[]).forEach(a=>steps.append(el('li',text(a))));box.append(steps);
+    const box=section('按这些步骤验收');if(!items('acceptance').length){const steps=el('ol',undefined,'acceptance-list');(task.acceptance||[]).forEach(a=>steps.append(el('li',text(a))));box.append(steps);}
     items('acceptance').forEach(a=>{const line=el('article',undefined,'document-rows');line.append(el('h3',text(a.scenario)));row(line,'操作',a.instruction);row(line,'预期',a.expected);row(line,'实际',a.actual);row(line,'结果',a.result);box.append(line);});stories('核对完整业务路径');evidence();
   }else{
     const box=section('本轮实际完成的内容');items('implementation').forEach(r=>{const line=el('article',undefined,'design-line');line.append(el('h3',text(r.planned)));row(line,'实际',r.actual);row(line,'偏差',r.deviation);row(line,'影响',r.impact);row(line,'代码位置',r.source);box.append(line);});(task.implementation||[]).forEach(r=>{const line=el('article',undefined,'design-line');line.append(el('h3',typeof r==='string'?r:text(r.title)));if(typeof r!=='string'){line.append(el('p',text(r.description)));row(line,'代码位置',r.files);}box.append(line);});if(!box.querySelector('article'))box.append(el('p','尚无实施记录。设计方案不代表已经实现。','muted'));behavior();evidence();
@@ -136,6 +148,7 @@ function renderFeatureView(parent, task, ui) {
 /* Bug investigation is an evidence trail, rather than a project dashboard. */
 function renderBugfixView(parent, task, ui) {
   const {el, card, list, text, show} = ui;
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
   parent.classList.add('scene-bugfix');
   parent.append(el('h2', '哪里出错了，为什么会错'));
   card(parent, '故障现象', task.summary);
@@ -184,7 +197,7 @@ function renderBugfixView(parent, task, ui) {
   const proof = el('article', undefined, 'card');
   proof.append(el('h2', '实际证据'));
   (task.evidence || []).forEach(item => {
-    proof.append(el('h3', text(item.id) + ' · ' + text(item.status)), el('p', text(item.summary)), el('p', '来源：' + text(item.source)), el('p', '有效性：' + text(item.freshness)));
+    proof.append(el('h3', text(item.id) + ' · ' + text(item.status)), el('p', text(item.summary)), el('p', origin(item), 'evidence-origin'), el('p', '来源：' + text(item.source)), el('p', '有效性：' + text(item.freshness)));
   });
   if (!(task.evidence || []).length) proof.append(el('p', '尚无运行证据，根因与修复效果均待验证。'));
   causes.append(hypothesis, proof); parent.append(causes);
@@ -204,7 +217,12 @@ function renderBugfixView(parent, task, ui) {
     regression.append(el('h3', text(test.case || test.title || test.id)), el('p', '预期：' + text(test.expected)), el('p', '实际：' + text(test.actual)), el('p', '状态：' + text(test.status) + ' · 记录类型：' + text(test.mode)), el('p', '证据：' + text(test.evidence_ids)));
   });
   if (!tests.length) regression.append(el('p', '尚无回归记录；需检查原始复现是否消失及相关行为是否保持。'));
-  list(regression, '人工核验', task.acceptance || []); parent.append(regression);
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage;
+  if (['testing', 'acceptance'].includes(focus)) {
+    const checks = (((task.stage_details || {}).acceptance || {}).items || []);
+    list(regression, '人工核验', checks.length ? checks.map(item => [item.scenario, item.instruction, item.expected].filter(Boolean).join('；')) : task.acceptance || []);
+  }
+  parent.append(regression);
   const next = card(parent, '现在该做什么', (task.workflow_summary || {}).next_action || '补齐复现与根因证据，再判断修复效果。');
   next.classList.add('scene-action');
   if ((task.decisions || []).some(item => item.status !== 'confirmed')) {
@@ -218,7 +236,8 @@ function renderIncidentView(parent, task, ui) {
   const arr = value => Array.isArray(value) ? value : [];
   const text = value => value === undefined || value === null || value === '' ? '尚未采集' : typeof value === 'string' ? value : JSON.stringify(value);
   const ops = arr(task.operations);
-  const focus = task.focus_stage || (task.workflow_summary || {}).focus_stage || 'operations';
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage || 'operations';
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
   parent.classList.add('incident-workspace');
   const section = (title, cls) => { const node = el('section', undefined, cls || 'card'); node.append(el('h2', title)); parent.append(node); return node; };
   const field = (node, label, value) => { const line = el('p'); line.append(el('strong', label + '：'), el('span', text(value))); node.append(line); };
@@ -240,20 +259,23 @@ function renderIncidentView(parent, task, ui) {
   function recovery() {
     const box = section('是否真的恢复', 'card incident-recovery');
     const evidence = arr(task.evidence);
-    const stale = evidence.filter(e => e.stale === true || e.freshness === 'stale' || e.status === 'stale');
-    const passed = evidence.filter(e => ['pass', 'passed'].includes(e.status) && !stale.includes(e));
-    box.append(el('p', '记录 ' + evidence.length + ' 条 · 当前标记通过 ' + passed.length + ' 条 · 标记过期 ' + stale.length + ' 条。数量不构成恢复结论。'));
+    const verification = (task.workflow_summary || {}).verification;
+    const counts = verification && verification.current_status_counts;
+    box.append(el('p', counts && Number.isInteger(counts.passed) && Number.isInteger(verification.historical_evidence_count)
+      ? '记录 ' + evidence.length + ' 条 · 当前标记通过 ' + counts.passed + ' 条 · 历史记录 ' + verification.historical_evidence_count + ' 条。数量不构成恢复结论。'
+      : '记录 ' + evidence.length + ' 条 · 当前通过与历史数量尚未核对，不能据此认定恢复。'));
     const standards = arr(task.behaviors);
     if (!standards.length) field(box, '恢复标准', undefined);
     standards.forEach(b => field(box, '恢复标准 ' + text(b.id), b.after));
     if (!evidence.length) box.append(el('p', '尚未采集恢复证据。'));
     evidence.forEach(e => {
       const detail = el('details'); detail.append(el('summary', text(e.id) + ' · ' + text(e.status) + ' · ' + text(e.summary)));
+      detail.append(el('p', origin(e), 'evidence-origin'));
       [['source', '来源'], ['executed_at', '执行时间'], ['revision', '代码版本'], ['command', '验证命令'], ['freshness', '新鲜度'], ['stale', '过期标记']].forEach(([key, label]) => field(detail, label, e[key]));
       const snippet = e.output || e.snippet || e.raw || e.log;
       detail.append(el('pre', text(snippet))); box.append(detail);
     });
-    if (focus === 'acceptance') { const list = el('ol'); arr(task.acceptance).forEach(a => list.append(el('li', text(a)))); box.append(el('h3', '人工恢复核验'), list); }
+    if (focus === 'acceptance') { const list = el('ol'); (arr((((task.stage_details || {}).acceptance || {}).items)).length ? arr(task.stage_details.acceptance.items).map(item => [item.scenario,item.instruction,item.expected].filter(Boolean).join('；')) : arr(task.acceptance)).forEach(a => list.append(el('li', text(a)))); box.append(el('h3', '人工恢复核验'), list); }
     if (focus === 'release') field(box, '整体恢复 / 回滚办法', task.rollback);
   }
   if (focus === 'acceptance') { recovery(); actions(); } else { actions(); }
@@ -279,7 +301,8 @@ function renderIncidentView(parent, task, ui) {
 /* Operations use a scoped runbook; the HTML never executes an operation. */
 function renderOperationsView(parent, task, ui) {
   const {el, card, list, text, show} = ui;
-  const focus = task.focus_stage || (task.workflow_summary || {}).focus_stage;
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage;
   const releasing = focus === 'release';
   const recovering = focus === 'acceptance';
   parent.classList.add('scene-operations');
@@ -301,10 +324,13 @@ function renderOperationsView(parent, task, ui) {
     results.append(el('h3', text(op.id)), el('p', '实际结果：' + text(op.result)), el('p', '恢复 / 结果核验：' + text(op.verification)));
   });
   (task.evidence || []).forEach(e => {
-    results.append(el('p', text(e.id) + ' · ' + text(e.status) + ' · ' + text(e.freshness)), el('p', text(e.summary)), el('p', '来源：' + text(e.source)));
+    results.append(el('p', text(e.id) + ' · ' + text(e.status) + ' · ' + text(e.freshness)), el('p', text(e.summary)), el('p', origin(e), 'evidence-origin'), el('p', '来源：' + text(e.source)));
   });
   if (!operations.length && !(task.evidence || []).length) results.append(el('p', '没有执行或恢复证据。'));
-  list(results, '人工核验', task.acceptance || []);
+  if (['testing', 'acceptance'].includes(focus)) {
+    const checks = (((task.stage_details || {}).acceptance || {}).items || []);
+    list(results, '人工核验', checks.length ? checks.map(item => [item.scenario, item.instruction, item.expected].filter(Boolean).join('；')) : task.acceptance || []);
+  }
   if (recovering) parent.append(results);
 
   if (releasing) {
@@ -341,6 +367,7 @@ function renderOperationsView(parent, task, ui) {
 /* Engineering task kinds use different evidence and explanation structures. */
 function renderEngineeringView(parent, task, ui) {
   const {el, card, list, text, show} = ui;
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
   const kind = task.kind || 'refactor';
   parent.dataset.layout = 'engineering-' + kind;
   parent.classList.add('scene-engineering-' + kind);
@@ -355,7 +382,7 @@ function renderEngineeringView(parent, task, ui) {
   }
   function evidence(title) {
     const section = box(title, '未运行、模拟、过期与真实执行结果应按原状态判断。');
-    (task.evidence || []).forEach(e => card(section, text(e.id) + ' · ' + text(e.status)+' · '+text(e.freshness), text(e.summary) + '\n命令：' + text(e.command) + '\n版本：' + text(e.revision)));
+    (task.evidence || []).forEach(e => card(section, text(e.id) + ' · ' + text(e.status)+' · '+text(e.freshness), origin(e) + '\n' + text(e.summary) + '\n命令：' + text(e.command) + '\n版本：' + text(e.revision)));
     rows('testing').forEach(t => card(section, text(t.case), '模式：' + text(t.mode) + '\n环境：' + text(t.environment) + '\n预期：' + text(t.expected) + '\n实际：' + text(t.actual) + '\n来源：' + text(t.source)));
     if (!(task.evidence || []).length && !rows('testing').length) section.append(el('p', '未记录执行证据，无法判断结果。'));
   }
@@ -389,19 +416,23 @@ function renderEngineeringView(parent, task, ui) {
     if (!(task.behaviors || []).length) invariants.append(el('p', '尚未记录行为不变量。'));
     implementation('结构调整切片'); evidence('回归验证');
   }
-  list(parent, '人工核对', task.acceptance || []);
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage;
+  if (['testing', 'acceptance'].includes(focus)) {
+    const checks = rows('acceptance');
+    list(parent, '人工核对', checks.length ? checks.map(item => [item.scenario, item.instruction, item.expected].filter(Boolean).join('；')) : task.acceptance || []);
+  }
   const action = box('反馈本轮结果', '记录发现的问题或需要补充的验证。');
   const button = el('button', '填写并复制反馈'); button.onclick = () => show('decisions'); action.append(button);
 }
 
 const viewRoot=el('div');story.append(viewRoot);
-const viewUI={el,card,list,text,show};
+const viewUI={el,card,list,text,show,evidenceOrigin};
 const renderView=task.kind==='incident'?renderIncidentView:task.kind==='bugfix'?renderBugfixView:task.kind==='operations'?renderOperationsView:['refactor','performance','migration','upgrade'].includes(task.kind)?renderEngineeringView:renderFeatureView;
 const stageInline=['acceptance','release'].includes(workflow.focus_stage)&&populated['stage-views'];
 if(stageInline)renderStages(viewRoot,task);else renderView(viewRoot,task,viewUI);
 const checks=el('details');checks.append(el('summary','本阶段的范围与风险'));
-if(['review','testing','acceptance','operations','release'].includes(workflow.focus_stage))card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${stale} 条证据需要重新核对。`);
-if(!stageInline&&['testing','acceptance','release'].includes(workflow.focus_stage))list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);story.append(checks);
+if(['review','testing','acceptance','operations','release'].includes(workflow.focus_stage))card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${unresolved} 条当前验证尚未解决；${stale} 条历史或未知证据需核对。`);
+if(!stageInline&&['testing','acceptance','release'].includes(workflow.focus_stage)&&!(((task.stage_details||{}).acceptance||{}).items||[]).length)list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);story.append(checks);
 const sceneHints={feature:'选择用户操作，理解正常及异常路径。',change:'比较规则调整前后，关注历史数据和生效范围。',bugfix:'先看复现条件，再看修复如何阻断问题。',refactor:'结构可以变化，对外行为应保持。',performance:'比较相同条件下的基线与结果。',migration:'核对数据转换、异常处理和恢复路径。',upgrade:'关注兼容性变化与新旧实现的一致性。',incident:'区分现场事实、诊断假设、止损动作和恢复证据。',operations:'先确认操作范围与授权，再核对执行结果和恢复条件。'};
 $('scenarios').append(el('h2','从一个具体例子理解'),el('p',sceneHints[task.kind]));const sceneButtons=el('div',undefined,'scene-buttons'),sceneContent=el('div');$('scenarios').append(sceneButtons,sceneContent);
 function scene(index){sceneContent.replaceChildren();[...sceneButtons.children].forEach((b,i)=>b.classList.toggle('active',i===index));const s=task.scenarios[index];card(sceneContent,s.title,s.kind==='simulation'?'设计模拟：用于理解预期行为，未证明实际实现成功。':'记录回放：来自任务提供的记录，请对照证据确认来源。');(s.steps||[]).forEach((step,i)=>{const n=el('div',undefined,'step');n.append(el('h3',`${i+1}. ${text(step.action)}`),el('p',text(step.result)));sceneContent.append(n);});}
@@ -411,7 +442,7 @@ function rows(){table.replaceChildren();const head=el('tr');['编号','原来','
 $('implementation').append(el('h2','实现如何支持业务行为'));(task.implementation||[]).forEach((i,index)=>{const c=card($('implementation'),`${index+1}. ${i.title}`,i.description);const d=el('details');d.append(el('summary','代码位置（人工核对）'),el('pre',text(i.files)));c.append(d);});if(!(task.implementation||[]).length)card($('implementation'),'暂无实现记录','完成代码检查后补充，不以设计代替实际实现。');
 $('decisions').append(el('h2','待确认事项'),el('p','请在页面右侧填写并复制反馈。'));
 
-$('evidence').append(el('h2','为什么相信这次改动'),el('p','通过状态是任务记录声明；代码指纹匹配只说明内容未变，不证明命令实际运行。请核对原始结果。','warning'));(task.evidence||[]).forEach(e=>{const c=card($('evidence'),`${e.id}: ${text(e.status)} · ${e.freshness}`,e.summary);c.append(el('p',`关联规则：${text(e.behavior_ids)}`));c.append(el('p',`执行者 / 工具：${text(e.actor)} · 环境：${text(e.environment)}`));const d=el('details');d.append(el('summary','运行命令与版本指纹'),el('pre',`命令：${text(e.command)}\n结果来源：${text(e.source)}\n执行时间：${text(e.executed_at)}\n证据指纹（代码＋行为约定）：${text(e.revision)}\n当前指纹：${text(task.current_fingerprint)}`));c.append(d);});if(!(task.evidence||[]).length)card($('evidence'),'没有运行证据','尚不能根据演示或实现说明判定验收通过。');
+$('evidence').append(el('h2','为什么相信这次改动'),el('p','通过状态是任务记录声明；代码指纹匹配只说明内容未变，不证明命令实际运行。请核对原始结果。','warning'));(task.evidence||[]).forEach(e=>{const c=card($('evidence'),`${e.id}: ${text(e.status)} · ${e.freshness}`,e.summary);c.append(el('p',evidenceOrigin(e),'evidence-origin'));if(e.verification_source==='parsed_result'&&e.parsed_result)c.append(el('pre',JSON.stringify(e.parsed_result,null,2)));c.append(el('p',`关联规则：${text(e.behavior_ids)}`));c.append(el('p',`执行者 / 工具：${text(e.actor)} · 环境：${text(e.environment)}`));const d=el('details');d.append(el('summary','运行命令与版本指纹'),el('pre',`命令：${text(e.command)}\n结果来源：${text(e.source)}\n执行时间：${text(e.executed_at)}\n证据指纹（代码＋行为约定）：${text(e.revision)}\n当前指纹：${text(task.current_fingerprint)}`));c.append(d);});if(!(task.evidence||[]).length)card($('evidence'),'没有运行证据','尚不能根据演示或实现说明判定验收通过。');
 
 function recordCards(target,title,rows,fields){$(target).append(el('h2',title));if(!rows.length){card($(target),'尚未记录','缺失不表示已确认；交接或操作前补齐。');return;}rows.forEach(row=>{const c=el('article',undefined,'card');fields.forEach(([key,label])=>{if(row[key]!==undefined){c.append(el('h3',label),el('p',text(row[key])));}});$(target).append(c);});}
 recordCards('design','角色与责任',task.roles||[],[['role','职责'],['owner','负责人'],['responsibility','负责的决定与交付'],['accepts','接受条件']]);
@@ -431,7 +462,7 @@ function renderStages(container, task) {
   const make = (tag, value, cls) => { const node=document.createElement(tag); if(value!==undefined)node.textContent=formatTimes(typeof value==='string'?value:JSON.stringify(value)); if(cls)node.className=cls; return node; };
   const display = value => value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?value:JSON.stringify(value);
   container.classList.add('stage-workspace');
-  container.append(make('h2',['acceptance','release'].includes(task.focus_stage||(task.workflow_summary||{}).focus_stage)?'请逐项核验本次交付':'当前阶段材料'),make('p','固定模板展示当前记录；缺失不代表已完成。浏览器操作仅形成草稿，不会批准任务或执行生产动作。','warning'));
+  container.append(make('h2',['acceptance','release'].includes((task.workflow_summary||{}).focus_stage||task.focus_stage)?'请逐项核验本次交付':'当前阶段材料'),make('p','固定模板展示当前记录；缺失不代表已完成。浏览器操作仅形成草稿，不会批准任务或执行生产动作。','warning'));
   const nav=make('div',undefined,'stage-controls'),selector=make('select');selector.setAttribute('aria-label','已记录的阶段材料');nav.append(make('label','切换已记录阶段 '),selector);const body=make('div');container.append(nav,body);
   const fieldList = meta => Array.isArray(meta.fields)?meta.fields:[];
   function itemCard(parent,item,fields){const c=make('article',undefined,'card');c.append(make('h3',display(item.title||item.name||item.id)),make('span',display(item.status),'badge'));const dl=make('dl');fields.forEach(([key,label])=>{dl.append(make('dt',label),make('dd',display(item[key])));});c.append(dl);parent.append(c);return c;}
@@ -441,7 +472,7 @@ function renderStages(container, task) {
     if(!['acceptance','release'].includes(key)){
     const facts=make('div',undefined,'stage-facts');[['purpose','为什么看这一页'],['owner','负责的人'],['decision','人需要判断什么'],['exit_criteria','进入下一阶段的条件']].forEach(([field,title])=>{const box=make('article',undefined,'card');box.append(make('h3',title),make('p',display(details[field]||meta[field])));facts.append(box);});body.append(facts);
     }
-    if(!items.length){body.append(make('p','此阶段尚无记录。请按固定字段补充，不能据此判断阶段完成。','warning'));return;}
+    if(!items.length&&key!=='acceptance'){body.append(make('p','此阶段尚无记录。请按固定字段补充，不能据此判断阶段完成。','warning'));return;}
     if(key==='solution'){
       body.append(make('p','选择两项方案并排比较；选中不代表批准。','muted'));const controls=make('div',undefined,'stage-controls'),compare=make('div',undefined,'stage-compare');const selects=[0,1].map((initial,index)=>{const labelNode=make('label','比较方案 '+(index+1)+' ');const s=make('select');items.forEach((item,i)=>{const option=make('option',display(item.title||item.name||item.id));option.value=String(i);s.append(option);});s.value=String(Math.min(initial,items.length-1));labelNode.append(s);controls.append(labelNode);return s;});function repaint(){compare.replaceChildren();selects.forEach(s=>itemCard(compare,items[Number(s.value)],fields));}selects.forEach(s=>s.onchange=repaint);body.append(controls,compare);repaint();
     } else if(key==='review'){
@@ -449,16 +480,29 @@ function renderStages(container, task) {
     } else if(key==='testing'){
       body.append(make('p','这是记录回放，不会执行测试。模拟、运行记录与缺失证据必须分别核对。','warning'));const l=make('label','测试场景 '),s=make('select'),result=make('div');items.forEach((item,i)=>{const o=make('option',display(item.title||item.name||item.id));o.value=String(i);s.append(o);});l.append(s);body.append(l,result);function showCase(){result.replaceChildren();const item=items[Number(s.value)];itemCard(result,item,fields);result.append(make('p','记录类型：'+display(item.mode),'badge'));const evidenceIds=Array.isArray(item.evidence_ids)?item.evidence_ids:[];if(!evidenceIds.length)result.append(make('p','没有关联证据，不可视为执行成功。','warning'));evidenceIds.forEach(id=>{const evidence=(task.evidence||[]).find(e=>e.id===id);const box=make('details');box.append(make('summary','关联证据：'+id),make('pre',evidence?JSON.stringify(evidence,null,2):'引用的证据不存在，请补齐。'));result.append(box);});const steps=Array.isArray(item.steps)?item.steps:[];if(!steps.length){result.append(make('p','没有步骤记录，无法回放。'));return;}let cursor=0;const step=make('div',undefined,'stage-replay'),controls=make('div',undefined,'stage-controls'),prev=make('button','上一步'),next=make('button','下一步');function showStep(){const value=steps[cursor];step.replaceChildren(make('h3','步骤 '+(cursor+1)+' / '+steps.length),make('p','操作：'+display(value.action)),make('p','预期：'+display(value.expected)),make('p','实际：'+display(value.actual)));prev.disabled=cursor===0;next.disabled=cursor===steps.length-1;}prev.onclick=()=>{cursor--;showStep();};next.onclick=()=>{cursor++;showStep();};controls.append(prev,next);result.append(step,controls);showStep();}s.onchange=showCase;showCase();
     } else if(key==='acceptance'||key==='release'){
+      if(key==='acceptance'){
+        const setup=task.acceptance_setup||{},prep=make('section',undefined,'acceptance-setup');prep.append(make('h3','开始核验前'));
+        [['environment','核验环境'],['prepare_command','准备命令（复制后自行执行）'],['entry_url','核验入口'],['baseline','起始数据与前提'],['stop','结束与停止'],['notes','注意事项']].forEach(([field,label])=>{
+          const row=make('div',undefined,'setup-row');row.append(make('strong',label));const value=setup[field];
+          if(!value)row.append(make('p','准备未记录，请先让 AI 补充并核对。','muted'));
+          else if(field==='entry_url'){let target;try{target=new URL(value);}catch(_){}if(target&&['http:','https:'].includes(target.protocol)){const link=make('a',value);link.href=target.href;link.target='_blank';link.rel='noopener noreferrer';row.append(link);}else row.append(make('p',value+'（入口不是安全 HTTP 地址，请核对）','warning'));}
+          else if(field==='prepare_command'){const command=make('textarea');command.readOnly=true;command.value=value;command.rows=2;command.setAttribute('aria-label','准备命令，仅复制不执行');const copy=make('button','复制命令'),state=make('p','','muted');copy.type='button';copy.onclick=async()=>{try{await navigator.clipboard.writeText(command.value);state.textContent='命令已复制；请核对环境后自行执行。';}catch(_){command.focus();command.select();state.textContent='已选中命令，请按 Cmd+C 或 Ctrl+C 复制。';}};row.append(command,copy,state);}
+          else row.append(make('p',value));prep.append(row);
+        });body.append(prep);
+      }
+      if(!items.length){body.append(make('p','尚未记录人工核验步骤，请先让 AI 补充。','warning'));return;}
       body.append(make('p','只填写实际核验的项目。填写后复制反馈给 AI；切换阶段保留草稿，刷新页面会丢失。','warning'));
       drafts[key]=drafts[key]||Object.create(null);let updateFeedback=()=>{};
-      items.forEach((item,index)=>{const c=make('article',undefined,'card acceptance-check');c.append(make('h3',display(item.id||index+1)+' · '+display(item.scenario||item.check||item.title||item.name)));fields.filter(([field])=>!['id','status','scenario','check','title','name','result','actual','reviewer'].includes(field)&&item[field]!==undefined&&item[field]!==null&&item[field]!=='').forEach(([field,label])=>{const line=make('p');line.append(make('strong',label+'：'),make('span',display(item[field])));c.append(line);});body.append(c);const draftKey=String(item.id||index);const saved=drafts[key][draftKey]||(drafts[key][draftKey]={result:'pending',comment:''});const labelNode=make('label','核验结果 '),s=make('select');[['pending','尚未核验'],['pass','符合预期（草稿）'],['fail','不符合预期（草稿）'],['blocked','无法核验（草稿）']].forEach(([value,label])=>{const o=make('option',label);o.value=value;s.append(o);});s.value=saved.result;s.onchange=()=>{saved.result=s.value;updateFeedback();};labelNode.append(s);const commentLabel=make('label','实际观察 / 理由 '),area=make('textarea');area.value=saved.comment;area.oninput=()=>{saved.comment=area.value;updateFeedback();};commentLabel.append(area);c.append(labelNode,commentLabel);});
-      updateFeedback=feedbackComposer(body,task,meta.title||label,()=>items.map((item,index)=>{const saved=drafts[key][String(item.id||index)];if(!saved||(!['pass','fail','blocked'].includes(saved.result)&&!saved.comment.trim()))return '';const context=fields.filter(([field])=>!['id','status','actual','reviewer','result','authorization'].includes(field)&&item[field]!==undefined&&item[field]!==null&&item[field]!=='').map(([field,name])=>`${name}：${display(item[field])}`).join('\n');return [`核验项 ${item.id||index+1}：${display(item.title||item.name||item.scenario||item.check||item.id)}`,context,['pass','fail','blocked'].includes(saved.result)?'我的核验结果：'+({pass:'符合预期',fail:'不符合预期',blocked:'无法核验'}[saved.result]):'',saved.comment.trim()?'我的观察 / 理由：'+saved.comment.trim():''].filter(Boolean).join('\n');}).filter(Boolean).join('\n\n'));
+      items.forEach((item,index)=>{const c=make('article',undefined,'card acceptance-check');c.append(make('h3',display(item.id||index+1)+' · '+display(item.scenario||item.check||item.title||item.name)));fields.filter(([field])=>!['id','status','scenario','check','title','name','result','actual','reviewer','reviewed_revision','verification_mode','reviewer_kind'].includes(field)&&item[field]!==undefined&&item[field]!==null&&item[field]!=='').forEach(([field,label])=>{const line=make('p');line.append(make('strong',label+'：'),make('span',display(item[field])));c.append(line);});const mode=item.verification_mode||'manual';c.append(make('p',mode==='assisted'?'需要 AI 协助：请让 AI 准备故障或环境，再亲自观察结果。':mode==='automated_optional'?'已交给自动化覆盖的专项；人工可选复核，未执行不应选择通过。':'人工核验：按操作步骤亲自观察。','verification-mode'));
+        if(item.actual||item.reviewer||item.result){const record=make('section',undefined,'recorded-review');record.append(make('h4','已记录的核验结果（只读）'));[['result','记录结果'],['actual','记录观察'],['reviewer','记录核验人']].forEach(([field,label])=>{if(item[field])record.append(make('p',label+'：'+display(item[field])));});const revision=item.reviewed_revision,valid=revision&&task.current_fingerprint&&revision===task.current_fingerprint;record.append(make('p',!revision?'核验版本未绑定，不能认定为当前人工验收。':valid?'绑定本次页面版本；来源仍需人工核对。':'历史版本核验记录，不适用于当前版本。','muted'));record.append(make('p',item.reviewer_kind==='human'?'记录声明来自人工；需对照回传依据，不由页面自动认定签字。':item.reviewer_kind==='ai'?'AI 或测试角色记录，不等于真实人的签字。':'人工来源待核实；AI 或测试角色记录不等于真实人的签字。','muted'));c.append(record);}
+        c.append(make('h4','本次反馈草稿'));body.append(c);const draftKey=String(item.id||index);const saved=drafts[key][draftKey]||(drafts[key][draftKey]={result:'pending',comment:''});const labelNode=make('label','核验结果 '),s=make('select');[['pending','尚未核验'],['pass','符合预期（草稿）'],['fail','不符合预期（草稿）'],['blocked','无法核验（草稿）']].forEach(([value,label])=>{const o=make('option',label);o.value=value;s.append(o);});s.value=saved.result;s.onchange=()=>{saved.result=s.value;updateFeedback();};labelNode.append(s);const commentLabel=make('label','实际观察 / 理由 '),area=make('textarea');area.value=saved.comment;area.oninput=()=>{saved.comment=area.value;updateFeedback();};commentLabel.append(area);c.append(labelNode,commentLabel);});
+      updateFeedback=feedbackComposer(body,task,meta.title||label,()=>items.map((item,index)=>{const saved=drafts[key][String(item.id||index)];if(!saved||(!['pass','fail','blocked'].includes(saved.result)&&!saved.comment.trim()))return '';const context=fields.filter(([field])=>!['id','status','actual','reviewer','result','authorization','reviewed_revision','reviewer_kind'].includes(field)&&item[field]!==undefined&&item[field]!==null&&item[field]!=='').map(([field,name])=>`${name}：${display(item[field])}`).join('\n');return [`核验项 ${item.id||index+1}：${display(item.title||item.name||item.scenario||item.check||item.id)}`,context,['pass','fail','blocked'].includes(saved.result)?'我的核验结果：'+({pass:'符合预期',fail:'不符合预期',blocked:'无法核验'}[saved.result]):'',saved.comment.trim()?'我的观察 / 理由：'+saved.comment.trim():''].filter(Boolean).join('\n');}).filter(Boolean).join('\n\n'));
 
     } else if(key==='operations'){
       body.append(make('p','观察、假设、授权、执行和恢复验证分别记录。此页面不执行运维命令。','warning'));const timeline=make('ol',undefined,'stage-timeline');items.forEach(item=>{const li=make('li');itemCard(li,item,fields);timeline.append(li);});body.append(timeline);
     } else table(body,items,fields);
   }
-  const focus=task.focus_stage||(task.workflow_summary||{}).focus_stage;
+  const focus=(task.workflow_summary||{}).focus_stage||task.focus_stage;
   nav.hidden=true;
   const selected=fallback.find(([key])=>key===focus);
   if(selected)draw(...selected);

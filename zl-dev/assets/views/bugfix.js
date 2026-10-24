@@ -1,6 +1,7 @@
 /* Bug investigation is an evidence trail, rather than a project dashboard. */
 function renderBugfixView(parent, task, ui) {
   const {el, card, list, text, show} = ui;
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
   parent.classList.add('scene-bugfix');
   parent.append(el('h2', '哪里出错了，为什么会错'));
   card(parent, '故障现象', task.summary);
@@ -49,7 +50,7 @@ function renderBugfixView(parent, task, ui) {
   const proof = el('article', undefined, 'card');
   proof.append(el('h2', '实际证据'));
   (task.evidence || []).forEach(item => {
-    proof.append(el('h3', text(item.id) + ' · ' + text(item.status)), el('p', text(item.summary)), el('p', '来源：' + text(item.source)), el('p', '有效性：' + text(item.freshness)));
+    proof.append(el('h3', text(item.id) + ' · ' + text(item.status)), el('p', text(item.summary)), el('p', origin(item), 'evidence-origin'), el('p', '来源：' + text(item.source)), el('p', '有效性：' + text(item.freshness)));
   });
   if (!(task.evidence || []).length) proof.append(el('p', '尚无运行证据，根因与修复效果均待验证。'));
   causes.append(hypothesis, proof); parent.append(causes);
@@ -69,7 +70,12 @@ function renderBugfixView(parent, task, ui) {
     regression.append(el('h3', text(test.case || test.title || test.id)), el('p', '预期：' + text(test.expected)), el('p', '实际：' + text(test.actual)), el('p', '状态：' + text(test.status) + ' · 记录类型：' + text(test.mode)), el('p', '证据：' + text(test.evidence_ids)));
   });
   if (!tests.length) regression.append(el('p', '尚无回归记录；需检查原始复现是否消失及相关行为是否保持。'));
-  list(regression, '人工核验', task.acceptance || []); parent.append(regression);
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage;
+  if (['testing', 'acceptance'].includes(focus)) {
+    const checks = (((task.stage_details || {}).acceptance || {}).items || []);
+    list(regression, '人工核验', checks.length ? checks.map(item => [item.scenario, item.instruction, item.expected].filter(Boolean).join('；')) : task.acceptance || []);
+  }
+  parent.append(regression);
   const next = card(parent, '现在该做什么', (task.workflow_summary || {}).next_action || '补齐复现与根因证据，再判断修复效果。');
   next.classList.add('scene-action');
   if ((task.decisions || []).some(item => item.status !== 'confirmed')) {

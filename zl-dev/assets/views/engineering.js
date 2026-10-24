@@ -1,6 +1,7 @@
 /* Engineering task kinds use different evidence and explanation structures. */
 function renderEngineeringView(parent, task, ui) {
   const {el, card, list, text, show} = ui;
+  const origin = ui.evidenceOrigin || (typeof evidenceOrigin === 'function' ? evidenceOrigin : () => '来源等级未知；不能据此认定实际执行。');
   const kind = task.kind || 'refactor';
   parent.dataset.layout = 'engineering-' + kind;
   parent.classList.add('scene-engineering-' + kind);
@@ -15,7 +16,7 @@ function renderEngineeringView(parent, task, ui) {
   }
   function evidence(title) {
     const section = box(title, '未运行、模拟、过期与真实执行结果应按原状态判断。');
-    (task.evidence || []).forEach(e => card(section, text(e.id) + ' · ' + text(e.status)+' · '+text(e.freshness), text(e.summary) + '\n命令：' + text(e.command) + '\n版本：' + text(e.revision)));
+    (task.evidence || []).forEach(e => card(section, text(e.id) + ' · ' + text(e.status)+' · '+text(e.freshness), origin(e) + '\n' + text(e.summary) + '\n命令：' + text(e.command) + '\n版本：' + text(e.revision)));
     rows('testing').forEach(t => card(section, text(t.case), '模式：' + text(t.mode) + '\n环境：' + text(t.environment) + '\n预期：' + text(t.expected) + '\n实际：' + text(t.actual) + '\n来源：' + text(t.source)));
     if (!(task.evidence || []).length && !rows('testing').length) section.append(el('p', '未记录执行证据，无法判断结果。'));
   }
@@ -49,7 +50,11 @@ function renderEngineeringView(parent, task, ui) {
     if (!(task.behaviors || []).length) invariants.append(el('p', '尚未记录行为不变量。'));
     implementation('结构调整切片'); evidence('回归验证');
   }
-  list(parent, '人工核对', task.acceptance || []);
+  const focus = (task.workflow_summary || {}).focus_stage || task.focus_stage;
+  if (['testing', 'acceptance'].includes(focus)) {
+    const checks = rows('acceptance');
+    list(parent, '人工核对', checks.length ? checks.map(item => [item.scenario, item.instruction, item.expected].filter(Boolean).join('；')) : task.acceptance || []);
+  }
   const action = box('反馈本轮结果', '记录发现的问题或需要补充的验证。');
   const button = el('button', '填写并复制反馈'); button.onclick = () => show('decisions'); action.append(button);
 }

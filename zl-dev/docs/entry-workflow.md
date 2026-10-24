@@ -34,6 +34,14 @@
 
 复核用实际源码、需求和测试；实现者说明仅是线索。无独立代理就标明自审。证据绑定代码与行为，改行为必须重验，补写报告不构成重新测试。页面草稿不代表授权，人工接受不得由 AI 自行勾选。
 
+## 验证与当前行动
+
+按需读取 internal-actions/verify.md，优先用内部 verify 执行现有 unittest/JUnit 检查并绑定已有行为；用户仍只用 go/status。先确定 acceptance_setup 的环境、准备、入口、起始数据与停止方法，以及结构化验收项的预期，再运行验证。没有记录就说明缺失，不编造可用服务或命令。
+
+有 stage_details.acceptance.items 时以其为准，不重复维护旧 acceptance 字符串。actual/reviewer/result/reviewed_revision 是核验记录，不改变行为指纹；新草稿保持未选择。AI 扮演测试角色须标 reviewer_kind=ai，真实人工依据不明确则 unknown，不能替人签字。
+
+primary_action 与 blockers 由脚本派生，focus_stage 仅决定阅读材料。当前失败及 P0/P1 不被待决布局或展示偏好掩盖；高风险发现标 done 后仍需引用当前、无矛盾的通过复查。claim 为模型声明，parsed_result 为已解析回执，invalid 不可采信；三者不混为已验证。
+
 ## 从页面接收反馈
 用户可在 HTML 填写意见，直接复制可读反馈并粘贴到当前 AI 会话，无需下载 JSON。文本包含任务、版本和阶段。先确认对应任务及页面版本；若版本已变，指出受影响条目并重新核对，不把旧反馈默认为最新批准。只将用户明确填写的选择或意见作为输入，未填写项保持未知。
 
@@ -64,7 +72,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render "<真实任务目�
 
 update 使用既有 schema 校验，只允许更新已有、绑定到指定项目的任务，不能改变 id 或 project_path；版本冲突时拒绝覆盖，必须重新读取并合并。可增加 `--expect-fingerprint "<locate返回的fingerprint>"` 检查当前代码及行为契约；它不同于 task_revision，证据和说明变化也会改变 task_revision。fingerprint 为 null 时不能声称已核对代码版本。update 本身不 render；更新失败不执行 render。
 
-在 macOS/Linux 上，同目录临时文件和原子替换保护旧数据，协作 CLI 写入使用文件锁；外部编辑器不遵守锁，不能并发直接编辑 task.json。旧任务缺少绑定时需先人工核对，不能猜测补绑。CLI 不绕过系统权限或 agent 权限：若 ~/.claude 写入遭拒，如实返回失败及待保存内容位置，等待权限解决。禁止改用 Write、cp、其他命令或工作区副本规避明确的权限拒绝，也不能声称未保存内容已落盘。
+在 macOS/Linux 上，同目录临时文件和原子替换保护旧数据，协作 CLI 写入使用文件锁；外部编辑器不遵守锁，不能并发直接编辑 task.json。旧任务缺少绑定时需先人工核对，不能猜测补绑。CLI 不绕过系统权限或 agent 权限：项目外的 ~/.claude/zl-dev 产出访问可能需要对具体任务目录授权；非交互 Claude CLI 的 acceptEdits 不保证自动允许项目外读写或 Bash。拒绝时保留原记录，如实返回失败及待保存内容位置，等待该范围的权限解决，不建议全局 bypass。禁止改用 Write、cp、其他命令或工作区副本规避明确的权限拒绝，也不能声称未保存内容已落盘。
 
 已有非空 revision 的证据必须保留原 id，不能改绑到新指纹；重跑后新增独立证据 id 并保留旧记录，也可清空 revision 显式标为未绑定。此检查防止误改已有记录，无法证明测试实际执行或防止恶意伪造新证据；不得通过改 id、删除旧记录或先清空再重绑来伪装重跑。
 

@@ -23,7 +23,8 @@ def build(examples=None):
         kind = data.get('kind', 'feature')
         fallback = {'incident': '运维', 'operations': '运维', 'bugfix': '排障', 'performance': '工程', 'migration': '工程', 'upgrade': '工程', 'refactor': '工程'}
         category = demo.get('category', fallback.get(kind, '需求'))
-        stage = 'cross-project' if is_feature else (data.get('focus_stage') or data.get('workflow', {}).get('focus_stage') or ('operations' if kind in ('incident', 'operations') else 'requirements'))
+        assessment = None if is_feature else reviewable.assessed(data, reviewable.fingerprint(source.parent), source.parent)
+        stage = 'cross-project' if is_feature else assessment['workflow_summary']['focus_stage']
         entries.append(dict(
             id=data.get('id', source.parent.name), title=data['title'], category=category, stage=stage,
             purpose=demo.get('purpose', data.get('summary', '了解整体流程、边界与当前动作')),

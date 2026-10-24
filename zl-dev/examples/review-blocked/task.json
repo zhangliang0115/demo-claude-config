@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "kind": "feature",
+  "why": "客服需要按权限导出客户清单，减少手工整理。",
+  "scope": "仅演示客户清单导出的阶段报告；没有业务源码、运行服务或真实验收。",
+  "behaviors": [
+    {
+      "id": "B1",
+      "before": "手工整理客户",
+      "after": "仅能导出当前账号有权查看的客户",
+      "status": "模拟约定，未运行验证"
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "导出本人权限范围",
+      "kind": "simulation",
+      "steps": [
+        {
+          "action": "选择客户范围并点击导出",
+          "result": "预期只下载账号有权查看的客户；这是设计模拟"
+        }
+      ]
+    }
+  ],
+  "implementation": [
+    {
+      "title": "导出处理示意",
+      "description": "模拟实现记录，用于展示审查与验收界面，不代表真实代码已实现。",
+      "files": [
+        "示例路径：app/customer-export.py（不存在）"
+      ]
+    }
+  ],
+  "evidence": [],
+  "risks": [
+    "纯展示模拟，没有真实业务代码、运行证据或人工签字。"
+  ],
+  "changes": [],
+  "acceptance": [],
+  "decisions": [
+    {
+      "id": "D1",
+      "question": "导出按钮放在筛选区还是列表工具栏？",
+      "recommendation": "权限问题处理后再确定工具栏布局。",
+      "options": [
+        "筛选区",
+        "列表工具栏"
+      ],
+      "status": "pending"
+    }
+  ],
+  "id": "review-blocked",
+  "title": "客户清单导出：先修复权限绕过（模拟）",
+  "summary": "示例审查发现导出可绕过客户权限；AI 应先修复并验证，不能让负责人先选布局。",
+  "focus_stage": "acceptance",
+  "demo": {
+    "simulation": true,
+    "category": "需求",
+    "purpose": "即使请求显示验收，有未解决 P1 也优先展示审查阻塞。",
+    "read_order": [
+      "AI 当前阻塞",
+      "权限绕过成立条件",
+      "其他待决与反馈"
+    ],
+    "order": 25
+  },
+  "stage_details": {
+    "review": {
+      "summary": "模拟发现，未声称已真实执行审查或修复。",
+      "items": [
+        {
+          "id": "R1",
+          "status": "pending",
+          "severity": "P1",
+          "finding": "示例：客户端传入他人 customer_id 时，导出处理未再次检查账号归属。",
+          "source": "模拟位置：app/customer-export.py:42（不存在）",
+          "fix": "待 AI 修复服务端权限校验。",
+          "recheck": "尚未执行；须验证本人、他人和混合客户 ID。"
+        }
+      ]
+    }
+  }
+}

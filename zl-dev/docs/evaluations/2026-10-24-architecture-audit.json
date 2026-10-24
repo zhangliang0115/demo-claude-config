@@ -1,0 +1,71 @@
+{
+  "schema_version": "ecc.agent-architecture-audit.report.v1",
+  "baseline_commit": "05d62a4282dd9699018edcb2738a773faf02bef9",
+  "executive_verdict": {
+    "overall_health": "needs_improvement",
+    "primary_failure_mode": "The report, workflow and cross-project assessment independently interpret the same records; model claims and raw execution results are insufficiently distinguished.",
+    "most_urgent_fix": "Derive blocking conditions and the current responsible actor once, then consume them across reports and integration assessments."
+  },
+  "scope": {
+    "target_name": "zl-dev Claude Code plugin",
+    "model_stack": ["Claude Code with user-configured model; different-model reliability is not established"],
+    "layers_to_audit": ["system instructions", "tool selection", "tool execution", "tool interpretation", "answer shaping", "rendering", "persistence"]
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "title": "Unresolved P0/P1 findings do not block acceptance or integration",
+      "mechanism": "Passing behavior records are sufficient even when review findings remain unresolved.",
+      "source_layer": "tool interpretation",
+      "root_cause": "Workflow and feature snapshot logic omit review evidence gates.",
+      "evidence_refs": ["05d62a4:zl-dev/scripts/workflow.py:summarize", "05d62a4:zl-dev/scripts/feature.py:project_snapshot"],
+      "confidence": 1.0,
+      "recommended_fix": "Use current non-conflicting evidence for high-risk rechecks and propagate technical blockers to cross-project snapshots."
+    },
+    {
+      "severity": "high",
+      "title": "Pending layout questions can displace the actual AI blocker",
+      "mechanism": "The renderer prioritizes the first decision independently of the backend current action.",
+      "source_layer": "rendering",
+      "root_cause": "Duplicated action and coverage derivation in JavaScript.",
+      "evidence_refs": ["05d62a4:zl-dev/assets/report.html:pendingDecisions", "05d62a4:zl-dev/assets/stages.js:focus selection"],
+      "confidence": 1.0,
+      "recommended_fix": "Consume a single derived primary action and effective stage."
+    },
+    {
+      "severity": "high",
+      "title": "Model-authored test summaries resemble parsed execution results",
+      "mechanism": "A matching fingerprint and passed status do not establish execution or correct test counts.",
+      "source_layer": "tool execution",
+      "root_cause": "No narrow execution and result-reparsing receipt path.",
+      "evidence_refs": ["05d62a4:zl-dev/scripts/reviewable.py:assessed", "zl-dev/docs/evaluations/2026-10-24-capacity-waitlist.md:证据复核"],
+      "confidence": 1.0,
+      "recommended_fix": "Execute explicit test argv, capture immutable run artifacts, parse supported formats and label provenance without claiming attestation."
+    },
+    {
+      "severity": "medium",
+      "title": "Recorded human observations are hidden on reload",
+      "mechanism": "Acceptance cards omit actual/reviewer/result and show only a fresh pending form.",
+      "source_layer": "persistence",
+      "root_cause": "Saved observations and new feedback drafts lack separate presentation.",
+      "evidence_refs": ["05d62a4:zl-dev/assets/stages.js:acceptance branch"],
+      "confidence": 1.0,
+      "recommended_fix": "Show recorded observations read-only with version and source, keeping new drafts separate."
+    },
+    {
+      "severity": "medium",
+      "title": "Environment prerequisites and duplicate checklists slow human review",
+      "mechanism": "Preparation is buried in summary text and legacy acceptance strings diverge from structured items.",
+      "source_layer": "answer shaping",
+      "root_cause": "No fixed preparation region and no authoritative structured checklist preference.",
+      "evidence_refs": ["05d62a4:zl-dev/assets/stages.js:draw", "zl-dev/docs/evaluations/2026-10-24-capacity-waitlist.md:最终记录"],
+      "confidence": 1.0,
+      "recommended_fix": "Use an optional typed preparation region and prefer existing structured acceptance items."
+    }
+  ],
+  "ordered_fix_plan": [
+    {"order": 1, "goal": "Unify blockers and current action", "why_now": "False readiness transfers unresolved technical risk to humans.", "expected_effect": "Reports and integration readiness agree."},
+    {"order": 2, "goal": "Capture and parse real test runs", "why_now": "Model-written counts and revision rebinding were observed in live evaluation.", "expected_effect": "Claims and independently reparsed run results remain distinct."},
+    {"order": 3, "goal": "Close the human feedback loop", "why_now": "Preparation and previous observations are hard to find or absent.", "expected_effect": "People can start the current check and compare new observations with historical records."}
+  ]
+}

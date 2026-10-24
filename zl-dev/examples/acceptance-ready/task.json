@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "kind": "feature",
+  "why": "客服需要按权限导出客户清单，减少手工整理。",
+  "scope": "仅演示客户清单导出的阶段报告；没有业务源码、运行服务或真实验收。",
+  "behaviors": [
+    {
+      "id": "B1",
+      "before": "手工整理客户",
+      "after": "仅能导出当前账号有权查看的客户",
+      "status": "模拟约定，未运行验证"
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "导出本人权限范围",
+      "kind": "simulation",
+      "steps": [
+        {
+          "action": "选择客户范围并点击导出",
+          "result": "预期只下载账号有权查看的客户；这是设计模拟"
+        }
+      ]
+    }
+  ],
+  "implementation": [
+    {
+      "title": "导出处理示意",
+      "description": "模拟实现记录，用于展示审查与验收界面，不代表真实代码已实现。",
+      "files": [
+        "示例路径：app/customer-export.py（不存在）"
+      ]
+    }
+  ],
+  "evidence": [],
+  "risks": [
+    "纯展示模拟，没有真实业务代码、运行证据或人工签字。"
+  ],
+  "changes": [],
+  "acceptance": [
+    "LEGACY 示例：旧材料说直接点击旧导出入口；结构化核验项存在时不应显示本条。"
+  ],
+  "decisions": [],
+  "id": "acceptance-ready",
+  "title": "客户清单导出：人工核验准备（模拟）",
+  "summary": "这里展示怎样准备核验、查看上轮观察并填写本次草稿；没有服务启动或运行通过的声明。",
+  "focus_stage": "acceptance",
+  "demo": {
+    "simulation": true,
+    "category": "需求",
+    "purpose": "固定准备区、历史人工观察与本次草稿分开展示。",
+    "read_order": [
+      "开始核验前",
+      "正常导出",
+      "需要 AI 协助的故障场景"
+    ],
+    "order": 26
+  },
+  "acceptance_setup": {
+    "environment": "纯模拟模板，没有业务服务运行。请由 AI 为真实项目准备隔离测试环境。",
+    "prepare_command": "# 示例占位，未启动任何服务\n# 请让 AI 提供已核对的本项目启动命令；此处不要执行。",
+    "entry_url": "http://127.0.0.1:18080/",
+    "baseline": "示例前提：账号 A 仅能查看客户 A1；客户 B1 属于另一账号。当前未创建这些账号或数据。",
+    "stop": "没有进程需要停止；真实环境准备后，应由 AI 明确停止方法。",
+    "notes": "入口只是安全链接格式示例，未启动、未探测；不要将本页当作已实现或已验收。"
+  },
+  "stage_details": {
+    "acceptance": {
+      "summary": "上轮失败记录也是模拟资料，仅展示历史版本与本次草稿的区别；不代表真实人工核验。",
+      "items": [
+        {
+          "id": "AC1",
+          "status": "pending",
+          "scenario": "正常导出与权限边界",
+          "instruction": "由 AI 准备隔离环境后，以账号 A 选择客户 A1，点击导出；再核对 CSV 列和客户归属。",
+          "expected": "下载可读取的 CSV，仅有 A1，无 B1 数据。",
+          "actual": "模拟历史观察：下载文件里出现另一账号的 B1 客户，已退回；不是现实用户反馈。",
+          "reviewer": "模拟核验角色",
+          "result": "退回（模拟历史记录）",
+          "reviewer_kind": "human",
+          "reviewed_revision": "old-demo",
+          "verification_mode": "manual"
+        },
+        {
+          "id": "AC2",
+          "status": "pending",
+          "scenario": "导出失败与重试（需 AI 协助）",
+          "instruction": "请 AI 在隔离环境注入一次导出接口失败并说明恢复方法；人点击导出观察提示，AI 恢复后再点击重试。不要自行修改生产或浏览器脚本。",
+          "expected": "失败时不显示下载成功；恢复后可正常导出，权限范围保持不变。",
+          "actual": "",
+          "reviewer": "",
+          "result": "未核验",
+          "reviewer_kind": "unknown",
+          "verification_mode": "assisted"
+        }
+      ]
+    }
+  }
+}

@@ -156,6 +156,54 @@ class FeatureTests(unittest.TestCase):
         self.assertEqual(data['projects'][0]['snapshot']['missing_behaviors'], 1)
         self.assertFalse(feature.assessed(data)['assessment']['ready_for_integration'])
 
+    def test_high_risk_review_gates_cross_project_readiness(self):
+        task, child = self.ready_feature()
+        finding = dict(id='R1', status='pending', severity='P0', finding='候补可能被重复晋升')
+        child['stage_details'] = {'review': {'items': [finding]}}
+        for status, refs, ready in [('pending', [], False), ('done', [], False),
+                                     ('done', ['old-failure'], False), ('done', ['retest'], True)]:
+            with self.subTest(status=status, refs=refs):
+                finding.update(status=status, evidence_ids=refs)
+                (task / 'task.json').write_text(json.dumps(child))
+                synced = feature.sync(self.folder)
+                state = feature.assessed(synced)
+                self.assertEqual(state['assessment']['ready_for_integration'], ready)
+                snapshot = synced['projects'][0]['snapshot']
+                self.assertEqual(len(snapshot['technical_blockers']), 0 if ready else 1)
+                if not ready:
+                    self.assertIn('P0 R1: 候补可能被重复晋升', str(snapshot['issues']))
+
+    def test_review_changes_invalidate_snapshot_even_when_evidence_counts_match(self):
+        task, child = self.ready_feature()
+        before = feature.sync(self.folder)
+        self.assertTrue(feature.assessed(before)['assessment']['ready_for_integration'])
+        finding = dict(id='R1', status='pending', severity='P1', finding='越权调整')
+        child['stage_details'] = {'review': {'items': [finding]}}
+        (task / 'task.json').write_text(json.dumps(child))
+        state = feature.assessed(before)
+        self.assertFalse(state['assessment']['ready_for_integration'])
+        self.assertEqual(state['projects'][0]['snapshot_freshness'], 'stale')
+        synced = feature.sync(self.folder)
+        finding['finding'] = '新的越权成立条件'
+        (task / 'task.json').write_text(json.dumps(child))
+        self.assertEqual(feature.assessed(synced)['projects'][0]['snapshot_freshness'], 'stale')
+
+    def test_pending_business_decision_is_not_failed_technical_verification(self):
+        task, child = self.ready_feature()
+        child['decisions'] = [dict(id='D1', status='pending', question='上线日期？')]
+        (task / 'task.json').write_text(json.dumps(child))
+        state = feature.assessed(feature.sync(self.folder))
+        self.assertTrue(state['assessment']['ready_for_integration'])
+        self.assertEqual(state['projects'][0]['snapshot']['technical_blockers'], [])
+
+    def test_legacy_claim_source_is_visible_without_blocking_integration(self):
+        task, child = self.ready_feature()
+        assessed = feature.reviewable.assessed(child, feature.reviewable.fingerprint(task), task_dir=task)
+        summary = assessed['workflow_summary']
+        self.assertEqual(summary['verification']['current_source_counts'], {'claim': 1, 'parsed_result': 0, 'invalid': 0})
+        self.assertIn('部分尚无脚本解析', summary['primary_action']['reason'])
+        self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])
+
     def test_preflight_read_only_and_contract_dependency_checks(self):
         self.ready_feature()
         before = (self.folder / 'feature.json').read_bytes()

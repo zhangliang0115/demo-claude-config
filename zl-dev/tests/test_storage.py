@@ -103,6 +103,25 @@ class StorageTests(unittest.TestCase):
                     self.assertEqual(result['task_revision'], reviewable.task_revision((folder / 'task.json').read_bytes()))
                     self.assertEqual(result['report'], str(folder / 'report.html') if report_exists else None)
 
+    def test_status_stage_follows_effective_workflow_and_preserves_recorded_stage(self):
+        folder, data = self.task()
+        data.update(stage='存在P1待修复', summary='名额调整已实现',
+                    behaviors=[dict(id='B1', after='增加名额后自动晋升候补')],
+                    implementation=[dict(title='实现原子事务')],
+                    stage_details={'review': {'items': [dict(id='R1', status='done', severity='P1', finding='重复晋升', evidence_ids=['recheck'])]}})
+        (folder / 'task.json').write_text(json.dumps(data))
+        data['evidence'] = [dict(id='recheck', status='passed', revision=reviewable.fingerprint(folder), behavior_ids=['B1'])]
+        (folder / 'task.json').write_text(json.dumps(data))
+        before = self.tree()
+        code, output = self.cli('status', str(folder), '--project', str(self.repo))
+        self.assertEqual(code, 0, output)
+        result = json.loads(output)
+        self.assertEqual(result['stage'], '待人工核验')
+        self.assertEqual(result['stage'], result['workflow_summary']['stage_label'])
+        self.assertEqual(result['recorded_stage'], '存在P1待修复')
+        self.assertEqual(result['workflow_summary']['action_owner'], '你')
+        self.assertEqual(before, self.tree())
+
     def test_locate_and_status_missing_tasks_never_create_directories(self):
         for command in ('locate', 'status'):
             before = self.tree()

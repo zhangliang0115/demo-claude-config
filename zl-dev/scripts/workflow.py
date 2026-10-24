@@ -37,38 +37,105 @@ PHASE_SECTIONS = {
     'handoff':['handoffs','behavior','decisions','stage-views'],
 }
 
+def _status_counts(evidence):
+    # Each record belongs to exactly one bucket; unfamiliar legacy values stay visible.
+    counts = dict.fromkeys(('passed', 'failed', 'blocked', 'not_run', 'unknown'), 0)
+    for item in evidence:
+        status = item.get('status')
+        counts[status if status in counts else 'unknown'] += 1
+    return counts
+
+
 def summarize(data):
     behaviors = data.get('behaviors', [])
     evidence = data.get('evidence', [])
+    current = [e for e in evidence if e.get('freshness') == '当前']
+    historical = [e for e in evidence if e.get('freshness') != '当前']
+    source_counts = dict.fromkeys(('claim', 'parsed_result', 'invalid'), 0)
+    for item in current:
+        source = item.get('verification_source', 'claim')
+        source_counts[source if source in source_counts else 'invalid'] += 1
     pending = [d for d in data.get('decisions', []) if d.get('status') != 'confirmed']
-    covered = {ref for e in evidence if e.get('status') == 'passed' and e.get('freshness') == '当前' for ref in e.get('behavior_ids', [])}
-    current_unresolved = [e for e in evidence if e.get('freshness') == '当前' and e.get('status') in {'failed', 'blocked', 'not_run'}]
+    current_unresolved = [e for e in current if e.get('status') in {'failed', 'blocked', 'not_run'}]
     disputed = {ref for e in current_unresolved for ref in e.get('behavior_ids', [])}
-    covered -= disputed
-    missing = sum(b['id'] not in covered for b in behaviors)
-    stale = sum(e.get('freshness') != '当前' for e in evidence)
+    covered = {ref for e in current if e.get('status') == 'passed' for ref in e.get('behavior_ids', [])} - disputed
+    covered_ids = [b['id'] for b in behaviors if b['id'] in covered]
+    missing_ids = [b['id'] for b in behaviors if b['id'] not in covered]
+    evidence_by_id = {e.get('id'): e for e in evidence}
+    blockers = [dict(type='evidence', id=e.get('id', ''), summary=e.get('title') or e.get('summary') or '当前检查尚未通过', severity='blocking', source='evidence') for e in current_unresolved]
+    review_blockers, review_warnings = [], []
+    for finding in data.get('stage_details', {}).get('review', {}).get('items', []):
+        refs = finding.get('evidence_ids', [])
+        rechecked = bool(refs) and all(
+            ref in evidence_by_id and evidence_by_id[ref].get('freshness') == '当前'
+            and evidence_by_id[ref].get('status') == 'passed'
+            and not disputed.intersection(evidence_by_id[ref].get('behavior_ids', []))
+            for ref in refs)
+        resolved = finding.get('status') == 'done' and rechecked
+        if resolved:
+            continue
+        entry = dict(type='review', id=finding.get('id', ''), summary=finding.get('finding') or '审查问题缺少有效复查依据', severity=finding.get('severity', 'P3'), source='stage_details.review')
+        if finding.get('severity') in {'P0', 'P1'}:
+            review_blockers.append(entry)
+        else:
+            review_warnings.append(entry)
+    blockers.extend(review_blockers)
     owner = 'AI'
-    if not data.get('summary') or not behaviors:
+    # Existing evidence and high-risk findings outrank reading preferences and business decisions.
+    if current_unresolved:
+        step, focus = 'verify', 'testing'
+        action = 'AI 先解决当前检查 '+ '、'.join(str(e.get('id', '未编号')) for e in current_unresolved[:3])+'；修复后重新验证，不能以其他通过记录覆盖失败。'
+        reason = '存在当前失败、受阻或尚未执行的检查。'
+    elif review_blockers:
+        step, focus = 'review', 'review'
+        action = 'AI 先处理高风险审查问题 '+ '、'.join(str(b['id']) for b in review_blockers[:3])+'，并补充当前有效且无矛盾的通过证据。'
+        reason = 'P0/P1 问题尚未解决或缺少有效复查证据。'
+    elif not data.get('summary') or not behaviors:
         step, focus = 'understand', 'requirements'
         action = 'AI 先查清“'+data.get('title','当前需求')+'”的现状，给出一个具体输入与预期结果，再推进明确的工作。'
+        reason = '目标或可观察行为尚未明确。'
     elif pending:
         step, focus, owner = 'decide', 'solution', '你'
         first = pending[0]
         action = '请确认：'+first.get('question','待确认的业务规则')+'；建议：'+first.get('recommendation','AI 尚未给出建议，请先补充依据。')
+        reason = '关键业务规则需要负责人确认。'
     elif not data.get('implementation'):
         step, focus = 'implement', 'implementation'
         action = 'AI 实现“'+behaviors[0].get('after',data.get('title','当前功能'))+'”的最小切片，并验证相关行为。'
-    elif missing or current_unresolved:
+        reason = '行为已明确，尚无实际实施记录。'
+    elif missing_ids:
         step, focus = 'verify', 'testing'
-        ids = [b['id'] for b in behaviors if b['id'] not in covered]
-        action = 'AI 验证 '+ ('、'.join(ids[:3]) if ids else '未解决的当前检查')+' 的实际结果；失败先修复，过期证据重跑。'
+        action = 'AI 验证 '+ '、'.join(missing_ids[:3])+' 的实际结果；失败先修复，过期证据重跑。'
+        reason = '部分约定行为缺少当前通过证据。'
     else:
         step, focus, owner = 'accept', 'acceptance', '你'
-        checks = data.get('acceptance', [])
-        action = '请亲自核验：'+(checks[0] if checks else '关键用户路径；AI 需先给出可操作步骤。')
-    if data.get('kind') in {'incident','operations'} and step != 'accept':
-        focus = 'operations'
+        structured = data.get('stage_details', {}).get('acceptance', {}).get('items', [])
+        if structured:
+            item = next((x for x in structured if x.get('status') != 'done'), structured[0])
+            check = '；'.join(x for x in (item.get('scenario'), item.get('instruction')) if x)
+        else:
+            checks = data.get('acceptance', [])
+            check = checks[0] if checks else ''
+        action = '请亲自核验：'+(check or '关键用户路径；AI 需先给出可操作步骤。')
+        reason = ('已有通过记录，部分尚无脚本解析，仍需负责人亲自核验。'
+                  if source_counts['claim'] else '当前行为证据已覆盖，仍需负责人亲自核验。')
+    blockers.extend(dict(type='decision', id=d.get('id', ''), summary=d.get('question') or '业务规则待确认', severity='decision', source='decisions') for d in pending)
+    if data.get('implementation'):
+        blockers.extend(dict(type='verification', id=ref, summary='行为缺少当前无矛盾的通过证据', severity='blocking', source='behaviors') for ref in missing_ids)
     explicit = data.get('focus_stage')
-    if explicit in STAGE_LABELS:
-        focus = explicit
-    return dict(visible_sections=PHASE_SECTIONS[focus], **reading_guide(data.get('kind'), focus), step=step, focus_stage=focus, stage_label=STAGE_LABELS[focus], action_owner=owner, next_action=action, visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。', missing_verification_count=missing, stale_evidence_count=stale, unresolved_current_evidence_count=len(current_unresolved), pending_decision_count=len(pending))
+    if not current_unresolved and not review_blockers:
+        if data.get('kind') in {'incident','operations'} and step != 'accept':
+            focus = 'operations'
+        if explicit in STAGE_LABELS:
+            focus = explicit
+    verification = dict(covered_behavior_ids=covered_ids, missing_behavior_ids=missing_ids,
+        current_unresolved_evidence_ids=[e.get('id', '') for e in current_unresolved],
+        historical_evidence_count=len(historical), current_source_counts=source_counts, current_status_counts=_status_counts(current),
+        historical_status_counts=_status_counts(historical))
+    return dict(visible_sections=PHASE_SECTIONS[focus], **reading_guide(data.get('kind'), focus),
+        step=step, focus_stage=focus, requested_focus_stage=explicit, stage_label=STAGE_LABELS[focus],
+        action_owner=owner, next_action=action, primary_action=dict(owner=owner, title=action, reason=reason, kind=step),
+        blockers=blockers, review_warnings=review_warnings, verification=verification,
+        visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。',
+        missing_verification_count=len(missing_ids), stale_evidence_count=len(historical),
+        unresolved_current_evidence_count=len(current_unresolved), pending_decision_count=len(pending))

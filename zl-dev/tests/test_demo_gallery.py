@@ -18,6 +18,20 @@ class GalleryTests(unittest.TestCase):
             self.assertNotIn('</script><img',out)
             self.assertIn('example/report.html',out)
             self.assertNotIn('__DEMO_DATA__',out)
+    def test_gallery_uses_derived_review_when_raw_stage_requests_acceptance(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);task=root/'blocked';task.mkdir()
+            data=dict(version=1,id='blocked',title='权限修复',kind='feature',summary='客户导出',focus_stage='acceptance',behaviors=[dict(id='B1',after='仅本人客户')],implementation=[dict(title='模拟记录')],stage_details={'review':{'items':[dict(id='R1',status='pending',severity='P1',finding='权限绕过')]}})
+            (task/'task.json').write_text(json.dumps(data))
+            out=build_demo_gallery.build(root).read_text()
+            payload=re.search(r'<script type="application/json" id="data">(.*?)</script>',out,re.S).group(1)
+            entry=json.loads(payload)[0]
+            self.assertEqual('review',entry['stage'])
+            self.assertEqual('审查中',entry['phase'])
+            report=(task/'report.html').read_text()
+            embedded=re.search(r'<script id="task-data" type="application/json">(.*?)</script>',report,re.S).group(1)
+            self.assertEqual(entry['stage'],json.loads(embedded)['workflow_summary']['focus_stage'])
+
     def test_guidance_by_type_and_phase(self):
         from workflow import reading_guide
         self.assertNotEqual(reading_guide('feature','requirements'),reading_guide('feature','acceptance'))

@@ -6,7 +6,20 @@
 
 用户参数：当前任务输入（由 go 路由提供）
 
-从行为约定制定验证，不仅复述已有测试。读取真实项目工具链，运行相关检查，保留命令、结果及证据位置。先获取 fingerprint，执行检查后再获取 fingerprint；二者一致且检查结果真实时才能将该值写入对应 evidence.revision。若变更则重新验证。失败或未执行保留准确状态。断言总数、成功数与失败数须从实际机器可读结果或日志核算并引用来源，不得凭印象总结；口头结论与任务记录应一致。避免将之后更改的业务约定追溯绑定旧测试。渲染报告检查证据状态。
+先确定环境准备、起始数据及结构化验收预期，再从行为约定选择实际检查，不仅复述已有测试。有 stage_details.acceptance.items 时以其为准，避免与旧 acceptance 字符串分叉。acceptance_setup 和验收预期参与行为版本；actual/reviewer/result/reviewed_revision 等观察元数据不改变行为指纹。AI 测试角色标 reviewer_kind=ai，不代替人工签字或预选通过。
+
+优先使用内部执行器运行项目已有测试。以下任务目录、项目、行为 ID 与测试路径需替换为实际值；`--` 后是原样 argv，在绑定项目中执行，不经 shell 拼接：
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" verify "<任务目录>" --project "<源码项目绝对路径>" --format unittest --behavior B1 -- python3 -m unittest discover -s tests -v
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" verify "<任务目录>" --project "<源码项目绝对路径>" --format junit --behavior B1 --behavior B2 --result-file "/tmp/zl-dev-<本次唯一ID>.xml" -- pytest --junitxml="/tmp/zl-dev-<本次唯一ID>.xml"
+```
+
+JUnit 示例仅适用于项目已使用 pytest；其他工具使用其真实 JUnit 参数。两处结果路径须相同、每次新建且运行前不存在；优先写项目外，或确认是 Git 忽略路径，否则测试产物本身会改变源码指纹而不能绑定本次结果。不要删旧结果冒充新运行。执行器保存日志、结果摘要与前后指纹，稳定时追加关联行为的证据；检查未启动、超时、摘要无法解析、任务或指纹变化都不能当作有效通过。`render` 是独立动作。
+
+只绑定测试实际覆盖的行为。含部分 skip 的套件保守视为 not_run，不能用其余成功数推断所绑定行为全部通过；必要时拆开运行相关检查，保留原跳过记录。解析数量不是业务覆盖率，回执和哈希不是身份认证或防伪签字。旧 evidence 继续作为 claim 模型声明；有效回执为 parsed_result，无效回执为 invalid 并降级，不能手填 parsed_result 冒充解析。
+
+没有支持的结果格式时仍执行真实检查并记录原始来源、前后 fingerprint，明确只是模型记录。二者一致且检查结果真实时才能绑定 evidence.revision；变化则重验。数量从机器结果核算，不凭印象总结，不将后来修改的业务约定追溯绑定旧测试。当前失败与未解决 P0/P1 优先；done 的高风险发现仍须引用当前、无矛盾的通过复查，focus_stage 不抹除阻塞。
 
 按行为风险补充验证：涉及并发、重试、幂等、超时或恢复时，选择可能相互作用的故障组合，核对先后顺序与中间状态；不要求每次穷举所有类型。单项测试通过不能替代关键组合路径。
 

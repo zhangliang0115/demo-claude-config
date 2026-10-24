@@ -28,7 +28,7 @@ def git(args, cwd):
 
 
 def semantic_contract(data):
-    contract = {k: data.get(k) for k in ('project_path','kind','scope','acceptance','feature','contract_version')}
+    contract = {k: data.get(k) for k in ('project_path','kind','scope','acceptance','acceptance_setup','feature','contract_version')}
     contract['behaviors'] = [{k:b.get(k) for k in ('id','before','after')} for b in data.get('behaviors',[])]
     contract['scenarios'] = data.get('scenarios',[])
     details = data.get('stage_details',{})
@@ -97,6 +97,14 @@ def validate(data):
             raise ValueError('场景必须标记 simulation 或 recorded')
         if not isinstance(scene.get('steps', []), list) or any(not isinstance(x, dict) for x in scene.get('steps', [])):
             raise ValueError('场景 steps 必须是对象数组')
+    setup = data.get('acceptance_setup', {})
+    if not isinstance(setup, dict) or set(setup) - {'environment','prepare_command','entry_url','baseline','stop','notes'} or any(not isinstance(v, str) for v in setup.values()):
+        raise ValueError('acceptance_setup 只能包含约定的字符串字段')
+    if setup.get('entry_url'):
+        from urllib.parse import urlparse
+        url = urlparse(setup['entry_url'])
+        if url.scheme not in {'http','https'} or not url.netloc:
+            raise ValueError('entry_url 只允许 http/https URL 或空字符串')
     for key in ('risks', 'changes', 'acceptance'):
         if not isinstance(data.get(key, []), list):
             raise ValueError(f'{key} 必须是数组')
@@ -128,12 +136,17 @@ def validate(data):
             raise ValueError('阶段 items 必须是数组')
         seen = set()
         allowed = {f[0] for f in STAGES[key]['fields']} | {'id','status','steps','evidence_ids'}
+        if key in {'acceptance','release'}:
+            allowed |= {'reviewed_revision','reviewer_kind','verification_mode'}
         for item in items:
             if not isinstance(item, dict) or set(item) - allowed:
                 raise ValueError('阶段条目包含未定义字段')
             if not isinstance(item.get('id'), str) or not item['id'] or item['id'] in seen:
                 raise ValueError('阶段条目 id 必须非空且阶段内唯一')
             seen.add(item['id'])
+            if key in {'acceptance','release'}:
+                if not isinstance(item.get('reviewed_revision',''),str) or item.get('reviewer_kind','unknown') not in {'human','ai','unknown'} or item.get('verification_mode','manual') not in {'manual','assisted','automated'}:
+                    raise ValueError('核验版本、执行者或核验方式无效')
             if item.get('status') not in {'pending','in_progress','blocked','done'}:
                 raise ValueError('阶段状态必须为 pending/in_progress/blocked/done')
             for field, label in STAGES[key]['fields']:
@@ -188,7 +201,7 @@ def locate(task_dir):
     folder = Path(task_dir)
     raw = (folder / 'task.json').read_bytes()
     data = validate(json.loads(raw))
-    state = assessed(data, fingerprint(folder))
+    state = assessed(data, fingerprint(folder), folder)
     report = folder / 'report.html'
     return dict(task_dir=str(folder), title=data['title'],
                 report=str(report) if report.is_file() else None,
@@ -263,10 +276,22 @@ def update_task(task_dir, source, project, expected_revision, expected_fingerpri
     return dict(task_dir=str(folder), task_revision=task_revision(payload), updated=True)
 
 
-def assessed(data, current):
+def assessed(data, current, task_dir=None):
     result = json.loads(json.dumps(data))
     for e in result.get('evidence', []):
+        e.pop('parsed_result', None)
+        e.pop('verification_source', None)
+        from verification import inspect_receipt
+        source = inspect_receipt(task_dir, data, e) if task_dir else dict(verification_source='invalid' if 'verification_receipt' in e else 'claim')
+        e.update(source)
+        if source['verification_source'] == 'invalid':
+            e['claimed_status'] = e['status']
+            e['status'] = 'not_run'
         e['freshness'] = '未知：无法核对代码状态' if not current else ('当前' if e.get('revision') == current else '过期或未绑定：需重新验证')
+    for stage in ('acceptance', 'release'):
+        for item in result.get('stage_details', {}).get(stage, {}).get('items', []):
+            item.setdefault('reviewer_kind', 'unknown')
+            item.setdefault('verification_mode', 'manual')
     from datetime import datetime, timezone
     result['generated_at'] = datetime.now(timezone.utc).isoformat()
     result['current_fingerprint'] = current
@@ -278,7 +303,7 @@ def assessed(data, current):
 
 def render(task_dir):
     task_dir = Path(task_dir)
-    data = assessed(load(task_dir), fingerprint(task_dir))
+    data = assessed(load(task_dir), fingerprint(task_dir), task_dir)
     # Escape inline JSON closing tags and all markup-sensitive chars.
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets' / 'report.html').read_text(encoding='utf-8')
@@ -306,7 +331,7 @@ def build_index(task_root):
     rows = []
     from urllib.parse import quote
     for source in sorted(task_root.glob('*/task.json')):
-        data = assessed(load(source.parent), fingerprint(source.parent))
+        data = assessed(load(source.parent), fingerprint(source.parent), source.parent)
         render(source.parent)
         pending = sum(d.get('status') != 'confirmed' for d in data.get('decisions', []))
         gaps = sum(e.get('status') != 'passed' or e['freshness'] != '当前' for e in data.get('evidence', []))
@@ -347,7 +372,7 @@ def export_handoff(task_dir):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['init', 'render', 'status', 'fingerprint', 'index', 'handoff', 'continue', 'locate', 'update'])
+    parser.add_argument('command', choices=['init', 'render', 'status', 'fingerprint', 'index', 'handoff', 'continue', 'locate', 'update', 'verify'])
     parser.add_argument('task_dir', nargs='?')
     parser.add_argument('--project', type=Path, default=Path.cwd())
     parser.add_argument('--title', default='待定义任务')
@@ -355,9 +380,18 @@ def main():
     parser.add_argument('--from-file', type=Path)
     parser.add_argument('--expect-revision')
     parser.add_argument('--expect-fingerprint')
-    args = parser.parse_args()
+    parser.add_argument('--format', choices=['unittest','junit'])
+    parser.add_argument('--behavior', action='append', default=[])
+    parser.add_argument('--result-file', type=Path)
+    parser.add_argument('--timeout', type=float, default=120)
+    tokens = sys.argv[1:]
+    argv = []
+    if '--' in tokens:
+        divider = tokens.index('--')
+        argv, tokens = tokens[divider+1:], tokens[:divider]
+    args = parser.parse_args(tokens)
     try:
-        if args.command == 'update' and not args.task_dir:
+        if args.command in {'update','verify'} and not args.task_dir:
             raise ValueError('update 必须明确提供任务目录')
         if args.command == 'index':
             args.task_dir = Path(args.task_dir).expanduser().resolve() if args.task_dir else project_root(args.project) / 'tasks'
@@ -380,10 +414,17 @@ def main():
             if not args.from_file:
                 raise ValueError('update 必须提供 --from-file 临时 JSON 文件')
             print(json.dumps(update_task(args.task_dir, args.from_file, args.project, args.expect_revision, args.expect_fingerprint), ensure_ascii=False, indent=2))
+        elif args.command == 'verify':
+            if not args.format:
+                raise ValueError('verify 必须提供 --format')
+            from verification import execute
+            result, code = execute(args.task_dir, args.project, args.format, args.behavior, argv, args.result_file, args.timeout)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
         elif args.command == 'locate':
             print(json.dumps(locate(args.task_dir), ensure_ascii=False, indent=2))
         elif args.command == 'continue':
-            data = assessed(load(args.task_dir), fingerprint(args.task_dir))
+            data = assessed(load(args.task_dir), fingerprint(args.task_dir), args.task_dir)
             print(json.dumps(dict(task_dir=str(args.task_dir), report=str(render(args.task_dir)), **data['workflow_summary']),ensure_ascii=False,indent=2))
         elif args.command == 'handoff':
             print(export_handoff(args.task_dir))
@@ -394,8 +435,8 @@ def main():
         elif args.command == 'fingerprint':
             print(fingerprint(args.task_dir) or 'UNKNOWN')
         else:
-            data = assessed(load(args.task_dir), fingerprint(args.task_dir))
-            print(json.dumps({'title': data['title'], 'stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'fingerprint': data['current_fingerprint'], 'handoff': handoff_state(args.task_dir, task_revision((args.task_dir / 'task.json').read_bytes()), data['current_fingerprint']), 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'stage_pending': {key: {'decision': section.get('decision', ''), 'pending_items': [item.get('id') for item in section.get('items', []) if item.get('status') != 'done']} for key, section in data.get('stage_details', {}).items()}, 'next_step': data['workflow_summary']['next_action'] }, ensure_ascii=False, indent=2))
+            data = assessed(load(args.task_dir), fingerprint(args.task_dir), args.task_dir)
+            print(json.dumps({'title': data['title'], 'stage': data['workflow_summary']['stage_label'], 'recorded_stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'fingerprint': data['current_fingerprint'], 'handoff': handoff_state(args.task_dir, task_revision((args.task_dir / 'task.json').read_bytes()), data['current_fingerprint']), 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'stage_pending': {key: {'decision': section.get('decision', ''), 'pending_items': [item.get('id') for item in section.get('items', []) if item.get('status') != 'done']} for key, section in data.get('stage_details', {}).items()}, 'workflow_summary': data['workflow_summary'], 'next_step': data['workflow_summary']['next_action'] }, ensure_ascii=False, indent=2))
     except (OSError, ValueError, KeyError) as exc:
         print(f'错误：{exc}', file=sys.stderr)
         return 1
