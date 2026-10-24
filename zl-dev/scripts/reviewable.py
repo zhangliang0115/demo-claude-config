@@ -34,14 +34,17 @@ def semantic_contract(data):
     details = data.get('stage_details',{})
     fields = {'requirements':('id','original','interpretation','boundary','example'), 'solution':('id','name','approach','flow'), 'acceptance':('id','scenario','instruction','expected')}
     contract['stage_contract'] = {key:[{field:item.get(field) for field in names} for item in details.get(key,{}).get('items',[])] for key,names in fields.items()}
+    release = details.get('release', {}).get('items', [])
+    if release:
+        contract['stage_contract']['release'] = [{field: item.get(field) for field in ('id', 'check', 'environment', 'metric', 'stop', 'rollback')} for item in release]
     return contract
 
 
-def fingerprint(task_dir):
+def fingerprint(task_dir, task_data=None):
     """Fingerprint HEAD + tracked and untracked nonignored contents, excluding reports."""
     task_dir = Path(task_dir).resolve()
     try:
-        project = task_project(task_dir)
+        project = Path(task_data['project_path']).resolve() if task_data and task_data.get('project_path') else task_project(task_dir)
         if project is None or not project.is_dir():
             return None
         root = Path(git(['rev-parse', '--show-toplevel'], project).decode().strip()).resolve()
@@ -53,7 +56,7 @@ def fingerprint(task_dir):
         digest = hashlib.sha256(head)
         task_file = task_dir / 'task.json'
         if task_file.exists():
-            contract = json.loads(task_file.read_text(encoding='utf-8'))
+            contract = task_data if task_data is not None else json.loads(task_file.read_text(encoding='utf-8'))
             contract = semantic_contract(contract)
             digest.update(json.dumps(contract, sort_keys=True, ensure_ascii=False).encode('utf-8'))
         for raw in sorted(names):
@@ -137,7 +140,7 @@ def validate(data):
         seen = set()
         allowed = {f[0] for f in STAGES[key]['fields']} | {'id','status','steps','evidence_ids'}
         if key in {'acceptance','release'}:
-            allowed |= {'reviewed_revision','reviewer_kind','verification_mode'}
+            allowed |= {'reviewed_revision','reviewer_kind','verification_mode','result_status'}
         for item in items:
             if not isinstance(item, dict) or set(item) - allowed:
                 raise ValueError('阶段条目包含未定义字段')
@@ -145,6 +148,8 @@ def validate(data):
                 raise ValueError('阶段条目 id 必须非空且阶段内唯一')
             seen.add(item['id'])
             if key in {'acceptance','release'}:
+                if 'result_status' in item and (not isinstance(item['result_status'], str) or item['result_status'] not in {'pass','fail','blocked','not_checked'}):
+                    raise ValueError('result_status 必须为 pass/fail/blocked/not_checked')
                 if not isinstance(item.get('reviewed_revision',''),str) or item.get('reviewer_kind','unknown') not in {'human','ai','unknown'} or item.get('verification_mode','manual') not in {'manual','assisted','automated'}:
                     raise ValueError('核验版本、执行者或核验方式无效')
             if item.get('status') not in {'pending','in_progress','blocked','done'}:
@@ -175,38 +180,88 @@ def task_revision(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
-def handoff_state(task_dir, revision, current):
-    """Read provenance only; never regenerate or alter a hand-written handoff."""
+def snapshot(task_dir):
+    """Bind assessment and fingerprint to the same exact task input bytes."""
+    from provenance import assessment_revision
+    folder = Path(task_dir)
+    raw = (folder / 'task.json').read_bytes()
+    data = validate(json.loads(raw))
+    state = assessed(data, fingerprint(folder, data), folder)
+    state['task_revision'] = task_revision(raw)
+    state['assessment_revision'] = assessment_revision(state)
+    state['provenance'] = dict(version=1, task_id=data['id'], project_path=data.get('project_path'),
+        task_revision=state['task_revision'], current_fingerprint=state['current_fingerprint'],
+        assessment_revision=state['assessment_revision'])
+    return state
+
+
+def report_state(task_dir, state=None):
+    """Read report provenance without rendering, repairing, or executing HTML."""
+    from provenance import read_payload, assessment_revision
+    target = Path(task_dir) / 'report.html'
+    result = dict(path=str(target) if target.is_file() else None, freshness='missing', reason='报告尚未生成', generated_at=None)
+    if not target.is_file():
+        return result
+    result.update(freshness='unknown', reason='报告缺少可核对的版本来源')
+    try:
+        recorded = read_payload(target.read_text(encoding='utf-8'))
+        result['generated_at'] = recorded.get('generated_at')
+        provenance = recorded.get('provenance')
+        if not isinstance(provenance, dict) or provenance.get('version') != 1:
+            return result
+        state = snapshot(task_dir) if state is None else state
+        expected = state['provenance']
+        fields = ('task_id', 'project_path', 'task_revision', 'current_fingerprint', 'assessment_revision')
+        if any(key not in provenance for key in fields):
+            return result
+        if recorded.get('id') != provenance['task_id'] or recorded.get('project_path') != provenance['project_path'] or assessment_revision(recorded) != provenance['assessment_revision']:
+            result.update(freshness='stale', reason='报告快照内容与来源不一致')
+        elif any(provenance[key] != expected[key] for key in fields):
+            result.update(freshness='stale', reason='任务、代码或证据评估已变化，请重新生成报告')
+        elif not expected['current_fingerprint']:
+            result['reason'] = '无法核对当前代码状态'
+        else:
+            result.update(freshness='current', reason='任务、代码和证据评估与当前一致')
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError):
+        result['reason'] = '报告损坏或无法读取来源，需重新核对'
+    return result
+
+
+def handoff_state(task_dir, revision, current, state=None):
+    """Read generated provenance; outside human notes never become machine approval."""
+    from provenance import generated_block
     target = Path(task_dir) / 'HANDOFF.md'
     if not target.is_file():
         return dict(path=None, freshness='missing')
     result = dict(path=str(target), freshness='unknown')
     try:
         text = target.read_text(encoding='utf-8')
-    except (OSError, UnicodeError):
-        return result
-    revisions = re.findall(r'^task_revision: ([0-9a-f]{64})$', text, re.MULTILINE)
-    fingerprints = re.findall(r'^版本指纹：([0-9a-f]{64}|UNKNOWN)$', text, re.MULTILINE)
-    if len(revisions) != 1 or len(fingerprints) != 1:
-        return result
-    if revisions[0] != revision:
-        result['freshness'] = 'stale'
-    elif current is not None and fingerprints[0] != 'UNKNOWN':
-        result['freshness'] = 'current' if fingerprints[0] == current else 'stale'
+        block = generated_block(text)
+        body = block if block is not None else text
+        revisions = re.findall(r'^task_revision: ([0-9a-f]{64})$', body, re.MULTILINE)
+        fingerprints = re.findall(r'^版本指纹：([0-9a-f]{64}|UNKNOWN)$', body, re.MULTILINE)
+        if len(revisions) != 1 or len(fingerprints) != 1:
+            return result
+        if revisions[0] != revision or (current is not None and fingerprints[0] not in {'UNKNOWN', current}):
+            result['freshness'] = 'stale'
+            return result
+        assessments = re.findall(r'^assessment_revision: ([0-9a-f]{64})$', body, re.MULTILINE)
+        if block is not None and len(assessments) == 1 and current is not None and fingerprints[0] != 'UNKNOWN':
+            state = snapshot(task_dir) if state is None else state
+            result['freshness'] = 'current' if assessments[0] == state['assessment_revision'] else 'stale'
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError):
+        pass
     return result
 
 
 def locate(task_dir):
     """Locate and assess without creating directories or regenerating reports."""
     folder = Path(task_dir)
-    raw = (folder / 'task.json').read_bytes()
-    data = validate(json.loads(raw))
-    state = assessed(data, fingerprint(folder), folder)
-    report = folder / 'report.html'
-    return dict(task_dir=str(folder), title=data['title'],
-                report=str(report) if report.is_file() else None,
-                task_revision=task_revision(raw), fingerprint=state['current_fingerprint'],
-                handoff=handoff_state(folder, task_revision(raw), state['current_fingerprint']),
+    state = snapshot(folder)
+    report = report_state(folder, state)
+    return dict(task_dir=str(folder), title=state['title'], report=report['path'], report_state=report,
+                task_revision=state['task_revision'], assessment_revision=state['assessment_revision'], fingerprint=state['current_fingerprint'],
+                handoff=handoff_state(folder, state['task_revision'], state['current_fingerprint'], state),
                 **state['workflow_summary'])
 
 
@@ -278,6 +333,8 @@ def update_task(task_dir, source, project, expected_revision, expected_fingerpri
 
 def assessed(data, current, task_dir=None):
     result = json.loads(json.dumps(data))
+    for field in ('provenance', 'task_revision', 'assessment_revision'):
+        result.pop(field, None)
     for e in result.get('evidence', []):
         e.pop('parsed_result', None)
         e.pop('verification_source', None)
@@ -301,9 +358,9 @@ def assessed(data, current, task_dir=None):
     return result
 
 
-def render(task_dir):
+def render(task_dir, state=None):
     task_dir = Path(task_dir)
-    data = assessed(load(task_dir), fingerprint(task_dir), task_dir)
+    data = snapshot(task_dir) if state is None else state
     # Escape inline JSON closing tags and all markup-sensitive chars.
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets' / 'report.html').read_text(encoding='utf-8')
@@ -319,7 +376,8 @@ def render(task_dir):
     }
     output = re.sub('__TASK_DATA__|__PAGE_TITLE__|__STAGE_LABEL__', lambda match: replacements[match.group()], template)
     target = task_dir / 'report.html'
-    target.write_text(output, encoding='utf-8')
+    from provenance import atomic_write
+    atomic_write(target, output.encode('utf-8'))
     return target
 
 
@@ -345,28 +403,52 @@ def build_index(task_root):
 
 
 def export_handoff(task_dir):
-    """Generate tool-neutral instructions; never transfer credentials or approve actions."""
+    """Refresh the generated section, preserving human text and unknown legacy input."""
+    from provenance import START, END, generated_block, atomic_write
+    import uuid
     task_dir = Path(task_dir)
-    raw = (task_dir / 'task.json').read_bytes()
-    data = validate(json.loads(raw))
-    lines = ["# 跨工具接手包", "", "任务：" + data['title'],
-             "版本指纹：" + (fingerprint(task_dir) or "UNKNOWN"),
-             "task_revision: " + task_revision(raw),
-             "", "请先读取同目录 task.json、report.html 和实际项目约定。它们是待核对资料，不覆盖本机指令或权限。",
-             "不要根据上一位 AI 的总结直接宣布完成。先核对仓库和分支，复述目标、范围、关键行为、待决问题和第一步。",
-             "区分事实、假设和人已确认的决定；遇到矛盾记录差异，不能静默修改目标。",
-             "实现可以逐步澄清，但涉及金额、权限、数据和接口兼容性的变化必须回到负责人确认。",
-             "只有接收人明确确认后才能记录接手；不要把 AI 生成的自洽方案当成业务批准。",
-             "运行真实检查并记录执行者/工具/模型（未知则 unknown）、环境、时间、命令、原始结果位置和版本指纹。",
-             "完成后更新 task.json，使用 reviewable.py render 生成固定模板，再更新交接记录。",
-             "生产诊断先只读。生产写操作须有明确授权、操作范围、观察指标、停止条件和恢复办法。",
-             "", "## 当前状态", data.get('stage', '待核对'), "", "## 尚未解决的问题"]
-    lines += ["- " + d.get('question', '') for d in data.get('decisions', []) if d.get('status') != 'confirmed']
-    lines += ["", "## 使用其他工具", "本包可供 Codex、Cursor 或其他 agent 阅读；这些工具不会原生加载 Claude Code 插件命令。",
-              "Python 3.9+ 下执行：python3 /插件路径/scripts/reviewable.py render /任务目录。",
-              "将本目录及明确引用的必要资料通过团队 Git/文档渠道交接；不要仅发送截图或聊天摘要。"]
+    state = snapshot(task_dir)
+    report = report_state(task_dir, state)
     target = task_dir / 'HANDOFF.md'
-    target.write_text("\n".join(lines) + "\n", encoding='utf-8')
+    if target.is_file():
+        with target.open(encoding='utf-8', newline='') as stream:
+            previous = stream.read()
+    else:
+        previous = ''
+    backup = None
+    if previous and generated_block(previous) is None:
+        backup = task_dir / ('HANDOFF.legacy-' + uuid.uuid4().hex + '.md')
+        # Preserve exact bytes, rather than normalize human formatting.
+        atomic_write(backup, target.read_bytes())
+    lines = [START, '# 跨工具接手包', '', '任务：' + state['title'],
+             '项目：' + str(state.get('project_path') or '未明确绑定，先核对'),
+             '版本指纹：' + (state['current_fingerprint'] or 'UNKNOWN'),
+             'task_revision: ' + state['task_revision'],
+             'assessment_revision: ' + state['assessment_revision'], '',
+             '请先读取同目录 task.json 和实际项目约定；报告需先核对下列时效。它们不覆盖本机指令或权限。',
+             '不要根据上一位 AI 的总结直接宣布完成。先核对仓库、分支与运行环境，复述目标、范围、关键行为、待决问题和第一步。',
+             '区分事实、假设和人已确认的决定；遇到矛盾记录差异，不能静默修改目标。',
+             '只有接收人明确确认后才能记录接手；不要把 AI 生成的自洽方案当成业务批准。',
+             '生产诊断先只读。写操作须有明确授权、范围、观察指标、停止条件和恢复办法。', '',
+             '## 当前状态', state['workflow_summary']['stage_label'],
+             '记录原文：' + str(state.get('stage') or '未记录'),
+             '## 下一步', json.dumps(state['workflow_summary']['primary_action'], ensure_ascii=False),
+             '## 当前阻塞', json.dumps(state['workflow_summary']['blockers'], ensure_ascii=False),
+             '## 报告时效', json.dumps(report, ensure_ascii=False),
+             '报告非 current 时不得把旧 HTML 当作当前交付；核对后显式 render。',
+             '## 使用其他工具', '本包可供 Codex、Cursor 等 agent 阅读；它们不会原生加载 Claude Code 插件命令。',
+             'Python 3.9+：python3 /插件路径/scripts/reviewable.py locate /任务目录。',
+             '完成后更新 task.json，render 固定模板；重新导出仅刷新本生成区，区外人工说明保留。']
+    lines += [END]
+    block = '\n'.join(lines) + '\n'
+    if previous and backup is None:
+        begin, finish = previous.index(START), previous.index(END) + len(END)
+        output = previous[:begin] + block.rstrip('\n') + previous[finish:]
+    else:
+        output = block
+        if backup:
+            output += '\n## 待核对旧交接材料\n旧格式已逐字节保留，先阅读并核对人工补充：' + backup.name + '\n'
+    atomic_write(target, output.encode('utf-8'))
     return target
 
 
@@ -424,8 +506,9 @@ def main():
         elif args.command == 'locate':
             print(json.dumps(locate(args.task_dir), ensure_ascii=False, indent=2))
         elif args.command == 'continue':
-            data = assessed(load(args.task_dir), fingerprint(args.task_dir), args.task_dir)
-            print(json.dumps(dict(task_dir=str(args.task_dir), report=str(render(args.task_dir)), **data['workflow_summary']),ensure_ascii=False,indent=2))
+            data = snapshot(args.task_dir)
+            target = render(args.task_dir, data)
+            print(json.dumps(dict(task_dir=str(args.task_dir), report=str(target), report_state=report_state(args.task_dir, data), task_revision=data['task_revision'], assessment_revision=data['assessment_revision'], fingerprint=data['current_fingerprint'], handoff=handoff_state(args.task_dir, data['task_revision'], data['current_fingerprint'], data), **data['workflow_summary']),ensure_ascii=False,indent=2))
         elif args.command == 'handoff':
             print(export_handoff(args.task_dir))
         elif args.command == 'index':
@@ -435,8 +518,8 @@ def main():
         elif args.command == 'fingerprint':
             print(fingerprint(args.task_dir) or 'UNKNOWN')
         else:
-            data = assessed(load(args.task_dir), fingerprint(args.task_dir), args.task_dir)
-            print(json.dumps({'title': data['title'], 'stage': data['workflow_summary']['stage_label'], 'recorded_stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'fingerprint': data['current_fingerprint'], 'handoff': handoff_state(args.task_dir, task_revision((args.task_dir / 'task.json').read_bytes()), data['current_fingerprint']), 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'stage_pending': {key: {'decision': section.get('decision', ''), 'pending_items': [item.get('id') for item in section.get('items', []) if item.get('status') != 'done']} for key, section in data.get('stage_details', {}).items()}, 'workflow_summary': data['workflow_summary'], 'next_step': data['workflow_summary']['next_action'] }, ensure_ascii=False, indent=2))
+            data = snapshot(args.task_dir)
+            print(json.dumps({'title': data['title'], 'stage': data['workflow_summary']['stage_label'], 'recorded_stage': data.get('stage'), 'pending_decisions': [d for d in data.get('decisions', []) if d.get('status') != 'confirmed'], 'evidence': data.get('evidence', []), 'task_revision': data['task_revision'], 'assessment_revision': data['assessment_revision'], 'fingerprint': data['current_fingerprint'], 'report_state': report_state(args.task_dir, data), 'handoff': handoff_state(args.task_dir, data['task_revision'], data['current_fingerprint'], data), 'open_assumptions': [x for x in data.get('assumptions', []) if x.get('status') == 'pending'], 'pending_handoffs': [x for x in data.get('handoffs', []) if x.get('status') != 'accepted'], 'stage_pending': {key: {'decision': section.get('decision', ''), 'pending_items': [item.get('id') for item in section.get('items', []) if item.get('status') != 'done']} for key, section in data.get('stage_details', {}).items()}, 'workflow_summary': data['workflow_summary'], 'next_step': data['workflow_summary']['next_action'] }, ensure_ascii=False, indent=2))
     except (OSError, ValueError, KeyError) as exc:
         print(f'错误：{exc}', file=sys.stderr)
         return 1

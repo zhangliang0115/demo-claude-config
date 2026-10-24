@@ -104,8 +104,9 @@ class CurrentActionTests(unittest.TestCase):
 
     def test_structured_acceptance_is_authoritative_over_old_string(self):
         task = self.passed_task()
+        task['current_fingerprint'] = 'current'
         task['acceptance'] = ['旧规则点击取消']
-        task['stage_details'] = {'acceptance': {'items': [dict(id='A1', status='done', scenario='已核验'), dict(id='A2', status='pending', scenario='名额调整', instruction='增加3人并查看候补')]}}
+        task['stage_details'] = {'acceptance': {'items': [dict(id='A1', status='done', scenario='已核验', reviewer_kind='human', reviewed_revision='current', result_status='pass'), dict(id='A2', status='pending', scenario='名额调整', instruction='增加3人并查看候补')]}}
         action = summarize(task)['next_action']
         self.assertIn('名额调整', action)
         self.assertIn('增加3人并查看候补', action)
@@ -141,3 +142,95 @@ class CurrentActionTests(unittest.TestCase):
         self.assertEqual(sum(value['historical_status_counts'].values()), 2)
         self.assertEqual(value['historical_evidence_count'], 2)
         self.assertEqual(value['historical_status_counts']['unknown'], 1)
+
+
+class HumanVerificationTests(unittest.TestCase):
+    def task(self, items, stage='acceptance'):
+        task = CurrentActionTests().passed_task()
+        task.update(current_fingerprint='current', focus_stage=stage, stage_details={stage: {'items': items}})
+        return task
+
+    def item(self, identity='A1', result='pass', revision='current', reviewer='human'):
+        return dict(id=identity, status='done', scenario='scenario '+identity, instruction='execute '+identity,
+                    result_status=result, reviewed_revision=revision, reviewer_kind=reviewer)
+
+    def test_current_human_failure_or_blocked_returns_to_ai(self):
+        for stage in ('acceptance', 'release'):
+            for status in ('fail', 'blocked'):
+                with self.subTest(stage=stage, status=status):
+                    result=summarize(self.task([self.item(result=status)],stage))
+                    self.assertEqual((result['step'],result['action_owner'],result['focus_stage']),('human_feedback','AI',stage))
+                    self.assertTrue(any(b['type']=='human_feedback' and b['result_status']==status for b in result['blockers']))
+                    self.assertNotIn('请亲自核验',result['next_action'])
+                    self.assertEqual(result['stage_label'],'人工反馈 · 待 AI 处理')
+
+    def test_historical_human_failure_is_pending_not_current_blocker(self):
+        result=summarize(self.task([self.item(result='fail',revision='old')]))
+        human=result['human_verification']
+        self.assertEqual(result['step'],'accept')
+        self.assertEqual(human['historical_ids'],['A1'])
+        self.assertEqual(human['pending_ids'],['A1'])
+        self.assertEqual(human['current_fail_ids'],[])
+        self.assertEqual(result['blockers'],[])
+
+    def test_ai_unknown_or_missing_version_never_signs(self):
+        for reviewer,revision in [('ai','current'),('unknown','current'),('human',''),('human',None)]:
+            with self.subTest(reviewer=reviewer,revision=revision):
+                result=summarize(self.task([self.item(reviewer=reviewer,revision=revision)]))
+                self.assertEqual(result['step'],'accept')
+                self.assertEqual(result['human_verification']['pending_ids'],['A1'])
+        task=self.task([self.item()]);task['current_fingerprint']=None
+        self.assertEqual(summarize(task)['step'],'accept')
+
+    def test_done_or_free_text_result_without_enum_does_not_pass(self):
+        item=self.item();item.pop('result_status');item['result']='通过';item['actual']='符合预期'
+        result=summarize(self.task([item]))
+        self.assertEqual(result['step'],'accept')
+        self.assertEqual(result['human_verification']['current_pass_ids'],[])
+        self.assertEqual(result['human_verification']['pending_ids'],['A1'])
+
+    def test_all_current_human_pass_stops_repeated_verification(self):
+        for stage in ('acceptance','release'):
+            result=summarize(self.task([self.item(),self.item('A2')],stage))
+            self.assertEqual((result['step'],result['action_owner']),('human_reviewed','你'))
+            self.assertTrue(result['human_verification']['all_current_passed'])
+            self.assertEqual(result['human_verification']['current_pass_ids'],['A1','A2'])
+            self.assertIn('不自动发布',result['next_action'])
+            self.assertNotIn('请亲自核验',result['next_action'])
+            self.assertNotIn('亲自核验关键路径',result['human_action'])
+            self.assertEqual(result['focus_stage'],stage)
+            self.assertEqual(result['stage_label'],'发布核验已记录' if stage=='release' else '人工核验已记录')
+
+    def test_partial_pass_selects_first_not_current_human_pass(self):
+        items=[self.item(),self.item('A2',result='not_checked'),self.item('A3')]
+        result=summarize(self.task(items))
+        self.assertIn('scenario A2',result['next_action'])
+        self.assertNotIn('scenario A1',result['next_action'])
+        self.assertEqual(result['human_verification']['pending_ids'],['A2'])
+
+    def test_current_evidence_and_p1_precede_human_feedback(self):
+        task=self.task([self.item(result='fail')])
+        task['evidence'].append(dict(id='bad',status='failed',freshness='当前',behavior_ids=[]))
+        self.assertEqual(summarize(task)['step'],'verify')
+        task['evidence'].pop()
+        task['stage_details']['review']={'items':[dict(id='R1',status='pending',severity='P1',finding='broken')]}
+        self.assertEqual(summarize(task)['step'],'review')
+        self.assertTrue(any(b['type']=='human_feedback' for b in summarize(task)['blockers']))
+
+    def test_other_stage_current_human_failure_still_blocks(self):
+        task=self.task([self.item()])
+        task['stage_details']['release']={'items':[self.item('L1',result='blocked')]}
+        result=summarize(task)
+        self.assertEqual(result['step'],'human_feedback')
+        self.assertEqual(result['human_verification']['by_stage']['release']['current_blocked_ids'],['L1'])
+
+
+    def test_explicit_enum_does_not_require_done_status(self):
+        item=self.item();item['status']='pending'
+        self.assertEqual(summarize(self.task([item]))['step'],'human_reviewed')
+
+    def test_passes_do_not_override_technical_gap_or_business_decision(self):
+        task=self.task([self.item()]);task['evidence']=[]
+        self.assertEqual(summarize(task)['step'],'verify')
+        task=self.task([self.item()]);task['decisions']=[dict(id='D1',status='pending',question='scope?')]
+        self.assertEqual(summarize(task)['step'],'decide')

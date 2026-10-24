@@ -289,12 +289,16 @@ def project_snapshot(p):
             counts['unresolved_current'] += int(e['freshness'] == '当前' and e.get('status') != 'passed')
         if not child.get('behaviors'):
             snap['issues'].append('尚无可验证的行为约定')
-        # Technical readiness consumes the same high-risk review gates as the child report.
+        # Readiness consumes high-risk review and current explicit human returns.
         # Business decisions remain visible in the child, rather than being mislabeled failed tests.
         snap['technical_blockers'] = [b for b in child['workflow_summary']['blockers']
-                                      if b['type'] == 'review' and b['severity'] in {'P0', 'P1'}]
+                                      if (b['type'] == 'review' and b['severity'] in {'P0', 'P1'})
+                                      or b['type'] == 'human_feedback']
         for blocker in snap['technical_blockers']:
-            snap['issues'].append('审查 ' + blocker['severity'] + ' ' + blocker['id'] + ': ' + blocker['summary'])
+            if blocker['type'] == 'human_feedback':
+                snap['issues'].append('人工反馈 ' + blocker.get('stage', '') + ' ' + blocker['id'] + ': ' + blocker['summary'])
+            else:
+                snap['issues'].append('审查 ' + blocker['severity'] + ' ' + blocker['id'] + ': ' + blocker['summary'])
         snap['missing_behaviors'] = child['workflow_summary']['missing_verification_count']
         if snap['missing_behaviors'] or snap['evidence_counts']['unresolved_current']:
             snap['issues'].append('项目当前验证仍有未覆盖行为或未通过证据；历史证据保留供追溯')

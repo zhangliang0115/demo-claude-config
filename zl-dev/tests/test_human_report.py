@@ -19,12 +19,18 @@ class Element {
  set textContent(x){this._text=String(x);this.children=[];}
  focus(){} select(){} setSelectionRange(){}
 }
-const ids={},composers=[];
+const ids={},composers=[];let copied='';
 const document={createElement:t=>new Element(t),getElementById:id=>ids[id]||(ids[id]=new Element(id)),createTextNode:x=>String(x),querySelector:()=>new Element('footer')};
-const sandbox={document,URL,navigator:{clipboard:{writeText:async()=>{}}},formatTimes:x=>String(x),console};
+const sandbox={document,URL,navigator:{clipboard:{writeText:async value=>{copied=value;}}},formatTimes:x=>String(x),console};
 sandbox.feedbackComposer=(parent,task,stage,body)=>{composers.push(body);return ()=>{};};
 vm.createContext(sandbox);
-if(input.kind==='evidence'){vm.runInContext(input.source,sandbox);sandbox.evidence=input.task;process.stdout.write(JSON.stringify({text:vm.runInContext('evidenceOrigin(evidence)',sandbox)}));
+if(input.kind==='composer'){
+ vm.runInContext(input.source,sandbox);sandbox.task=input.task;sandbox.root=new Element('root');sandbox.body=input.body;
+ vm.runInContext("feedbackComposer(root,task,'人工核验',()=>body)",sandbox);
+ const flat=[];function walk(n){if(typeof n==='string')return;flat.push(n);n.children.forEach(walk);}walk(sandbox.root);
+ const preview=flat.find(n=>n.tag==='textarea'),button=flat.find(n=>n.tag==='button');
+ button.onclick().then(()=>process.stdout.write(JSON.stringify({text:sandbox.root.textContent,preview:preview.value,copied,disabled:button.disabled})));
+}else if(input.kind==='evidence'){vm.runInContext(input.source,sandbox);sandbox.evidence=input.task;process.stdout.write(JSON.stringify({text:vm.runInContext('evidenceOrigin(evidence)',sandbox)}));
 }else if(input.kind.startsWith('scene-')){
  vm.runInContext(input.source,sandbox);sandbox.task=input.task;sandbox.root=new Element('root');
  sandbox.ui={el:(tag,text,cls)=>{const n=new Element(tag);if(text!==undefined)n.textContent=text;return n;},text:x=>x===undefined?'尚未记录':typeof x==='string'?x:JSON.stringify(x),show:()=>{},card:(parent,title,body)=>{const n=new Element('article');n.textContent=title+' '+(body||'');parent.append(n);return n;},list:(parent,title,items)=>{if(items.length){const n=new Element('section');n.textContent=title+' '+items.join('；');parent.append(n);}}};
@@ -33,7 +39,7 @@ if(input.kind==='evidence'){vm.runInContext(input.source,sandbox);sandbox.eviden
  vm.runInContext(input.source,sandbox);sandbox.task=input.task;sandbox.root=new Element('root');vm.runInContext('renderStages(root,task)',sandbox);
  const flat=[];const walk=n=>{if(typeof n==='string')return;flat.push(n);n.children.forEach(walk);};walk(sandbox.root);
  if(input.draft){const select=flat.find(n=>n.tag==='select'&&n.children.some(c=>c.value==='fail'));select.value='fail';select.onchange();const area=flat.find(n=>n.tag==='textarea'&&!n.readOnly);area.value='本次发现仍有错误';area.oninput();}
- process.stdout.write(JSON.stringify({text:sandbox.root.textContent,nodes:flat.map(n=>({tag:n.tag,text:n.textContent,value:n.value,href:n.href,readOnly:n.readOnly})),feedback:composers.map(f=>f())}));
+ process.stdout.write(JSON.stringify({text:sandbox.root.textContent,nodes:flat.map(n=>({tag:n.tag,text:n.textContent,value:n.value,href:n.href,readOnly:n.readOnly,open:!!n.open,className:n.className})),feedback:composers.map(f=>f())}));
 }else{
  ids['task-data']=new Element('script');ids['task-data'].textContent=JSON.stringify(input.task);
  vm.runInContext(input.source,sandbox);const all=[];function walk(n){if(typeof n==='string')return;all.push(n);n.children.forEach(walk);}walk(ids.overview);process.stdout.write(JSON.stringify({text:ids.overview.textContent,owner:ids.overview.children[1].children[0].dataset.actionOwner,blockerText:all.filter(n=>n.className==='current-blockers').map(n=>n.textContent).join(' ')}));
@@ -42,8 +48,11 @@ if(input.kind==='evidence'){vm.runInContext(input.source,sandbox);sandbox.eviden
 
 @unittest.skipUnless(shutil.which('node'), 'Node required for presentation execution')
 class HumanReportTests(unittest.TestCase):
-    def run_ui(self, task, kind='stage', draft=False):
-        if kind == 'evidence':
+    def run_ui(self, task, kind='stage', draft=False, body='本次意见'):
+        if kind == 'composer':
+            source=(ASSETS / 'report.html').read_text().split('function el(tag,text,cls){',1)[1].split('function evidenceOrigin(e){',1)[0]
+            source='function el(tag,text,cls){'+source
+        elif kind == 'evidence':
             source=(ASSETS / 'report.html').read_text().split('function evidenceOrigin(e){',1)[1].split('function card(',1)[0]
             source='function evidenceOrigin(e){'+source
         elif kind.startswith('scene-'):
@@ -54,12 +63,89 @@ class HumanReportTests(unittest.TestCase):
             source = (ASSETS / 'stages.js').read_text()
         else:
             source = (ASSETS / 'report.html').read_text().split("'use strict';", 1)[1].split('// VIEW_SCRIPT', 1)[0]
-        result = subprocess.run(['node', '-e', DOM], input=json.dumps(dict(source=source, task=task, kind=kind, draft=draft, function={'scene-bugfix':'renderBugfixView','scene-incident':'renderIncidentView','scene-operations':'renderOperationsView','scene-engineering':'renderEngineeringView'}.get(kind,''))), text=True, capture_output=True)
+        result = subprocess.run(['node', '-e', DOM], input=json.dumps(dict(source=source, task=task, kind=kind, draft=draft, body=body, function={'scene-bugfix':'renderBugfixView','scene-incident':'renderIncidentView','scene-operations':'renderOperationsView','scene-engineering':'renderEngineeringView'}.get(kind,''))), text=True, capture_output=True)
         self.assertEqual(0, result.returncode, result.stderr)
         return json.loads(result.stdout)
 
     def task(self):
         return dict(id='T1', title='名额调整', focus_stage='acceptance',current_fingerprint='current', stage_catalog={'acceptance':{'title':'人工验收','fields':[['scenario','场景'],['instruction','操作'],['expected','预期'],['actual','观察'],['reviewer','核验人'],['result','结果'],['reviewed_revision','版本'],['verification_mode','核验方式']]}}, stage_details={'acceptance':{'summary':'核验关键路径','items':[dict(id='AC1',scenario='保存',instruction='填写3并保存',expected='显示3',actual='显示旧值',reviewer='张三',result='退回',reviewed_revision='old',verification_mode='assisted')]}})
+
+    def test_real_feedback_composer_copies_record_assessment_and_code_versions(self):
+        task=self.task();task.update(task_revision='record-v2',assessment_revision='assessment-v3')
+        result=self.run_ui(task,'composer',body='result_status=fail\n本次观察不符')
+        for text in ['代码/行为版本：current','页面记录版本：record-v2','页面评估版本：assessment-v3','result_status=fail','任一不同或未知']:
+            self.assertIn(text,result['copied'])
+        self.assertEqual(result['preview'],result['copied'])
+        self.assertNotIn('页面版本：',result['copied'])
+
+    def test_old_page_copied_versions_are_explicitly_unknown(self):
+        result=self.run_ui(self.task(),'composer')
+        self.assertIn('页面记录版本：未知（旧页面未记录）',result['copied'])
+        self.assertIn('页面评估版本：未知（旧页面未记录）',result['copied'])
+
+    def test_automated_mode_is_not_presented_as_manual_or_a_pass(self):
+        task=self.task();task['stage_details']['acceptance']['items'][0]['verification_mode']='automated'
+        result=self.run_ui(task)
+        self.assertIn('自动化专项：由 AI 执行并核对证据',result['text'])
+        self.assertNotIn('人工核验：按操作步骤亲自观察',result['text'])
+        self.assertEqual([''],result['feedback'])
+
+    def test_backend_human_review_completion_is_stage_specific_and_draft_optional(self):
+        task=self.task();task['workflow_summary']={'focus_stage':'acceptance','human_verification':{'stage':'acceptance','all_current_passed':True,'by_stage':{'acceptance':{'all_current_passed':True},'release':{'all_current_passed':False}}}}
+        result=self.run_ui(task)
+        self.assertIn('查看本版核验结果',result['text'])
+        self.assertNotIn('请逐项核验本次交付',result['text'])
+        corrections=[n for n in result['nodes'] if n.get('className')=='review-correction']
+        self.assertEqual(1,len(corrections))
+        self.assertFalse(corrections[0]['open'])
+        self.assertIn('补充或更正（选填）',corrections[0]['text'])
+        self.assertIn('仅用于补充或更正',result['text'])
+        self.assertIn('不自动放行',result['text'])
+        self.assertEqual([''],result['feedback'])
+        task['workflow_summary']['human_verification']['by_stage']['acceptance']['all_current_passed']=False
+        self.assertNotIn('人工核验已记录完成',self.run_ui(task)['text'])
+
+    def test_result_status_display_does_not_turn_ai_record_into_human_acceptance(self):
+        task=self.task();task['stage_details']['acceptance']['items'][0].update(result_status='pass',reviewer_kind='ai',reviewed_revision='current')
+        result=self.run_ui(task)
+        self.assertIn('结果状态：符合预期（pass）',result['text'])
+        self.assertIn('不等于真实人的签字',result['text'])
+        self.assertEqual([''],result['feedback'])
+
+    def test_completed_review_folds_setup_and_empty_stage_intro_is_omitted(self):
+        task=self.task();task['stage_details']['acceptance']['summary']=''
+        task['workflow_summary']={'focus_stage':'acceptance','human_verification':{'by_stage':{'acceptance':{'all_current_passed':True}}}}
+        result=self.run_ui(task)
+        folds=[n for n in result['nodes'] if n.get('className')=='review-environment']
+        self.assertEqual(1,len(folds))
+        self.assertFalse(folds[0]['open'])
+        self.assertIn('复核环境（需要重查时展开）',folds[0]['text'])
+        self.assertFalse(any(n['tag']=='p' and n['text']=='尚未记录' for n in result['nodes']))
+        task['workflow_summary']['human_verification']['by_stage']['acceptance']['all_current_passed']=False
+        result=self.run_ui(task)
+        self.assertFalse(any(n.get('className')=='review-environment' for n in result['nodes']))
+        self.assertIn('开始核验前',result['text'])
+
+    def test_human_feedback_heading_waits_for_ai_instead_of_requesting_reverification(self):
+        task=self.task();task['workflow_summary']={'focus_stage':'acceptance','primary_action':{'owner':'AI','kind':'human_feedback','title':'处理人工退回'}}
+        result=self.run_ui(task)
+        self.assertIn('查看退回项，等待 AI 处理',result['text'])
+        self.assertNotIn('请逐项核验本次交付',result['text'])
+        self.assertFalse(any(n.get('className')=='review-correction' for n in result['nodes']))
+        task['workflow_summary']['primary_action']['kind']='human_reviewed'
+        self.assertIn('查看本版核验结果',self.run_ui(task)['text'])
+
+    def test_not_checked_is_normal_and_does_not_create_an_empty_record(self):
+        task=self.task();item=task['stage_details']['acceptance']['items'][0]
+        item.update(result_status='not_checked',actual='',reviewer='',result='')
+        result=self.run_ui(task)
+        self.assertNotIn('已记录的核验结果（只读）',result['text'])
+        self.assertNotIn('未知（not_checked）',result['text'])
+        item['actual']='已有观察，尚未形成结论'
+        result=self.run_ui(task)
+        self.assertIn('结果状态：尚未核验（not_checked）',result['text'])
+        self.assertIn('已有观察，尚未形成结论',result['text'])
+        self.assertEqual([''],result['feedback'])
 
     def test_recorded_result_is_visible_but_new_draft_remains_unchecked(self):
         result=self.run_ui(self.task())
@@ -72,6 +158,7 @@ class HumanReportTests(unittest.TestCase):
     def test_new_feedback_does_not_copy_old_human_observation(self):
         result=self.run_ui(self.task(),draft=True)
         self.assertIn('本次发现仍有错误',result['feedback'][0])
+        self.assertIn('result_status=fail',result['feedback'][0])
         self.assertNotIn('显示旧值',result['feedback'][0])
         self.assertNotIn('张三',result['feedback'][0])
 

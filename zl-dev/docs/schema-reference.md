@@ -84,3 +84,11 @@ python3 scripts/reviewable.py verify /任务目录 --project /源码项目 --for
 `acceptance_setup` 可选对象，只允许字符串字段 `environment/prepare_command/entry_url/baseline/stop/notes`。entry_url 仅 http/https 或空；命令只展示，绝不自动执行。这些前置约定参与行为指纹，改变后旧证据过期。
 
 acceptance、release 阶段条目可选 `reviewed_revision`（字符串）、`reviewer_kind`（human/ai/unknown，旧记录默认 unknown）、`verification_mode`（manual/assisted/automated，旧记录默认 manual）。执行者与核验方式不能由页面替人认证。核验版本、执行者、actual/result 等反馈元数据不参与行为指纹；已定义的场景、操作与预期仍参与。
+
+## 页面快照与明确人工结果
+
+render 派生 task_revision（task.json 精确字节版本）与 assessment_revision（忽略生成时间后的确定性评估版本），反馈复制携带两者及原代码/行为指纹。它们不应手填到 task.json。report_state 在只读 locate/status 中说明 current/stale/unknown/missing；路径存在不代表当前。生成时间不用于判定时效。
+
+acceptance/release 条目可选 result_status: pass/fail/blocked/not_checked，作为明确结果，与展示文本 result 分开；不参与行为指纹。只有有当前指纹、reviewed_revision 匹配、reviewer_kind=human 的显式结果参与本版人工判断。自由文本与 status=done 不自动转译；AI 角色记录不会成为人工签字。核验接受不等于发布批准。
+
+非空 release.items 的 id/check/environment/metric/stop/rollback 属于发布核验契约，变化会使旧证据及人工结论过期；authorization 与实际观察仍是记录元数据。空 release 不改变原有契约形状，避免未使用发布阶段的旧任务因升级无谓失效。

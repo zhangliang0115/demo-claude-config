@@ -43,7 +43,7 @@
 primary_action 与 blockers 由脚本派生，focus_stage 仅决定阅读材料。当前失败及 P0/P1 不被待决布局或展示偏好掩盖；高风险发现标 done 后仍需引用当前、无矛盾的通过复查。claim 为模型声明，parsed_result 为已解析回执，invalid 不可采信；三者不混为已验证。
 
 ## 从页面接收反馈
-用户可在 HTML 填写意见，直接复制可读反馈并粘贴到当前 AI 会话，无需下载 JSON。文本包含任务、版本和阶段。先确认对应任务及页面版本；若版本已变，指出受影响条目并重新核对，不把旧反馈默认为最新批准。只将用户明确填写的选择或意见作为输入，未填写项保持未知。
+用户可在 HTML 填写意见，直接复制可读反馈并粘贴到当前 AI 会话，无需下载 JSON。文本包含任务、代码/行为版本、页面记录版本 task_revision、页面评估版本 assessment_revision 和阶段。先用只读 locate/status 核对任务及这些版本；记录版本不同也可能只是待决问题、选项或实际观察已更新，不能只因行为指纹相同就接受旧反馈。指出差异并针对受影响条目重新确认，不把旧判断默认为对新问题的批准。旧格式缺版本时标未知。只将用户明确填写的选择或意见作为输入，未填写项保持未知。
 
 页面选择由 kind 与当前 focus_stage 决定，使用内置 assets/views/ 的事项专用布局；先核对类型和阶段。具体见 scenario-layouts.md。不能把所有事项套成需求/设计/验收相同目录。
 
@@ -77,3 +77,13 @@ update 使用既有 schema 校验，只允许更新已有、绑定到指定项�
 已有非空 revision 的证据必须保留原 id，不能改绑到新指纹；重跑后新增独立证据 id 并保留旧记录，也可清空 revision 显式标为未绑定。此检查防止误改已有记录，无法证明测试实际执行或防止恶意伪造新证据；不得通过改 id、删除旧记录或先清空再重绑来伪装重跑。
 
 locate/status 返回 HANDOFF.md 的 handoff.path 与 freshness（current/stale/unknown/missing），同时核对精确任务版本和代码/行为指纹；发现过期、旧格式未知或缺失时，用 go 重新核对并按需显式导出，先保留手工补充，status 不自动修复或覆盖交接材料。
+
+## 页面与交接资料的时效
+
+locate/status 返回 report_state（current/stale/unknown/missing），核对报告的任务身份、精确记录版本、代码/行为版本及派生评估。回执日志损坏也可能使评估变化，即使 task.json 与源码未改。保留旧 report 路径供追溯，但 stale/unknown 不能称为当前报告；status 只说明问题，不自动 render。go 在核对实际状态后重新生成。离线 HTML 不能自行知道外部数据已变化。
+
+HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并保留；旧格式先备份到唯一 legacy 文件，新包给出位置，不能静默丢弃。接手包展示同一派生当前行动与阻塞，并说明随包 HTML 是否当前；current 仍不证明服务正在运行，也不是执行授权。
+
+## 人工结果如何推进
+
+仅在人明确回传并核对页面版本后，记录其原意、核验人来源、reviewed_revision（被观察的代码/行为指纹）及 result_status（pass/fail/blocked/not_checked）。reviewer_kind=human 是记录来源，不是身份认证；AI 测试角色仍为 ai。旧 result 自由文本、status=done 或 AI 的 pass 不能推断人工接受。当前 human 的 fail/blocked 交 AI 处理；全部本版人工项目 pass 后停止重复催验，由负责人决定后续，不自动发布或授权生产。历史结果保留，但不代替本版核验。

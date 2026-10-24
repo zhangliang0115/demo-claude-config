@@ -188,6 +188,74 @@ class FeatureTests(unittest.TestCase):
         (task / 'task.json').write_text(json.dumps(child))
         self.assertEqual(feature.assessed(synced)['projects'][0]['snapshot_freshness'], 'stale')
 
+    def human_ready_child(self, stage='acceptance', result='pass', revision='current', reviewer='human'):
+        task, child = self.ready_feature()
+        item = dict(id='A1', status='done', scenario='核对通知偏好', instruction='保存后刷新', expected='仍保持',
+                    result_status=result, reviewer_kind=reviewer)
+        if stage == 'release':
+            for field in ('scenario','instruction','expected'):
+                item.pop(field)
+            item['check'] = '核对通知偏好发布条件'
+        child['stage_details'] = {stage: {'items': [item]}}
+        (task / 'task.json').write_text(json.dumps(child))
+        current = feature.reviewable.fingerprint(task)
+        child['evidence'][1]['revision'] = current
+        item['reviewed_revision'] = current if revision == 'current' else revision
+        (task / 'task.json').write_text(json.dumps(child))
+        return task, child
+
+    def test_current_human_return_blocks_cross_project_readiness(self):
+        for stage in ('acceptance', 'release'):
+            for status in ('fail', 'blocked'):
+                with self.subTest(stage=stage, status=status):
+                    # Reuse the already created fixture task between subcases.
+                    if (self.repo / '.zl-dev/tasks/notification').exists():
+                        import shutil
+                        shutil.rmtree(self.repo / '.zl-dev/tasks/notification')
+                    self.human_ready_child(stage=stage, result=status)
+                    synced = feature.sync(self.folder)
+                    snapshot = synced['projects'][0]['snapshot']
+                    self.assertEqual(snapshot['evidence_counts']['unresolved_current'], 0)
+                    self.assertEqual(snapshot['technical_blockers'][0]['type'], 'human_feedback')
+                    self.assertIn('人工反馈', str(snapshot['issues']))
+                    self.assertFalse(feature.assessed(synced)['assessment']['ready_for_integration'])
+                    self.assertEqual(feature.assessed(synced)['projects'][0]['snapshot_freshness'], 'current')
+
+    def test_historical_human_failure_does_not_block_current_integration(self):
+        self.human_ready_child(result='fail', revision='old-version')
+        synced = feature.sync(self.folder)
+        self.assertEqual(synced['projects'][0]['snapshot']['technical_blockers'], [])
+        self.assertEqual(synced['projects'][0]['snapshot']['issues'], [])
+        self.assertTrue(feature.assessed(synced)['assessment']['ready_for_integration'])
+        self.assertIn('不代表交付完成',feature.assessed(synced)['assessment']['delivery'])
+
+    def test_human_feedback_changes_invalidate_snapshot_without_code_change(self):
+        task, child = self.human_ready_child(result='not_checked')
+        before = feature.sync(self.folder)
+        old_fp = feature.reviewable.fingerprint(task)
+        self.assertTrue(feature.assessed(before)['assessment']['ready_for_integration'])
+        item = child['stage_details']['acceptance']['items'][0]
+        item['result_status'] = 'fail'
+        (task / 'task.json').write_text(json.dumps(child))
+        self.assertEqual(feature.reviewable.fingerprint(task), old_fp)
+        state = feature.assessed(before)
+        self.assertEqual(state['projects'][0]['snapshot_freshness'], 'stale')
+        self.assertFalse(state['assessment']['ready_for_integration'])
+        rejected = feature.sync(self.folder)
+        item['result_status'] = 'pass'
+        (task / 'task.json').write_text(json.dumps(child))
+        self.assertEqual(feature.assessed(rejected)['projects'][0]['snapshot_freshness'], 'stale')
+        accepted = feature.assessed(feature.sync(self.folder))
+        self.assertTrue(accepted['assessment']['ready_for_integration'])
+        self.assertIn('不代表交付完成',accepted['assessment']['delivery'])
+
+    def test_ai_or_pending_human_record_is_not_failed_technical_verification(self):
+        task, child = self.human_ready_child(result='fail', reviewer='ai')
+        self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])
+        child['stage_details']['acceptance']['items'][0].update(reviewer_kind='human',result_status='not_checked')
+        (task / 'task.json').write_text(json.dumps(child))
+        self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])
+
     def test_pending_business_decision_is_not_failed_technical_verification(self):
         task, child = self.ready_feature()
         child['decisions'] = [dict(id='D1', status='pending', question='上线日期？')]

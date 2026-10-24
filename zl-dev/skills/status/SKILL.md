@@ -8,7 +8,7 @@ user-invocable: true
 
 用户输入：$ARGUMENTS
 
-先定位当前会话任务及真实项目；需要候选时执行 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" locate --project "<项目绝对路径>"`。多个候选只列标题请用户选，不默选最近任务。明确功能目录则使用 `scripts/feature.py status`。
+先定位当前会话任务及真实项目；优先使用紧凑的 locate，一次查询通常足够；仅需具体证据明细才追加 status。需要候选时执行 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" locate --project "<项目绝对路径>"`。多个候选只列标题请用户选，不默选最近任务。明确功能目录则使用 `scripts/feature.py status`。
 
 已有明确任务目录时使用 `reviewable.py locate "<任务目录>"` 或 `status "<任务目录>"`；`--project` 只能传业务源码项目路径，不能传 `~/.claude/zl-dev/.../tasks/...` 产出目录。
 
@@ -21,3 +21,7 @@ user-invocable: true
 回复：一句话说清任务目标；说明已完成、当前阻塞/待决（至多三项）；给出一条具体下一步及负责人；附选中任务当前阶段 report.html 或功能 feature.html 的绝对路径，不能返回 examples/index.html 或全部阶段合集作为当前任务报告。无法确认的信息标记待核实。用户要继续修改时用 `/zl-dev:go`，不引导调用内部阶段命令。
 
 检查 handoff.freshness；stale/unknown/missing 时提示用 go 重新核对后显式导出，先保留手工补充，status 不自动生成或覆盖 HANDOFF.md。
+
+检查 report_state；stale/unknown 时将旧链接明确称为历史快照，不声称页面为当前状态，也不自动生成。说明用 go 核对后更新。人工反馈依据 workflow_summary.human_verification；本版退回交 AI，已记录全部人工通过不重复催第一项、不推断发布授权。
+
+locate 的 primary_action/blockers/verification/human_verification 是顶层字段，status 则位于 workflow_summary 下；两个命令顶层均直接提供 task_revision/assessment_revision。使用脚本绝对路径直接调用，不 cd 到插件目录、不用相对路径或 head 截断 JSON。现成字段足以判断时不要扫描 runs 或阅读脚本源码自行重算版本。

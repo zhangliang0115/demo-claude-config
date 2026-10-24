@@ -34,3 +34,5 @@
 
 ## 跨工具交接
 运行 handoff 生成 HANDOFF.md，连同任务 JSON、报告和必要设计/证据通过团队既有渠道交接。Codex、Cursor 等读取该文件并执行 Python CLI，不假设支持 Claude 命令。接收者先独立阅读真实代码并复述，再继续。交接包不是远程同步系统，不自动推送给他人。
+
+交接包只替换生成标记之间的内容，人工笔记放在标记之外。旧格式迁移会保存唯一备份，新包指向旧材料；不要把旧材料中的状态当当前结论。接手先核对当前行动、report_state 和 task_revision/assessment_revision，HTML 过期时先读当前数据。人工退回使用明确 result_status 并保留原话与对应行为版本；不能将 AI 观察登记为人确认。

@@ -46,6 +46,31 @@ def _status_counts(evidence):
     return counts
 
 
+def human_verification(data):
+    """Classify explicit human records without inferring approval from prose."""
+    current = data.get('current_fingerprint')
+    stages = {}
+    for stage in ('acceptance', 'release'):
+        items = data.get('stage_details', {}).get(stage, {}).get('items', [])
+        value = {key: [] for key in ('current_pass_ids', 'current_fail_ids', 'current_blocked_ids', 'pending_ids', 'historical_ids')}
+        for item in items:
+            identity = item.get('id', '')
+            revision = item.get('reviewed_revision')
+            same = bool(current) and bool(revision) and revision == current
+            explicit = item.get('result_status')
+            trusted = same and item.get('reviewer_kind') == 'human'
+            if trusted and explicit in {'pass', 'fail', 'blocked'}:
+                value[{'pass': 'current_pass_ids', 'fail': 'current_fail_ids', 'blocked': 'current_blocked_ids'}[explicit]].append(identity)
+            else:
+                value['pending_ids'].append(identity)
+            if current and revision and not same:
+                value['historical_ids'].append(identity)
+        value['all_current_passed'] = bool(items) and len(value['current_pass_ids']) == len(items)
+        stages[stage] = value
+    selected = 'release' if data.get('focus_stage') == 'release' and data.get('stage_details', {}).get('release', {}).get('items') else 'acceptance'
+    return dict(stage=selected, **stages[selected], by_stage=stages)
+
+
 def summarize(data):
     behaviors = data.get('behaviors', [])
     evidence = data.get('evidence', [])
@@ -80,6 +105,15 @@ def summarize(data):
         else:
             review_warnings.append(entry)
     blockers.extend(review_blockers)
+    human = human_verification(data)
+    human_blockers = []
+    for stage, results in human['by_stage'].items():
+        for status, field in (('fail', 'current_fail_ids'), ('blocked', 'current_blocked_ids')):
+            for identity in results[field]:
+                human_blockers.append(dict(type='human_feedback', id=identity, stage=stage,
+                    summary=('人工核验不符合预期：' if status == 'fail' else '人工记录无法核验：') + stage + ':' + identity,
+                    severity='blocking', source='stage_details.' + stage, result_status=status))
+    blockers.extend(human_blockers)
     owner = 'AI'
     # Existing evidence and high-risk findings outrank reading preferences and business decisions.
     if current_unresolved:
@@ -90,6 +124,10 @@ def summarize(data):
         step, focus = 'review', 'review'
         action = 'AI 先处理高风险审查问题 '+ '、'.join(str(b['id']) for b in review_blockers[:3])+'，并补充当前有效且无矛盾的通过证据。'
         reason = 'P0/P1 问题尚未解决或缺少有效复查证据。'
+    elif human_blockers:
+        step, focus = 'human_feedback', human_blockers[0]['stage']
+        action = 'AI 先处理人工退回或无法核验项 ' + '、'.join(b['stage'] + ':' + b['id'] for b in human_blockers[:3]) + '，查明原因并修复或准备核验条件，再安排复核。'
+        reason = '当前版本已有明确的人工不符合预期或无法核验记录，不能继续要求人重复同一项。'
     elif not data.get('summary') or not behaviors:
         step, focus = 'understand', 'requirements'
         action = 'AI 先查清“'+data.get('title','当前需求')+'”的现状，给出一个具体输入与预期结果，再推进明确的工作。'
@@ -107,11 +145,15 @@ def summarize(data):
         step, focus = 'verify', 'testing'
         action = 'AI 验证 '+ '、'.join(missing_ids[:3])+' 的实际结果；失败先修复，过期证据重跑。'
         reason = '部分约定行为缺少当前通过证据。'
+    elif human['all_current_passed']:
+        step, focus, owner = 'human_reviewed', human['stage'], '你'
+        action = '本版人工核验通过已记录；请负责人决定后续安排或是否放行，不自动发布或推进阶段。'
+        reason = '本阶段全部条目均有当前版本的明确人工通过记录；记录来源仍需对照回传依据。'
     else:
-        step, focus, owner = 'accept', 'acceptance', '你'
-        structured = data.get('stage_details', {}).get('acceptance', {}).get('items', [])
+        step, focus, owner = 'accept', human['stage'], '你'
+        structured = data.get('stage_details', {}).get(human['stage'], {}).get('items', [])
         if structured:
-            item = next((x for x in structured if x.get('status') != 'done'), structured[0])
+            item = next((x for x in structured if x.get('id') not in human['current_pass_ids']), structured[0])
             check = '；'.join(x for x in (item.get('scenario'), item.get('instruction')) if x)
         else:
             checks = data.get('acceptance', [])
@@ -123,8 +165,8 @@ def summarize(data):
     if data.get('implementation'):
         blockers.extend(dict(type='verification', id=ref, summary='行为缺少当前无矛盾的通过证据', severity='blocking', source='behaviors') for ref in missing_ids)
     explicit = data.get('focus_stage')
-    if not current_unresolved and not review_blockers:
-        if data.get('kind') in {'incident','operations'} and step != 'accept':
+    if not current_unresolved and not review_blockers and not human_blockers:
+        if data.get('kind') in {'incident','operations'} and step not in {'accept', 'human_reviewed'}:
             focus = 'operations'
         if explicit in STAGE_LABELS:
             focus = explicit
@@ -132,10 +174,20 @@ def summarize(data):
         current_unresolved_evidence_ids=[e.get('id', '') for e in current_unresolved],
         historical_evidence_count=len(historical), current_source_counts=source_counts, current_status_counts=_status_counts(current),
         historical_status_counts=_status_counts(historical))
-    return dict(visible_sections=PHASE_SECTIONS[focus], **reading_guide(data.get('kind'), focus),
-        step=step, focus_stage=focus, requested_focus_stage=explicit, stage_label=STAGE_LABELS[focus],
+    guide = reading_guide(data.get('kind'), focus)
+    if step == 'human_reviewed':
+        guide.update(page_purpose='了解本版已记录的人工核验结论与后续安排', read_first='已记录的核验结果，再看剩余风险与后续决定', human_action='确认后续安排或是否放行；补充意见用于更正记录，不要求重复核验')
+    elif step == 'human_feedback':
+        guide['human_action'] = '等待 AI 处理退回原因或准备核验条件，完成后再复核'
+    stage_label = STAGE_LABELS[focus]
+    if step == 'human_reviewed':
+        stage_label = '发布核验已记录' if human['stage'] == 'release' else '人工核验已记录'
+    elif step == 'human_feedback':
+        stage_label = '人工反馈 · 待 AI 处理'
+    return dict(visible_sections=PHASE_SECTIONS[focus], **guide,
+        step=step, focus_stage=focus, requested_focus_stage=explicit, stage_label=stage_label,
         action_owner=owner, next_action=action, primary_action=dict(owner=owner, title=action, reason=reason, kind=step),
-        blockers=blockers, review_warnings=review_warnings, verification=verification,
+        blockers=blockers, review_warnings=review_warnings, verification=verification, human_verification=human,
         visible_result=data.get('summary') or data.get('why') or 'AI 尚未说明目标，需要先明确用户要解决的问题。',
         missing_verification_count=len(missing_ids), stale_evidence_count=len(historical),
         unresolved_current_evidence_count=len(current_unresolved), pending_decision_count=len(pending))
