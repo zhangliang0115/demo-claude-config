@@ -25,7 +25,7 @@ JUnit 示例仅适用于项目已使用 pytest；其他工具使用其真实 JUn
 
 同时核对持久化状态、页面文案和用户实际可执行的动作。通过真实控件操作确认可编辑、可提交或应被阻止；脚本直接赋值不能证明控件可操作。响应或重放记录可能只说明历史操作结果，不能直接当作当前事实；刷新失败或结果未确认时，验证页面是否明确表达未知状态，并阻止依赖已确认当前状态的后续修改。保留每一步的版本、请求结果与存储核对依据。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
+工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。重要事实按入口安全更新流程及时保存；只有符合 entry-workflow.md 按需产出策略时才执行 `render <任务目录>` 并返回真实链接。阶段结束或内部动作结束不强制生成 HTML，不批量 index 其他任务。
 
 已绑定版本的证据不能改绑 revision 或改 id 替换旧记录；重跑须保留旧证据并新增本次独立 id，也可清空 revision 显式失效。CLI 仅阻止有限误操作，不能证明执行真实性或防止伪造新记录。
 

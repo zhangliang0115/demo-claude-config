@@ -477,6 +477,7 @@ def main():
     parser.add_argument('--behavior', action='append', default=[])
     parser.add_argument('--result-file', type=Path)
     parser.add_argument('--timeout', type=float, default=120)
+    parser.add_argument('--no-render', action='store_true', help='init/continue only: save or restore task facts without generating HTML')
     tokens = sys.argv[1:]
     argv = []
     if '--' in tokens:
@@ -484,6 +485,8 @@ def main():
         argv, tokens = tokens[divider+1:], tokens[:divider]
     args = parser.parse_args(tokens)
     try:
+        if args.no_render and args.command not in {'init', 'continue'}:
+            raise ValueError('--no-render 只适用于 init/continue；未执行命令')
         if args.command in {'update','verify'} and not args.task_dir:
             raise ValueError('update 必须明确提供任务目录')
         if args.command == 'index':
@@ -502,7 +505,14 @@ def main():
             data = dict(version=1, project_path=str(args.project.expanduser().resolve()), id=args.task_dir.name, title=args.title, kind=args.kind, summary='', why='', scope='', stage='需求待确认', behaviors=[], scenarios=[], roles=[], assumptions=[], design=[], handoffs=[], timeline=[], operations=[], implementation=[], decisions=[], evidence=[], risks=[], changes=[], acceptance=[], rollback='待定义', stage_details=stage_skeleton())
             with (args.task_dir / 'task.json').open('x', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            print(render(args.task_dir))
+            if args.no_render:
+                state = snapshot(args.task_dir)
+                report = report_state(args.task_dir, state)
+                print(json.dumps(dict(task_dir=str(args.task_dir), report=report['path'], report_state=report,
+                    task_revision=state['task_revision'], assessment_revision=state['assessment_revision'],
+                    fingerprint=state['current_fingerprint']), ensure_ascii=False, indent=2))
+            else:
+                print(render(args.task_dir))
         elif args.command == 'update':
             if not args.from_file:
                 raise ValueError('update 必须提供 --from-file 临时 JSON 文件')
@@ -518,8 +528,10 @@ def main():
             print(json.dumps(locate(args.task_dir), ensure_ascii=False, indent=2))
         elif args.command == 'continue':
             data = snapshot(args.task_dir)
-            target = render(args.task_dir, data)
-            print(json.dumps(dict(task_dir=str(args.task_dir), report=str(target), report_state=report_state(args.task_dir, data), task_revision=data['task_revision'], assessment_revision=data['assessment_revision'], fingerprint=data['current_fingerprint'], handoff=handoff_state(args.task_dir, data['task_revision'], data['current_fingerprint'], data), **data['workflow_summary']),ensure_ascii=False,indent=2))
+            if not args.no_render:
+                render(args.task_dir, data)
+            report = report_state(args.task_dir, data)
+            print(json.dumps(dict(task_dir=str(args.task_dir), report=report['path'], report_state=report, task_revision=data['task_revision'], assessment_revision=data['assessment_revision'], fingerprint=data['current_fingerprint'], handoff=handoff_state(args.task_dir, data['task_revision'], data['current_fingerprint'], data), **data['workflow_summary']),ensure_ascii=False,indent=2))
         elif args.command == 'handoff':
             print(export_handoff(args.task_dir))
         elif args.command == 'index':

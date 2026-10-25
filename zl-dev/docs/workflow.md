@@ -1,6 +1,6 @@
 # ZL Dev 工作协议
 
-HTML 是首要交付，`task.json` 是事实来源。页面不能代替代码、测试或人的判断。默认中文交流和页面内容，跟随用户明确语言偏好。
+`task.json` 是任务事实来源；普通对话可文字交付，HTML 仅在有结构化阅读价值或用户明确要求时生成。按需产出规则以 entry-workflow.md 为准。页面不能代替代码、测试或人的判断。默认中文交流和页面内容，跟随用户明确语言偏好。
 
 ## 项目和任务
 
@@ -8,12 +8,13 @@ HTML 是首要交付，`task.json` 是事实来源。页面不能代替代码、
 2. 先确定当前业务项目的真实根路径（不要把产出目录当项目）。任务目录默认为用户目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，以项目真实绝对路径区分同名项目，slug 用简短英文字母、数字、连字符。传入已有目录时继续原任务；多个候选且无法判定时请用户指定，不覆盖别的任务。
 3. 工具仅依赖 Python 3.9+ 标准库：
    ```sh
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" init "<slug>" --project "<项目绝对路径>" --title "任务名称" --kind feature
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" init "<slug>" --project "<项目绝对路径>" --title "任务名称" --kind feature --no-render
+   # 仅确需 HTML 时执行 render；普通续作使用 continue --no-render
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render "<slug>" --project "<项目绝对路径>"
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" status "<slug>" --project "<项目绝对路径>"
    ```
    这是模板：替换占位符，用独立参数和正确 shell 引号，不把用户描述拼接成可执行脚本。
-4. 先阅读 init 生成的 task.json，保持字段类型和结构，按实际数据编辑。不要创造与渲染器不兼容的新格式；参照插件示例和 `docs/schema-reference.md`。一次阶段结束后渲染，返回 report.html 绝对路径。
+4. 先阅读 init 生成的 task.json，保持字段类型和结构，按实际数据编辑。不要创造与渲染器不兼容的新格式；参照插件示例和 `docs/schema-reference.md`。重要事实及时 CAS 保存；确需报告时才渲染并返回真实链接，阶段结束本身不强制建页。
 5. 任务类型：feature 新功能、change 规则调整、bugfix 缺陷、refactor 重构、performance 性能、migration 数据迁移、upgrade 技术升级。
 
 ## 理解优先
@@ -44,17 +45,17 @@ HTML 是首要交付，`task.json` 是事实来源。页面不能代替代码、
 
 ## 审查页面与接受
 
-每阶段更新 task.json 并重新 render。用现状、计划、实际实现和证据分别说明，不为美观编造截图、指标或绿色状态。提供“自上次变化”摘要。发布前检查生成无错误；有浏览器时检查页面交互和窄屏，无浏览器时说明未做视觉检查。
+重要事实更新 task.json；不逐阶段或逐内部步骤强制 render。用现状、计划、实际实现和证据分别说明，不为美观编造截图、指标或绿色状态。提供“自上次变化”摘要。需要交付页面时核对生成无错误；界面变更按本轮相关范围检查，默认桌面，不为普通问答追加浏览器或手机测试。
 
 HTML 中的勾选和反馈属于本地草稿，不能直接成为仓库审批或触发命令。复制后由人明确发回会话，再将决定记录到任务；保留来源和时间，不从页面点击推断授权。页面不自动发布、不自动部署、不自动提交 Git、不读取凭据。报告可能含内部路径和业务信息，分享前按项目要求检查内容。
 
-最终交付：报告链接、重要行为变化、实际验证结果、剩余风险及下一步。不要声称正式上线或用户验收已完成，除非有真实证据。
+最终交付：本轮实际结果、重要行为变化、适用的验证、剩余风险及下一步；仅本轮生成或复用报告时附链接，未请求页面不因缺少 HTML 宣称工作未完成。不要声称正式上线或用户验收已完成，除非有真实证据。
 
 ## 团队与运维扩展
 必须继续读取同目录 team-workflow.md 和 schema-reference.md。九种任务类型包含 incident 与 operations；design 为模糊需求提供合理候选方案，intake 处理跨人接手。固定模板分别呈现角色、假设、方案、交接、变更时间线及生产操作卡，禁止临时另造页面。
 
 ## 阶段专用模板（必须）
-读取同目录 stage-templates.md。仅在有额外信息且需要深审时按 templates/stages.json 填写 stage_details，只通过内置 render 生成 HTML，不允许 AI 针对单个任务改样式、另造表格字段或脚本。新任务 init 自带完整骨架，旧任务缺失区块按目录补齐。阶段工作台是主审阅入口，原九个栏目提供详情。
+读取同目录 stage-templates.md。仅在有额外信息且需要深审时按 templates/stages.json 填写 stage_details，只通过内置 render 生成 HTML，不允许 AI 针对单个任务改样式、另造表格字段或脚本。新任务 init 自带完整骨架，旧任务缺失区块按目录补齐。需要报告时阶段模板按当前阶段呈现，其他材料按需展开。
 
 ## 跨项目功能
 同一功能涉及多个项目时，改用 cross-project.md 的整体设计流程；feature.json 是功能总方案，task.json 是各项目实施材料。人员可以一人或多人，不以人员数量决定项目边界。

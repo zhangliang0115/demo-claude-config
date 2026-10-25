@@ -1,6 +1,6 @@
 # 阶段专用展示协议
 
-必须使用 templates/stages.json 定义字段，以及 assets/stages.js 与 stages.css 的固定渲染。AI 只填写 task.json.stage_details；不得为任务另写 HTML、CSS、脚本或自定义字段。所有页面随 report.html 离线内嵌，不依赖 CDN。
+需要结构化记录或报告时使用 templates/stages.json 定义字段，以及 assets/stages.js 与 stages.css 的固定渲染。AI 只填写 task.json.stage_details；不得为任务另写 HTML、CSS、脚本或自定义字段。所有页面随 report.html 离线内嵌，不依赖 CDN。
 
 ## 每个阶段的共同结构
 
@@ -68,6 +68,6 @@ at：时间 | observation：事实与影响 | hypothesis：诊断假设 | action
 
 start/spec → requirements；design/plan → solution；handoff/intake → handoff；build → implementation；review → review；verify → testing；handoff 最终交付时补 acceptance 和需要时的 release；incident/ops → operations，需要变更时补 release。
 
-每个阶段完成后 render；任务总览用 index。模板不足时修改插件版本并增加校验/测试，不在某个任务里偷偷修改渲染风格。
+阶段完成不强制 render；重要事实按入口策略保存，确需结构化交付或用户明确要求时才生成报告，任务总览仅显式需要时 index。模板不足时修改插件版本并增加校验/测试，不在某个任务里偷偷修改渲染风格。
 
 旧任务不含 stage_details 仍可打开，工作台显示待补齐。新 init 自动生成全部阶段骨架。已有任务按以下字段添加，不覆盖旧内容。

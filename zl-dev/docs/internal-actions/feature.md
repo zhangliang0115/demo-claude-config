@@ -14,6 +14,6 @@
 
 开发中若发现跨项目约定变更，回到总方案修改版本，列出受影响项目并重新验证，不允许单项目静默修改共同契约。只实现已明确授权的切片，关键未知不猜测。
 
-`sync <功能目录>` 汇总显式 task_path；`render <功能目录>` 生成固定 feature.html；`status <功能目录>` 显示快照新鲜度和缺口。总功能完成必须有指定环境、所有项目实际版本、真实跨项目 E2E 和人工核验；各子项目测试通过不能直接宣布整体通过。结束返回 feature.html 及各项目下一步。
+需要汇总整体进度时用 `sync <功能目录>` 读取显式 task_path；确需结构化交付时用 `render <功能目录>` 生成固定 feature.html；只读查询用 `status <功能目录>` 显示快照新鲜度和缺口。不在每个子动作结束时 sync/render；尚未汇总的状态如实说明。总功能完成必须有指定环境、所有项目实际版本、真实跨项目 E2E 和人工核验；各子项目测试通过不能直接宣布整体通过。结束说明整体实际结果及各项目下一步；只有本轮生成或复用有效报告时才附 feature.html，缺失或过期不能冒称当前。
 
-默认产出必须使用用户 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。后续使用返回的绝对功能目录，或同一个 slug + --workspace。子任务由 reviewable.py init <slug> --project <项目绝对路径> 创建；projects[].task_path 记录其返回的绝对目录，task.json.project_path 必须与关联项目路径一致。
+默认产出必须使用用户 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。后续使用返回的绝对功能目录，或同一个 slug + --workspace。子任务由 reviewable.py init <slug> --project <项目绝对路径> --no-render 创建；从返回 JSON 的 task_dir 取得绝对目录，projects[].task_path 记录该值，task.json.project_path 必须与关联项目路径一致。

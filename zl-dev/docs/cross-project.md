@@ -4,7 +4,7 @@
 
 识别候选项目 → 检查现有职责和调用关系 → 设计整个功能 → 确定项目边界与共同契约 → 拆开发任务及依赖 → 分项目实现 → 整体联调与人工核验。
 
-一个功能一个 feature.json 和阶段报告 feature.html，各项目各自一个 task.json/report.html。页面根据 phase 默认打开当前阶段（discovery/design/contracts/implementation/integration，也识别 solution/testing/acceptance 等常用别名），页首读取 design.goal。导航用于查看同一功能的已有材料，不代表每次必须重走所有阶段。各阶段可填写判断和备注并复制给 AI；复制内容含功能编号、契约版本、报告生成时间和阶段，只是草稿，不自动批准方案或写回记录。设计负责人和实施者可一人兼任，也可多人协作；项目数量不等于人员数量。换人或换 agent 要复述理解，同一个人不必人为交接给自己。
+一个功能一个 feature.json，各项目各自一个 task.json；feature.html 与 report.html 均按 entry-workflow.md 的产出策略生成，不因子步骤结束而强制更新。页面根据 phase 默认打开当前阶段（discovery/design/contracts/implementation/integration，也识别 solution/testing/acceptance 等常用别名），页首读取 design.goal。导航用于查看同一功能的已有材料，不代表每次必须重走所有阶段。各阶段可填写判断和备注并复制给 AI；复制内容含功能编号、契约版本、报告生成时间和阶段，只是草稿，不自动批准方案或写回记录。设计负责人和实施者可一人兼任，也可多人协作；项目数量不等于人员数量。换人或换 agent 要复述理解，同一个人不必人为交接给自己。
 
 ## 第一步：识别，不预分配
 
@@ -51,7 +51,7 @@ python3 /插件路径/scripts/feature.py status /功能目录
 
 `update`、`inspect` 和 `sync` 共用协作锁并原子替换文件，inspect/sync 还检查读取以来的版本变化。外部编辑器不遵守该锁，不要同时直接编辑 feature.json；这些保护也不提供超越系统权限的写入能力。当前写锁依赖 fcntl，Windows 等缺少它的平台仍可运行 locate/status/preflight 等只读命令，但写入命令会明确报不支持，不进行写入。
 
-总任务默认保存在 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。用 `--workspace <共同工作区绝对路径>` 固定归属；各项目子任务仍按各自项目区分。inspect 写观察，sync 写快照，render 生成 feature.html；这不是后台监听。未同步、不可访问和版本变化都应保留为缺口。不要仅传总目录给原来的 task CLI，它使用另一份 task.json 数据格式。
+总任务默认保存在 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。用 `--workspace <共同工作区绝对路径>` 固定归属；各项目子任务仍按各自项目区分。inspect 写观察，sync 写快照，需要结构化交付时 render 生成 feature.html；这不是后台监听，也不应逐子动作 sync/render。未同步、不可访问和版本变化都应保留为缺口。不要仅传总目录给原来的 task CLI，它使用另一份 task.json 数据格式。
 
 ## 完整示例：一个人或多人都一样
 
@@ -69,7 +69,7 @@ AI 应先查清：页面在哪里、API 由谁提供、订单/库存数据归谁
 整体方案确认后：
 ```text
 按总方案 v1 开始实施。先补后端幂等和状态校验，再接前端入口。
-两个项目都由我负责。每完成一个切片就更新子任务和功能总览。
+两个项目都由我负责。每完成一个切片及时保存子任务事实；有整体汇总或阅读需求时再同步并生成总览。
 ```
 
 若多人实施，只替换分配：

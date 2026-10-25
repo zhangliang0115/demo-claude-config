@@ -5,9 +5,9 @@
 ## 任务定位
 
 - 新描述先判断是否延续当前明确任务。只有一个历史任务也不能据此自动接入新需求。
-- 无参数或明确说“继续”：运行 reviewable.py continue --project，单个任务可继续，多个任务按标题简短询问。
+- 无参数或明确说“继续”：优先使用已明确的任务目录，运行 `reviewable.py continue <任务目录> --project <真实项目> --no-render`；未知目录时才省略该参数。单个候选可恢复，多个任务按标题简短询问；此处没有新增持久化会话绑定。
 - 使用返回的真实任务路径，不手算项目路径哈希。不确定是否延续时只问一个简短问题。
-- 新建：reviewable.py init <slug> --project <真实项目绝对路径> --title <标题> --kind <类型>。读取生成 task.json 后按下述安全更新流程维护，render 更新。
+- 新建：只有需要长期任务记录时，使用 `reviewable.py init <slug> --project <真实项目绝对路径> --title <标题> --kind <类型> --no-render`。读取生成的 task.json 后按下述安全更新流程维护；普通解释、追问、状态回复不为生成报告新建任务。
 - 所有工具位于 `${CLAUDE_PLUGIN_ROOT}/scripts/`，默认输出 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`。源码仍在业务仓库。脚本参数用独立参数和正确引号，不能将需求拼成可执行代码。
 
 ## 按需读取内部资料
@@ -34,6 +34,17 @@
 
 复核用实际源码、需求和测试；实现者说明仅是线索。无独立代理就标明自审。证据绑定代码与行为，改行为必须重验，补写报告不构成重新测试。页面草稿不代表授权，人工接受不得由 AI 自行勾选。
 
+## 按需产出，不强制每轮 HTML
+
+对话回复、必要事实保存与 HTML 是三个独立动作。目标/范围变化、关键决定、委托、实际实现及证据应及时通过 CAS 保存；是否渲染不影响这些责任。
+
+- 普通解释、追问、进度查询、内部动作和连续小切片默认文字回复，不逐动作 render/index，也不因“阶段完成”强制生成。
+- 复杂方案比较、成批验收、需要结构化阅读的阶段成果或正式交接，有实际阅读价值时才生成或复用当前有效报告。简单确认、小修结果可文字交付；不要求用户每轮选择模式。
+- 用户明确只要文字时尊重其要求。用户明确索要报告时，先核对事实和已有 report_state；当前有效则可复用，缺失或过期则实际生成并核对链接，不编造页面或已执行结果。
+- 事实已更新但本轮未渲染时，已有报告可能过期；需要提及链接时如实称历史快照，missing 时说明尚无报告。未产出 HTML 不等于本轮工作未完成。
+- 报告仍使用固定模板。HTML 由本地 Python 渲染，不能以文件字节数推算模型 token；避免重复加载全部指引、回灌完整报告或无必要的全量 JSON 往返，不因此放宽证据、版本及授权校验。
+- 生产紧急处置先推进已授权动作并保留现场证据，不能为制作页面阻塞处置。跨项目 feature.html 同样按需，不在每个子动作结束时 sync/render 总览；需要汇总或实施前核对时才使用对应工具。
+
 ## 验证与当前行动
 
 按需读取 internal-actions/verify.md，优先用内部 verify 执行现有 unittest/JUnit 检查并绑定已有行为；用户仍只用 go/status。先确定 acceptance_setup 的环境、准备、入口、起始数据与停止方法，以及结构化验收项的预期，再运行验证。没有记录就说明缺失，不编造可用服务或命令。
@@ -51,7 +62,7 @@ primary_action 与 blockers 由脚本派生，focus_stage 仅决定阅读材料�
 标题用业务对象和动作，why 说明当前人的困难，summary 说明实际准备改变的行为，scope 说明本轮范围。当前决定必须给出背景 reason、可选范围 options、推荐依据和确认后的影响 impact（有证据才填写），不要用“理解方案、核对风险”等通用提示代替任务内容。技术方案与业务待决问题不能混在同一优先级，让人不知道应选择哪一个。示例应让读者能用一句话复述“在做什么、这次要我决定什么”。
 
 ## 一次只交付当前阶段
-向用户提供当前任务 report.html，不提供演示总览或把全阶段材料汇总成工作页。phase_sections 按 focus_stage 限定补充材料；阶段专用内容只读取当前阶段，不提供切换历史阶段的控件。examples/index.html 仅用于比较插件模板。多人或跨项目依赖需要整体设计页时另行提供功能总览，不能替代当前阶段交付。
+需要 HTML 时向用户提供当前任务 report.html；本轮仅文字交付无需附报告。不提供演示总览或把全阶段材料汇总成工作页。phase_sections 按 focus_stage 限定补充材料；阶段专用内容只读取当前阶段，不提供切换历史阶段的控件。examples/index.html 仅用于比较插件模板。多人或跨项目依赖需要整体设计页时另行提供功能总览，不能替代当前阶段交付。
 
 ## 实测暴露的路径与交付约束
 
@@ -61,12 +72,14 @@ primary_action 与 blockers 由脚本派生，focus_stage 仅决定阅读材料�
 
 ## 只读定位与安全更新
 
-`/zl-dev:status` 只使用 `reviewable.py locate [任务目录] --project <真实项目>` 和 `status`。locate 返回标题、当前阶段、task_revision、指纹和已有报告路径；报告不存在时 report 为 null，不补建。它不会调用 continue/render/index，也不创建任务目录。continue 是推进入口，会重新渲染报告，不能用于只读查询。
+`/zl-dev:status` 只使用 `reviewable.py locate [任务目录] --project <真实项目>` 和 `status`。locate 返回标题、当前阶段、task_revision、指纹和已有报告路径；报告不存在时 report 为 null，不补建。它不会调用 continue/render/index，也不创建任务目录。go 恢复使用 `continue --no-render`，不重写报告；旧的无标志 continue 为兼容仍会重新渲染，status 不调用它。
 
 修改记录时先运行 locate，读取完整 task.json，将合并后的完整 JSON 保存到系统临时目录，然后执行：
 
 ```sh
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" update "<真实任务目录>" --project "<绑定项目绝对路径>" --from-file "<临时JSON路径>" --expect-revision "<locate返回的task_revision>"
+
+# 仅本轮确需 HTML 时，保存成功后执行：
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render "<真实任务目录>"
 ```
 
@@ -80,7 +93,7 @@ locate/status 返回 HANDOFF.md 的 handoff.path 与 freshness（current/stale/u
 
 ## 页面与交接资料的时效
 
-locate/status 返回 report_state（current/stale/unknown/missing），核对报告的任务身份、精确记录版本、代码/行为版本及派生评估。回执日志损坏也可能使评估变化，即使 task.json 与源码未改。保留旧 report 路径供追溯，但 stale/unknown 不能称为当前报告；status 只说明问题，不自动 render。go 在核对实际状态后重新生成。离线 HTML 不能自行知道外部数据已变化。
+locate/status 返回 report_state（current/stale/unknown/missing），核对报告的任务身份、精确记录版本、代码/行为版本及派生评估。回执日志损坏也可能使评估变化，即使 task.json 与源码未改。保留旧 report 路径供追溯，但 stale/unknown 不能称为当前报告；status 只说明问题，不自动 render。go 仅在本轮需要报告时核对后重新生成；否则文字说明实际状态，不把旧页称当前。离线 HTML 不能自行知道外部数据已变化。
 
 HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并保留；旧格式先备份到唯一 legacy 文件，新包给出位置，不能静默丢弃。接手包展示同一派生当前行动与阻塞，并说明随包 HTML 是否当前；current 仍不证明服务正在运行，也不是执行授权。
 
