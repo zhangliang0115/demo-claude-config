@@ -141,6 +141,8 @@ def validate(data):
         allowed = {f[0] for f in STAGES[key]['fields']} | {'id','status','steps','evidence_ids'}
         if key in {'acceptance','release'}:
             allowed |= {'reviewed_revision','reviewer_kind','verification_mode','result_status'}
+        if key == 'acceptance':
+            allowed.add('acceptance_delegation')
         for item in items:
             if not isinstance(item, dict) or set(item) - allowed:
                 raise ValueError('阶段条目包含未定义字段')
@@ -152,6 +154,12 @@ def validate(data):
                     raise ValueError('result_status 必须为 pass/fail/blocked/not_checked')
                 if not isinstance(item.get('reviewed_revision',''),str) or item.get('reviewer_kind','unknown') not in {'human','ai','unknown'} or item.get('verification_mode','manual') not in {'manual','assisted','automated'}:
                     raise ValueError('核验版本、执行者或核验方式无效')
+            if 'acceptance_delegation' in item:
+                grant = item['acceptance_delegation']
+                if (not isinstance(grant, dict) or set(grant) != {'kind','revision','source','criteria'}
+                    or grant.get('kind') != 'acceptance'
+                    or any(not isinstance(grant.get(field), str) or not grant[field].strip() for field in ('revision','source','criteria'))):
+                    raise ValueError('acceptance_delegation 必须为本条验收的 kind=acceptance、revision、原始 source 与 criteria 非空字符串；不授予发布权限')
             if item.get('status') not in {'pending','in_progress','blocked','done'}:
                 raise ValueError('阶段状态必须为 pending/in_progress/blocked/done')
             for field, label in STAGES[key]['fields']:

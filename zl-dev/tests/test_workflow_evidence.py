@@ -192,7 +192,7 @@ class HumanVerificationTests(unittest.TestCase):
     def test_all_current_human_pass_stops_repeated_verification(self):
         for stage in ('acceptance','release'):
             result=summarize(self.task([self.item(),self.item('A2')],stage))
-            self.assertEqual((result['step'],result['action_owner']),('human_reviewed','你'))
+            self.assertEqual((result['step'],result['action_owner']),('human_reviewed','none'))
             self.assertTrue(result['human_verification']['all_current_passed'])
             self.assertEqual(result['human_verification']['current_pass_ids'],['A1','A2'])
             self.assertIn('不自动发布',result['next_action'])
@@ -234,3 +234,89 @@ class HumanVerificationTests(unittest.TestCase):
         self.assertEqual(summarize(task)['step'],'verify')
         task=self.task([self.item()]);task['decisions']=[dict(id='D1',status='pending',question='scope?')]
         self.assertEqual(summarize(task)['step'],'decide')
+
+
+class DelegatedAcceptanceTests(unittest.TestCase):
+    task = HumanVerificationTests.task
+    item = HumanVerificationTests.item
+    def grant(self, revision='current', kind='acceptance'):
+        return dict(kind=kind, revision=revision, source='用户：请按这些标准代替我验收', criteria='保存后刷新仍保持名额，异常不写入')
+
+    def delegated(self, result='pass'):
+        item=self.item(reviewer='ai', result=result)
+        item['acceptance_delegation']=self.grant()
+        return item
+
+    def test_delegated_completion_preserves_ai_source_and_needs_no_new_human_action(self):
+        task=self.task([self.item(), self.delegated()]); task['stage_details']['acceptance']['items'][1]['id']='A2'
+        task['focus_stage']='review'
+        result=summarize(task)
+        self.assertEqual((result['step'],result['action_owner'],result['focus_stage']),('delegated_reviewed','none','acceptance'))
+        self.assertEqual(result['human_verification']['current_pass_ids'],['A1'])
+        self.assertEqual(result['human_verification']['pending_ids'],['A2'])
+        self.assertEqual(result['acceptance_verification']['delegated_pass_ids'],['A2'])
+        self.assertIn('当前无需人',result['next_action'])
+        self.assertNotIn('是否放行',result['next_action'])
+        self.assertNotIn('亲自核验',result['human_action'])
+
+    def test_current_grant_routes_missing_or_old_result_to_ai(self):
+        for status, revision in [('not_checked','current'), ('pass','old'), ('pass','')]:
+            item=self.delegated(status);item['reviewed_revision']=revision
+            result=summarize(self.task([item]))
+            self.assertEqual((result['step'],result['action_owner']),('delegated_accept','AI'))
+            self.assertEqual(result['stage_label'],'AI 按委托验收')
+
+    def test_testing_only_incomplete_or_stale_grants_do_not_accept(self):
+        for grant in [self.grant(kind='testing'), dict(source='请测试'), dict(self.grant(),criteria='')]:
+            item=self.delegated();item['acceptance_delegation']=grant
+            result=summarize(self.task([item]))
+            self.assertEqual(result['step'],'accept')
+            self.assertFalse(result['acceptance_verification']['all_current_passed'])
+
+    def test_release_cannot_reuse_acceptance_delegation(self):
+        item=self.delegated()
+        result=summarize(self.task([item],stage='release'))
+        self.assertEqual((result['step'],result['action_owner']),('accept','你'))
+
+    def test_delegated_failures_and_current_evidence_still_need_ai_repair(self):
+        for status in ('fail','blocked'):
+            result=summarize(self.task([self.delegated(status)]))
+            self.assertEqual((result['step'],result['action_owner']),('delegated_feedback','AI'))
+            self.assertTrue(any(b['type']=='delegated_feedback' for b in result['blockers']))
+        task=self.task([self.delegated()]);task['evidence'].append(dict(id='bad',status='failed',freshness='当前'))
+        self.assertEqual(summarize(task)['step'],'verify')
+        task['evidence'].pop();task['stage_details']['review']={'items':[dict(id='R1',severity='P1',status='pending')]}
+        self.assertEqual(summarize(task)['step'],'review')
+        task['stage_details'].pop('review');task['decisions']=[dict(id='D1',status='pending',question='需求取舍？')]
+        self.assertEqual(summarize(task)['step'],'decide')
+
+    def test_old_grant_routes_scope_check_to_ai_without_accepting_old_result(self):
+        item=self.delegated();item['acceptance_delegation']=self.grant('old')
+        result=summarize(self.task([item]))
+        self.assertEqual((result['step'],result['action_owner']),('delegation_review','AI'))
+        self.assertEqual(result['stage_label'],'核对既有验收委托')
+        self.assertEqual(result['acceptance_verification']['current_pass_ids'],[])
+        self.assertIn('同范围',result['next_action'])
+        self.assertNotIn('请亲自核验',result['next_action'])
+
+    def test_mixed_current_delegation_does_not_misreport_other_human_item_as_stale(self):
+        item=self.delegated();item['id']='A1'
+        result=summarize(self.task([item,self.item('A2',result='not_checked')]))
+        self.assertEqual((result['step'],result['action_owner']),('accept','你'))
+        self.assertIn('scenario A2',result['next_action'])
+        self.assertNotIn('原验收委托未绑定',result['next_action'])
+
+    def test_current_ai_failure_without_acceptance_authority_is_still_actionable(self):
+        for status in ('fail','blocked'):
+            for grant in (None, self.grant('old')):
+                item=self.item(result=status,reviewer='ai')
+                if grant:item['acceptance_delegation']=grant
+                result=summarize(self.task([item]))
+                self.assertEqual(result['action_owner'],'AI')
+                self.assertTrue(any(b['type']=='ai_feedback' for b in result['blockers']))
+                self.assertFalse(result['acceptance_verification']['all_current_passed'])
+
+    def test_release_ai_failure_is_actionable_without_granting_release_authority(self):
+        result=summarize(self.task([self.item(result='fail',reviewer='ai')],stage='release'))
+        self.assertEqual((result['step'],result['action_owner'],result['focus_stage']),('ai_feedback','AI','release'))
+        self.assertTrue(any(b['type']=='ai_feedback' for b in result['blockers']))

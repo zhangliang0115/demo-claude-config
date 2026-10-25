@@ -67,11 +67,11 @@ const humanPrimary=primary.owner==='你'||primary.owner==='human';
 const decision=pendingDecisions[0];
 const layout=$('overview'),story=el('div',undefined,'report-story'),sidebar=el('aside',undefined,'review-sidebar');
 layout.classList.add('report-layout');layout.append(story,sidebar);
-const next=el('article',undefined,'decision-panel');next.dataset.actionOwner=primary.owner||'unknown';next.append(el('p',humanPrimary?'现在需要你':'AI 继续处理','eyebrow'),el('h2',text(humanPrimary&&primary.kind==='decide'&&decision?.question?decision.question:(primary.title||primary.action||workflow.next_action||'当前行动待核实'))));
+const next=el('article',undefined,'decision-panel');next.dataset.actionOwner=primary.owner||'unknown';next.append(el('p',primary.owner==='none'?'当前无需你处理':humanPrimary?'现在需要你':'AI 继续处理','eyebrow'),el('h2',text(humanPrimary&&primary.kind==='decide'&&decision?.question?decision.question:(primary.title||primary.action||workflow.next_action||'当前行动待核实'))));
 if(primary.reason)next.append(el('p',text(primary.reason),'action-reason'));
 const blockers=(workflow.blockers||[]).filter(b=>typeof b==='string'||b.type!=='decision');
 if(blockers.length){const blocked=el('ul',undefined,'current-blockers'),line=b=>el('li',typeof b==='string'?b:text(b.summary||b.message||b.reason||b.label||b.action||b.title));blockers.slice(0,3).forEach(b=>blocked.append(line(b)));next.append(blocked);if(blockers.length>3){const more=el('details'),rest=el('ul');more.append(el('summary','还有 '+(blockers.length-3)+' 项待处理'));blockers.slice(3).forEach(b=>rest.append(line(b)));more.append(rest);next.append(more);}}
-let feedbackHost=next;if(!humanPrimary){feedbackHost=el('details',undefined,'optional-feedback');feedbackHost.append(el('summary','其他待决与反馈（AI 需先处理当前阻塞）'));next.append(feedbackHost);}
+let feedbackHost=next;if(!humanPrimary){feedbackHost=el('details',undefined,'optional-feedback');feedbackHost.append(el('summary',primary.owner==='none'?'补充或更正（选填）':'其他待决与反馈（AI 需先处理当前阻塞）'));next.append(feedbackHost);}
 const notes=Object.create(null);let updateDecisionFeedback=()=>{};
 function decisionInput(parent,d,primary){
  if(d.reason)parent.append(el('p',text(d.reason),'decision-context'));
@@ -81,7 +81,7 @@ function decisionInput(parent,d,primary){
  const label=el('label','补充意见（选填）','feedback-label'),area=el('textarea');area.rows=2;area.placeholder='填写条件、疑问或其他选择…';area.setAttribute('aria-label',`${d.id} 决策草稿`);area.oninput=()=>{notes[d.id+'-comment']=area.value;updateDecisionFeedback();};label.append(area);parent.append(label);
 }
 if(decision){if(!humanPrimary)feedbackHost.append(el('h3',text(decision.question)));decisionInput(feedbackHost,decision,true);}
-else {const label=el('label',primary.kind==='human_reviewed'?'补充或更正（选填）':'你的反馈','feedback-label'),area=el('textarea');area.rows=3;area.setAttribute('aria-label','当前阶段反馈');area.placeholder='哪里符合预期，哪里还需要调整？';area.oninput=()=>{notes.general=area.value;updateDecisionFeedback();};label.append(area);feedbackHost.append(label);}
+else {const label=el('label',['human_reviewed','delegated_reviewed'].includes(primary.kind)?'补充或更正（选填）':'你的反馈','feedback-label'),area=el('textarea');area.rows=3;area.setAttribute('aria-label','当前阶段反馈');area.placeholder='哪里符合预期，哪里还需要调整？';area.oninput=()=>{notes.general=area.value;updateDecisionFeedback();};label.append(area);feedbackHost.append(label);}
 if(pendingDecisions.length>1){const more=el('details',undefined,'more-decisions');more.append(el('summary','还有 '+(pendingDecisions.length-1)+' 项待确认'));pendingDecisions.slice(1).forEach(d=>{const item=el('section');item.append(el('h3',text(d.question)));decisionInput(item,d,false);more.append(item);});feedbackHost.append(more);}
 sidebar.append(next);
 updateDecisionFeedback=feedbackComposer(feedbackHost,task,workflow.stage_label||task.stage,()=>{const body=pendingDecisions.map(d=>{const choice=(notes[d.id]||'').trim(),comment=(notes[d.id+'-comment']||'').trim();return choice||comment?`问题 ${d.id}：${d.question}\n我的判断：${choice||'尚未选择'}${comment?'\n补充：'+comment:''}`:'';}).filter(Boolean);if((notes.general||'').trim())body.push(notes.general.trim());return body.join('\n\n');});

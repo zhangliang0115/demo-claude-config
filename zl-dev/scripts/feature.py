@@ -351,10 +351,10 @@ def project_snapshot(p):
         # Business decisions remain visible in the child, rather than being mislabeled failed tests.
         snap['technical_blockers'] = [b for b in child['workflow_summary']['blockers']
                                       if (b['type'] == 'review' and b['severity'] in {'P0', 'P1'})
-                                      or b['type'] == 'human_feedback']
+                                      or b['type'] in {'human_feedback', 'delegated_feedback', 'ai_feedback'}]
         for blocker in snap['technical_blockers']:
-            if blocker['type'] == 'human_feedback':
-                snap['issues'].append('人工反馈 ' + blocker.get('stage', '') + ' ' + blocker['id'] + ': ' + blocker['summary'])
+            if blocker['type'] in {'human_feedback', 'delegated_feedback', 'ai_feedback'}:
+                snap['issues'].append(('受托 AI 验收反馈 ' if blocker['type'] == 'delegated_feedback' else 'AI 核验反馈 ' if blocker['type'] == 'ai_feedback' else '人工反馈 ') + blocker.get('stage', '') + ' ' + blocker['id'] + ': ' + blocker['summary'])
             else:
                 snap['issues'].append('审查 ' + blocker['severity'] + ' ' + blocker['id'] + ': ' + blocker['summary'])
         snap['missing_behaviors'] = child['workflow_summary']['missing_verification_count']

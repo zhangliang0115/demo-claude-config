@@ -362,6 +362,22 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
                     self.assertFalse(feature.assessed(synced)['assessment']['ready_for_integration'])
                     self.assertEqual(feature.assessed(synced)['projects'][0]['snapshot_freshness'], 'current')
 
+    def test_current_delegated_failure_blocks_feature_then_pass_invalidates_and_clears(self):
+        task, child = self.human_ready_child(result='fail', reviewer='ai')
+        item = child['stage_details']['acceptance']['items'][0]
+        item['acceptance_delegation'] = dict(kind='acceptance', revision=item['reviewed_revision'],
+            source='用户：按标准替我验收', criteria='通知偏好保存后刷新保持')
+        (task / 'task.json').write_text(json.dumps(child))
+        rejected = feature.sync(self.folder)
+        snapshot = rejected['projects'][0]['snapshot']
+        self.assertEqual(snapshot['technical_blockers'][0]['type'], 'delegated_feedback')
+        self.assertIn('受托 AI 验收反馈', str(snapshot['issues']))
+        self.assertFalse(feature.assessed(rejected)['assessment']['ready_for_integration'])
+        item['result_status'] = 'pass'
+        (task / 'task.json').write_text(json.dumps(child))
+        self.assertEqual(feature.assessed(rejected)['projects'][0]['snapshot_freshness'], 'stale')
+        self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])
+
     def test_historical_human_failure_does_not_block_current_integration(self):
         self.human_ready_child(result='fail', revision='old-version')
         synced = feature.sync(self.folder)
@@ -390,9 +406,11 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         self.assertTrue(accepted['assessment']['ready_for_integration'])
         self.assertIn('不代表交付完成',accepted['assessment']['delivery'])
 
-    def test_ai_or_pending_human_record_is_not_failed_technical_verification(self):
+    def test_current_ai_failure_blocks_but_pending_human_does_not(self):
         task, child = self.human_ready_child(result='fail', reviewer='ai')
-        self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])
+        state = feature.assessed(feature.sync(self.folder))
+        self.assertFalse(state['assessment']['ready_for_integration'])
+        self.assertEqual(state['projects'][0]['snapshot']['technical_blockers'][0]['type'],'ai_feedback')
         child['stage_details']['acceptance']['items'][0].update(reviewer_kind='human',result_status='not_checked')
         (task / 'task.json').write_text(json.dumps(child))
         self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])

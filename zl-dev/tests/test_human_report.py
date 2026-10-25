@@ -153,6 +153,31 @@ class HumanReportTests(unittest.TestCase):
         task['workflow_summary']['human_verification']['by_stage']['acceptance']['all_current_passed']=False
         self.assertNotIn('人工核验已记录完成',self.run_ui(task)['text'])
 
+    def test_delegated_completion_is_read_only_without_personal_recheck_or_signature(self):
+        task=self.task();item=task['stage_details']['acceptance']['items'][0]
+        item.update(result_status='pass',reviewer_kind='ai',reviewer='AI',reviewed_revision='current',verification_mode='manual')
+        item['acceptance_delegation']=dict(kind='acceptance',revision='current',source='请按标准替我验收',criteria='保存后刷新保持')
+        task['workflow_summary']={'focus_stage':'acceptance','primary_action':{'owner':'none','kind':'delegated_reviewed','title':'本版受托验收完成'},'acceptance_verification':{'all_current_passed':True,'delegated_ids':['AC1']}}
+        result=self.run_ui(task)
+        for expected in ['查看本版核验结果','请按标准替我验收','保存后刷新保持','不包含发布授权','不等于真实人的签字']:
+            self.assertIn(expected,result['text'])
+        self.assertNotIn('亲自观察',result['text'])
+        self.assertNotIn('请逐项核验',result['text'])
+        self.assertFalse(next(n for n in result['nodes'] if n.get('className')=='review-correction')['open'])
+        self.assertFalse(next(n for n in result['nodes'] if n.get('className')=='delegation-basis')['open'])
+        overview=self.run_ui(task,'overview')
+        self.assertIn('当前无需你处理',overview['text'])
+        self.assertNotIn('AI 继续处理',overview['text'])
+        self.assertNotIn('AI 需先处理当前阻塞',overview['text'])
+
+    def test_pending_delegated_acceptance_does_not_request_personal_observation(self):
+        task=self.task();task['workflow_summary']={'focus_stage':'acceptance','primary_action':{'owner':'AI','kind':'delegated_accept'},'acceptance_verification':{'delegated_ids':['AC1']}}
+        task['stage_details']['acceptance']['items'][0]['acceptance_delegation']=dict(kind='acceptance',revision='current',source='按标准代我验收',criteria='刷新保持')
+        result=self.run_ui(task)
+        self.assertIn('AI 按委托继续验收',result['text'])
+        self.assertIn('无需人重复操作',result['text'])
+        self.assertNotIn('亲自观察',result['text'])
+
     def test_result_status_display_does_not_turn_ai_record_into_human_acceptance(self):
         task=self.task();task['stage_details']['acceptance']['items'][0].update(result_status='pass',reviewer_kind='ai',reviewed_revision='current')
         result=self.run_ui(task)

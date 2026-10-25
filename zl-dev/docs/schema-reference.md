@@ -92,3 +92,9 @@ render 派生 task_revision（task.json 精确字节版本）与 assessment_revi
 acceptance/release 条目可选 result_status: pass/fail/blocked/not_checked，作为明确结果，与展示文本 result 分开；不参与行为指纹。只有有当前指纹、reviewed_revision 匹配、reviewer_kind=human 的显式结果参与本版人工判断。自由文本与 status=done 不自动转译；AI 角色记录不会成为人工签字。核验接受不等于发布批准。
 
 非空 release.items 的 id/check/environment/metric/stop/rollback 属于发布核验契约，变化会使旧证据及人工结论过期；authorization 与实际观察仍是记录元数据。空 release 不改变原有契约形状，避免未使用发布阶段的旧任务因升级无谓失效。
+
+## 受托 AI 验收（仅 acceptance）
+
+条目可选 `acceptance_delegation`，只允许四个必填字段：`kind="acceptance"`、非空字符串 `revision`、`source`（用户明确委托原话）与 `criteria`（本条标准与委托范围）。仅委托检查不填写。它是来源记录，不是身份认证，不授予发布权限，release 条目不接受此字段。委托元数据不改变代码/行为指纹，但改变精确记录及评估版本。
+
+派生 `acceptance_verification` 将当前人工结果与本版明确受托 AI 结果分开保留；普通 AI pass 不会算接受，`human_verification` 不变。当前 AI fail/blocked 无论是否被委托都形成待 AI 调查的阻塞。有效委托但结果未执行/过期由 AI 继续；委托绑定旧指纹时仅派 AI 核对适用范围，不直接接受旧结果。全部项目当前验收通过后无真实待决问题则 `action_owner=none`，不要求人重复验收，不生成新发布批准；后续沿用已有授权。

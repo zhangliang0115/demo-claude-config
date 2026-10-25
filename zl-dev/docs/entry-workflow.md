@@ -86,6 +86,18 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 ## 人工结果如何推进
 
-仅在人明确回传并核对页面版本后，记录其原意、核验人来源、reviewed_revision（被观察的代码/行为指纹）及 result_status（pass/fail/blocked/not_checked）。reviewer_kind=human 是记录来源，不是身份认证；AI 测试角色仍为 ai。旧 result 自由文本、status=done 或 AI 的 pass 不能推断人工接受。当前 human 的 fail/blocked 交 AI 处理；全部本版人工项目 pass 后停止重复催验，由负责人决定后续，不自动发布或授权生产。历史结果保留，但不代替本版核验。
+仅在人明确回传并核对页面版本后，记录其原意、核验人来源、reviewed_revision（被观察的代码/行为指纹）及 result_status（pass/fail/blocked/not_checked）。reviewer_kind=human 是记录来源，不是身份认证；AI 测试角色仍为 ai。旧 result 自由文本、status=done 或 AI 的 pass 不能推断人工接受。当前 human 或 ai 的 fail/blocked 先由 AI 调查复核，失败事实不依赖接受授权。全部本版项目由人工或明确受托 AI 验收 pass 后停止重复催验，没有真实待决事项则显示当前无需人处理；后续沿用已有授权，不新增放行关卡，报告不执行发布或授予生产权限。历史结果保留，但不代替本版核验。
 
 阶段页使用已有 changes 直接展示最多三条本轮变化，剩余按需展开；记录实际差异和保持项，不从业务 before 字段猜测某个旧实现版本。跨版本接手应核对保存的契约与 Git 历史。
+
+## 明确委托 AI 验收
+
+“帮我跑验收测试”只委托检查，不能推断接受结果。“按这些标准替我验收”才允许在约定范围内由 AI 判断结果是否满足标准。先核对原始用户表述与具体条目；AI 将明确委托保存到 `stage_details.acceptance.items` 对应条目的 `acceptance_delegation`，用户无需填 JSON：
+
+```json
+{"kind":"acceptance","revision":"<本版代码/行为指纹>","source":"用户原话：按这些标准替我验收","criteria":"本条标准及委托范围"}
+```
+
+只绑定明确被委托的条目，实际执行后保留 `reviewer_kind=ai`、实际观察、`result_status` 和 `reviewed_revision`。不把 source 当身份认证，也不从 AI 自述或模糊授权推断委托。该对象仅适用于本条验收，不允许填入 release 条目，不授予发布或对外操作权限。`human_verification` 保留人工来源语义，`acceptance_verification` 分别投影人工与受托 AI 结果。
+
+本版委托有效而结果缺失或过期时由 AI 继续执行；代码/行为指纹变化时先由 AI 核对原委托是否仍覆盖本版范围和标准。同范围可保留原始来源、更新委托绑定并实际重验；实质变化仅澄清缺失的范围，不能一律要求人工重做，也不能将旧通过记录改绑为新结果。现有检查失败、证据缺口和未解决 P0/P1 不被委托覆盖。

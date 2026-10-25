@@ -266,6 +266,24 @@ class ProvenanceTests(unittest.TestCase):
         self.data['stage_details']['release']['summary'] = '发布尚未安排'
         self.assertEqual(api.semantic_contract(self.data), before)
 
+    def test_acceptance_delegation_schema_and_provenance(self):
+        item = dict(id='AC1', status='pending', scenario='扩容')
+        self.data['stage_details'] = {'acceptance': {'items': [item]}}
+        contract = api.semantic_contract(self.data)
+        grant = dict(kind='acceptance', revision='current', source='用户原话：按标准代我验收', criteria='保存后刷新保持')
+        item['acceptance_delegation'] = grant
+        api.validate(self.data)
+        self.assertEqual(api.semantic_contract(self.data), contract)
+        for invalid in [None, {}, dict(grant, kind='testing'), dict(grant, source=' '), dict(grant, revision=''), dict(grant, criteria=[]), dict(grant, release=True)]:
+            with self.subTest(invalid=invalid):
+                item['acceptance_delegation'] = invalid
+                with self.assertRaises(ValueError):
+                    api.validate(self.data)
+        item['acceptance_delegation'] = grant
+        self.data['stage_details'] = {'release': {'items': [item]}}
+        with self.assertRaises(ValueError):
+            api.validate(self.data)
+
     def test_optional_result_status_is_validated_and_does_not_change_semantics(self):
         self.data['stage_details'] = {'acceptance': {'items': [dict(id='AC1', status='pending', scenario='扩容')]}}
         contract = api.semantic_contract(self.data)

@@ -6,7 +6,7 @@
 
 用户参数：当前任务输入（由 go 路由提供）
 
-先确定环境准备、起始数据及结构化验收预期，再从行为约定选择实际检查，不仅复述已有测试。有 stage_details.acceptance.items 时以其为准，避免与旧 acceptance 字符串分叉。acceptance_setup 和验收预期参与行为版本；actual/reviewer/result/reviewed_revision 等观察元数据不改变行为指纹。AI 测试角色标 reviewer_kind=ai，不代替人工签字或预选通过。
+先确定环境准备、起始数据及结构化验收预期，再从行为约定选择实际检查，不仅复述已有测试。有 stage_details.acceptance.items 时以其为准，避免与旧 acceptance 字符串分叉。acceptance_setup 和验收预期参与行为版本；actual/reviewer/result/reviewed_revision 等观察元数据不改变行为指纹。AI 测试角色标 reviewer_kind=ai，不代替人工签字或预选通过。仅跑测试不等于委托接受结果；明确委托按标准代验时，按 entry-workflow.md 保存 acceptance_delegation，由 AI 实际执行并记录本版结果。有效委托但结果未完成由 AI 继续；版本变化先核对范围，不能机械转为人工重验，也不能改绑旧通过记录。当前 AI 的明确失败即使没有接受授权也先调查复核。
 
 优先使用内部执行器运行项目已有测试。以下任务目录、项目、行为 ID 与测试路径需替换为实际值；`--` 后是原样 argv，在绑定项目中执行，不经 shell 拼接：
 
