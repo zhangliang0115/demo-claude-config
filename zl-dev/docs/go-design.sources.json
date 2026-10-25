@@ -1,0 +1,137 @@
+{
+  "version": "0.16.0",
+  "commit": "a329f16710c4bbdddd76744d810bc1c43a05b1b5",
+  "generated_at": "2026-10-25 16:21:00",
+  "sources": [
+    {
+      "path": "skills/go/SKILL.md",
+      "sha256": "46ab27757d500c66b1d47ea6ef70471c6e22c8375da018d325f6ac0b8751d0d0",
+      "lines": 22
+    },
+    {
+      "path": "docs/entry-workflow.md",
+      "sha256": "2c82db2ba8df7fbeb985b452c3d09703e345c211325146e4bfec957a5224e053",
+      "lines": 103
+    },
+    {
+      "path": "docs/internal-actions/build.md",
+      "sha256": "45a1418eeae0c3b47c633c786f05d821e6c761f663fd81ab56c7f6d8f4819116",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/design.md",
+      "sha256": "3d0e3f625ef230181f3fbbd4591a56d5a09f2a8dd0f72e877fb34896cc11fc4a",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/feature.md",
+      "sha256": "a156f4b2e7b7a6a3588dd1c608830ef392178fd21c77fbd4cf6f18801d65028b",
+      "lines": 19
+    },
+    {
+      "path": "docs/internal-actions/handoff.md",
+      "sha256": "c15c06428eb7e00f4449310a214d8cc8363c3e582d31f38d4ea0774d175ff094",
+      "lines": 15
+    },
+    {
+      "path": "docs/internal-actions/incident.md",
+      "sha256": "a7d0889a76def2f9561ed6b984e13d4e12365290326f074581b8378d71654a97",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/intake.md",
+      "sha256": "c515093559785a53082d4e4d915d704d49112628ce5934e27480ff190546e140",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/ops.md",
+      "sha256": "be631f76d2a9cdec12b9fc9ec265367fe5a7a1af991281922940f51689118212",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/plan.md",
+      "sha256": "a493724adc5d8f91f1f1222e5273b089b6ff6561cc1a5181a3e83d7797f55402",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/review.md",
+      "sha256": "14d85e8cf5a17e768e2ecaf8db342a2de87ae5a07270049b8eaa2faf11b3c7e4",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/spec.md",
+      "sha256": "ba66441e728b5a1d36d4ffda3083eaaeb2725afb6f28ca05ee04ceb8628d5c71",
+      "lines": 11
+    },
+    {
+      "path": "docs/internal-actions/start.md",
+      "sha256": "ddf08c6c5ed862b5b9b260a15dbdab6d00b4f54fed4303370c8c868ac6ccbeda",
+      "lines": 13
+    },
+    {
+      "path": "docs/internal-actions/verify.md",
+      "sha256": "8988c21260c673dfc922c1b5993962d20b027fe8f84fa0c544cf434814670cd8",
+      "lines": 32
+    },
+    {
+      "path": "agents/reviewer.md",
+      "sha256": "cd9c5989c94bd1fc9536dc5976dd48b6e4d41b33c741acd6fc04d532ef819251",
+      "lines": 12
+    },
+    {
+      "path": "docs/workflow.md",
+      "sha256": "442dcc80aaa17f466965dfce671867d572fc836bf0fd2b064f003a52139b247e",
+      "lines": 75
+    },
+    {
+      "path": "docs/team-workflow.md",
+      "sha256": "70507634fe9124c50d7088763a6adbbc2784e31d53706f9801bb690080b1ad4a",
+      "lines": 42
+    },
+    {
+      "path": "docs/collaboration-model.md",
+      "sha256": "cdbbdfc77d0661a3218b1873756405983ff730155bd7bf5fb5b90569a73d6f73",
+      "lines": 78
+    },
+    {
+      "path": "docs/cross-project.md",
+      "sha256": "768b400e997f1cdd019f4c57256867066dc4d1cf866ac15f7dcd0b908ede3b96",
+      "lines": 90
+    },
+    {
+      "path": "docs/schema-reference.md",
+      "sha256": "f198e7000ee7fb12f523a71dbd8c5d5241693103e991dec3f8e3401e2e0f2eda",
+      "lines": 100
+    },
+    {
+      "path": "docs/stage-templates.md",
+      "sha256": "112c303ea737e5d9b30355cc70dcd7c79abb9faa0688cb0bb7807b00a08159cf",
+      "lines": 73
+    },
+    {
+      "path": "docs/scenario-layouts.md",
+      "sha256": "793d50773e2b34dd1e342d8c7d8a97a2021d09c9017e93ec6004676fafa77b5b",
+      "lines": 26
+    },
+    {
+      "path": "templates/stages.json",
+      "sha256": "ae5d40a317cf764494f0b4ccf4ee9c7333973269892a1d480de620f4be46a5a1",
+      "lines": 256
+    },
+    {
+      "path": "templates/layouts.json",
+      "sha256": "621970ae4f3c80cc1ee3041c71c96b7a939bb01138788d50dc0be13040764501",
+      "lines": 11
+    },
+    {
+      "path": "skills/status/SKILL.md",
+      "sha256": "2e0334e163e865ee3c8a012b074bc37ad5d851a59a3c29e189edd79ad8894bab",
+      "lines": 27
+    },
+    {
+      "path": ".claude-plugin/plugin.json",
+      "sha256": "934de7ffa5ade42b9d69346546b76dfe2bf1ec779439da86e6522a3591431f18",
+      "lines": 17
+    }
+  ]
+}
