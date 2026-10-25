@@ -212,9 +212,12 @@ def report_state(task_dir, state=None):
         state = snapshot(task_dir) if state is None else state
         expected = state['provenance']
         fields = ('task_id', 'project_path', 'task_revision', 'current_fingerprint', 'assessment_revision')
-        if any(key not in provenance for key in fields):
+        copied_fields = ('task_revision', 'current_fingerprint', 'assessment_revision')
+        if any(key not in provenance for key in fields) or any(key not in recorded for key in copied_fields):
             return result
-        if recorded.get('id') != provenance['task_id'] or recorded.get('project_path') != provenance['project_path'] or assessment_revision(recorded) != provenance['assessment_revision']:
+        if any(recorded[key] != provenance[key] for key in copied_fields):
+            result.update(freshness='stale', reason='报告复制版本与来源不一致')
+        elif recorded.get('id') != provenance['task_id'] or recorded.get('project_path') != provenance['project_path'] or assessment_revision(recorded) != provenance['assessment_revision']:
             result.update(freshness='stale', reason='报告快照内容与来源不一致')
         elif any(provenance[key] != expected[key] for key in fields):
             result.update(freshness='stale', reason='任务、代码或证据评估已变化，请重新生成报告')

@@ -24,6 +24,16 @@ class VerificationTests(unittest.TestCase):
         return verification.execute(self.task,self.repo,'unittest',['B1'],[sys.executable,'-c',code],**kwargs)
     def make_code(self, assertion='self.assertEqual(1,1)', decorator=''):
         return "import unittest\nclass T(unittest.TestCase):\n "+decorator+("\n " if decorator else '')+"def test_one(self): "+assertion+"\nunittest.main()\n"
+    def test_equivalent_absolute_project_alias_keeps_real_receipt_valid(self):
+        alias = self.root/'project-alias'
+        alias.symlink_to(self.repo, target_is_directory=True)
+        self.data['project_path'] = str(alias)
+        self.save()
+        result, code = self.run_code(self.make_code())
+        self.assertEqual(code, 0, result)
+        state = reviewable.snapshot(self.task)
+        self.assertEqual(state['evidence'][0]['verification_source'], 'parsed_result')
+        self.assertEqual(state['evidence'][0]['status'], 'passed')
     def test_pass_receipt_reparse_and_readonly(self):
         result,code=self.run_code(self.make_code()); self.assertEqual(code,0,result)
         data=reviewable.load(self.task); before={str(p):(p.stat().st_mtime_ns,p.read_bytes()) for p in self.task.rglob('*') if p.is_file()}

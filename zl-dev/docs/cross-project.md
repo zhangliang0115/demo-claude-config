@@ -84,3 +84,7 @@ AI 应先查清：页面在哪里、API 由谁提供、订单/库存数据归谁
 ```
 
 演示总览包含模拟数据，不能拿示例状态充当真实项目的验证结果。
+
+## 功能报告版本
+
+feature 的 render、locate/status 输出 feature_revision（精确记录）及 assessment_revision（实时派生评估），report_state 只读区分 current/stale/unknown/missing；旧报告路径仍保留供追溯。复制反馈带两种版本及契约版本，只比较 contract_version 不足以确认材料最新。子任务记录、代码或日志变化可使整体报告过期；status 不自动 sync/render。新字段是派生信息，不手填到 feature.json，也不据本地哈希推断身份认证。

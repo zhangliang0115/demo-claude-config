@@ -9,19 +9,20 @@ END = '<!-- ZL-DEV:GENERATED:END -->'
 
 def assessment_revision(data):
     clean = {key: value for key, value in data.items()
-             if key not in {'generated_at', 'provenance', 'task_revision', 'assessment_revision'}}
+             if key not in {'generated_at', 'provenance', 'task_revision', 'feature_revision', 'assessment_revision'}}
     raw = json.dumps(clean, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')
     return hashlib.sha256(raw).hexdigest()
 
 
 class PayloadParser(HTMLParser):
-    def __init__(self):
+    def __init__(self, payload_id='task-data'):
         super().__init__()
+        self.payload_id = payload_id
         self.active = False
         self.payloads = []
 
     def handle_starttag(self, tag, attrs):
-        if tag == 'script' and dict(attrs).get('id') == 'task-data':
+        if tag == 'script' and dict(attrs).get('id') == self.payload_id:
             self.active = True
             self.payloads.append('')
 
@@ -34,8 +35,8 @@ class PayloadParser(HTMLParser):
             self.active = False
 
 
-def read_payload(text):
-    parser = PayloadParser()
+def read_payload(text, payload_id='task-data'):
+    parser = PayloadParser(payload_id)
     parser.feed(text)
     if len(parser.payloads) != 1:
         raise ValueError('报告缺少唯一任务快照')

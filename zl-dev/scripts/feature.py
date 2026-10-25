@@ -128,14 +128,71 @@ def save(folder, data, expected_revision=None):
         _replace_locked(folder, data, previous)
 
 
-def locate(folder):
+def snapshot(folder):
+    """Assess one exact feature input; never sync or rewrite linked materials."""
+    from provenance import assessment_revision
     folder = Path(folder).resolve()
     raw = (folder / 'feature.json').read_bytes()
-    data = validate(json.loads(raw))
+    data = assessed(validate(json.loads(raw)))
+    data['feature_revision'] = reviewable.task_revision(raw)
+    data['assessment_revision'] = assessment_revision(data)
+    data['provenance'] = dict(version=1, feature_id=data['id'],
+        workspace_path=data.get('workspace_path'), project_bindings=project_bindings(data),
+        feature_revision=data['feature_revision'], assessment_revision=data['assessment_revision'])
+    return data
+
+
+def project_bindings(data):
+    return sorted([dict(id=p['id'], path=p['path']) for p in data['projects']], key=lambda p: p['id'])
+
+
+def report_state(folder, state=None):
+    """Inspect the feature HTML snapshot without rendering or executing it."""
+    from provenance import read_payload, assessment_revision
+    target = Path(folder) / 'feature.html'
+    result = dict(path=str(target) if target.is_file() else None, freshness='missing',
+                  reason='功能报告尚未生成', generated_at=None)
+    if not target.is_file():
+        return result
+    result.update(freshness='unknown', reason='功能报告缺少可核对的版本来源')
+    try:
+        recorded = read_payload(target.read_text(encoding='utf-8'), payload_id='feature-data')
+        result['generated_at'] = recorded.get('generated_at')
+        provenance = recorded.get('provenance')
+        fields = ('feature_id', 'workspace_path', 'project_bindings', 'feature_revision', 'assessment_revision')
+        if not isinstance(provenance, dict) or provenance.get('version') != 1 or any(k not in provenance for k in fields):
+            return result
+        if any(k not in recorded for k in ('id', 'workspace_path', 'projects', 'feature_revision', 'assessment_revision')):
+            return result
+        state = snapshot(folder) if state is None else state
+        expected = state['provenance']
+        if (recorded.get('id') != provenance['feature_id']
+                or recorded.get('workspace_path') != provenance['workspace_path']
+                or project_bindings(recorded) != provenance['project_bindings']
+                or recorded.get('feature_revision') != provenance['feature_revision']
+                or recorded.get('assessment_revision') != provenance['assessment_revision']
+                or assessment_revision(recorded) != provenance['assessment_revision']):
+            result.update(freshness='stale', reason='功能报告内容与版本来源不一致')
+        elif any(provenance[key] != expected[key] for key in fields):
+            result.update(freshness='stale', reason='整体方案、项目或子任务评估已变化，请核对后重新生成')
+        elif any(not p.get('current_snapshot', {}).get('current_fingerprint') for p in state['projects']):
+            result['reason'] = '部分项目代码状态无法核对，不能认定当前'
+        else:
+            result.update(freshness='current', reason='整体记录、项目与子任务评估均与当前一致')
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError, AttributeError):
+        result['reason'] = '功能报告损坏或无法读取来源，需重新核对'
+    return result
+
+
+def locate(folder):
+    folder = Path(folder).resolve()
+    data = snapshot(folder)
+    report = report_state(folder, data)
     return dict(feature_dir=str(folder), feature_file=str(folder / 'feature.json'),
-                feature_revision=reviewable.task_revision(raw), id=data['id'], title=data['title'],
-                workspace_path=data.get('workspace_path'), phase=data.get('phase'),
-                contract_version=data.get('contract_version'), report=str(folder / 'feature.html') if (folder / 'feature.html').is_file() else None)
+                feature_revision=data['feature_revision'], assessment_revision=data['assessment_revision'],
+                id=data['id'], title=data['title'], workspace_path=data.get('workspace_path'),
+                phase=data.get('phase'), contract_version=data.get('contract_version'),
+                report=report['path'], report_state=report, assessment=data['assessment'])
 
 
 def update_feature(folder, source, workspace, expected_revision):
@@ -162,13 +219,13 @@ def update_feature(folder, source, workspace, expected_revision):
         new_projects = {p['id']: p for p in replacement['projects']}
         if set(original_projects) != set(new_projects) or any(original_projects[key]['path'] != new_projects[key]['path'] for key in original_projects):
             raise ValueError('更新不能改变已绑定的项目 id/path 集合')
-        derived = ('snapshot', 'snapshot_freshness')
+        derived = ('snapshot', 'snapshot_freshness', 'current_snapshot')
         for key in original_projects:
             for field in derived:
                 old, new = original_projects[key], new_projects[key]
                 if (field in old) != (field in new) or old.get(field) != new.get(field):
                     raise ValueError('派生快照只能通过 sync 更新，不能改写 ' + field)
-        for field in ('assessment', 'generated_at'):
+        for field in ('assessment', 'generated_at', 'feature_revision', 'assessment_revision', 'provenance'):
             if (field in original) != (field in replacement) or original.get(field) != replacement.get(field):
                 raise ValueError('更新不能改写派生字段 ' + field)
         payload = _replace_locked(folder, replacement, raw)
@@ -267,15 +324,16 @@ def project_snapshot(p):
         return snap
     try:
         # A task from another repository cannot supply this project's evidence.
-        child_data = reviewable.load(task)
-        binding = child_data.get('project_path')
+        child = reviewable.snapshot(task)
+        binding = child.get('project_path')
         if binding is not None:
             if Path(binding).resolve() != path.resolve():
                 raise ValueError('子任务 project_path 与对应项目不匹配')
         elif task.resolve() != path.resolve() and path.resolve() not in task.resolve().parents:
             raise ValueError('外部子任务必须明确绑定对应项目 project_path')
-        snap['current_fingerprint'] = reviewable.fingerprint(task)
-        child = reviewable.assessed(child_data, snap['current_fingerprint'], task)
+        snap['current_fingerprint'] = child['current_fingerprint']
+        snap['task_revision'] = child['task_revision']
+        snap['task_assessment_revision'] = child['assessment_revision']
         version = child.get('contract_version') or child.get('feature', {}).get('contract_version', '')
         snap.update(task_id=child['id'], task_stage=child.get('stage', ''), task_contract_version=version, contract_match=bool(p.get('contract_version')) and version == p.get('contract_version'))
         if not snap['contract_match']:
@@ -320,12 +378,15 @@ def sync(folder):
 
 def assessed(data):
     result = json.loads(json.dumps(data))
+    for field in ('feature_revision', 'assessment_revision', 'provenance'):
+        result.pop(field, None)
     issues = []
     confirmed_versions = {c['version'] for c in result['contracts'] if c['status'] == 'confirmed'}
     for p in result['projects']:
         previous = p.get('snapshot')
         current = project_snapshot(p)
-        p['snapshot_freshness'] = 'not_synced' if not previous else ('unknown' if not current['current_fingerprint'] else ('current' if all(previous.get(k) == current.get(k) for k in ('task_path', 'task_id', 'current_fingerprint', 'task_contract_version', 'contract_match', 'evidence_counts', 'task_stage', 'technical_blockers', 'issues')) else 'stale'))
+        p['current_snapshot'] = {key: value for key, value in current.items() if key != 'synced_at'}
+        p['snapshot_freshness'] = 'not_synced' if not previous else ('unknown' if not current['current_fingerprint'] else ('current' if all(previous.get(k) == current.get(k) for k in ('task_path', 'task_id', 'current_fingerprint', 'task_contract_version', 'contract_match', 'evidence_counts', 'task_stage', 'technical_blockers', 'issues', 'task_revision', 'task_assessment_revision')) else 'stale'))
         issues.extend(p['id'] + ': ' + x for x in current['issues'])
         if result.get('contract_version') and p.get('contract_version') != result['contract_version']:
             issues.append(p['id'] + ': 项目基线落后于整体方案版本')
@@ -390,14 +451,15 @@ def preflight(folder):
 
 
 def render(folder):
-    data = assessed(load(folder))
+    from provenance import atomic_write
+    data = snapshot(folder)
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets/feature.html').read_text(encoding='utf-8')
     if '/* REPORT_THEME */' in template:
         template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
     replacements = {'__FEATURE_DATA__': payload, '__FEATURE_TITLE__': html.escape(data['title'])}
     target = Path(folder) / 'feature.html'
-    target.write_text(re.sub('__FEATURE_DATA__|__FEATURE_TITLE__', lambda m: replacements[m.group()], template), encoding='utf-8')
+    atomic_write(target, re.sub('__FEATURE_DATA__|__FEATURE_TITLE__', lambda m: replacements[m.group()], template).encode('utf-8'))
     return target
 
 
@@ -422,7 +484,9 @@ def main():
         elif args.command == 'update':
             value = update_feature(args.folder, args.from_file, args.workspace, args.expect_revision)
         elif args.command == 'status':
-            value = assessed(load(args.folder))
+            value = snapshot(args.folder)
+            value['report_state'] = report_state(args.folder, value)
+            value['report'] = value['report_state']['path']
         else:
             value = globals()[args.command](args.folder)
         if isinstance(value, dict):

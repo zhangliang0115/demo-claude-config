@@ -87,3 +87,5 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 ## 人工结果如何推进
 
 仅在人明确回传并核对页面版本后，记录其原意、核验人来源、reviewed_revision（被观察的代码/行为指纹）及 result_status（pass/fail/blocked/not_checked）。reviewer_kind=human 是记录来源，不是身份认证；AI 测试角色仍为 ai。旧 result 自由文本、status=done 或 AI 的 pass 不能推断人工接受。当前 human 的 fail/blocked 交 AI 处理；全部本版人工项目 pass 后停止重复催验，由负责人决定后续，不自动发布或授权生产。历史结果保留，但不代替本版核验。
+
+阶段页使用已有 changes 直接展示最多三条本轮变化，剩余按需展开；记录实际差异和保持项，不从业务 before 字段猜测某个旧实现版本。跨版本接手应核对保存的契约与 Git 历史。

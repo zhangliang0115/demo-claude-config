@@ -220,7 +220,12 @@ def inspect_receipt(task_dir, task, evidence):
             raise ValueError('回执必须为 JSON 对象')
         if not isinstance(receipt.get('logs'),dict) or receipt.get('version_stable') is not True or type(receipt.get('exit_code')) is not int or type(receipt.get('timed_out')) is not bool or not isinstance(receipt.get('execution_error'),str):
             raise ValueError('回执执行字段类型无效')
-        if not isinstance(receipt.get('argv'),list) or not receipt['argv'] or any(not isinstance(arg,str) for arg in receipt['argv']) or receipt.get('cwd')!=task.get('project_path'):
+        bound = task.get('project_path')
+        if not isinstance(bound, str) or not Path(bound).is_absolute():
+            raise ValueError('任务项目路径无效')
+        project = Path(bound).resolve()
+        cwd = receipt.get('cwd')
+        if not isinstance(receipt.get('argv'),list) or not receipt['argv'] or any(not isinstance(arg,str) for arg in receipt['argv']) or not isinstance(cwd,str) or not Path(cwd).is_absolute() or Path(cwd).resolve()!=project:
             raise ValueError('回执 argv/cwd 无效')
         for field in ('fingerprint_before','fingerprint_after','task_revision_before','task_revision_after'):
             if not isinstance(receipt.get(field),str) or not re.fullmatch(r'[0-9a-f]{64}',receipt[field]):
@@ -229,7 +234,8 @@ def inspect_receipt(task_dir, task, evidence):
             if not isinstance(receipt.get(field),str):
                 raise ValueError('回执时间字段无效')
             datetime.fromisoformat(receipt[field])
-        if receipt.get('version')!=1 or receipt.get('task_id')!=task['id'] or receipt.get('task_dir')!=str(folder) or receipt.get('project_path')!=task.get('project_path') or receipt.get('run_id')!=evidence['id'] or receipt.get('behavior_ids')!=evidence.get('behavior_ids'):
+        recorded_project = receipt.get('project_path')
+        if receipt.get('version')!=1 or receipt.get('task_id')!=task['id'] or receipt.get('task_dir')!=str(folder) or not isinstance(recorded_project,str) or not Path(recorded_project).is_absolute() or Path(recorded_project).resolve()!=project or receipt.get('run_id')!=evidence['id'] or receipt.get('behavior_ids')!=evidence.get('behavior_ids'):
             raise ValueError('回执任务或行为身份不符')
         if not receipt.get('version_stable') or not receipt.get('fingerprint_before') or receipt['fingerprint_before']!=receipt.get('fingerprint_after') or receipt['fingerprint_before']!=evidence.get('revision') or receipt.get('task_revision_before')!=receipt.get('task_revision_after'):
             raise ValueError('回执版本不稳定')

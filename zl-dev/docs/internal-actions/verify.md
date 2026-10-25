@@ -28,3 +28,5 @@ JUnit 示例仅适用于项目已使用 pytest；其他工具使用其真实 JUn
 工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
 
 已绑定版本的证据不能改绑 revision 或改 id 替换旧记录；重跑须保留旧证据并新增本次独立 id，也可清空 revision 显式失效。CLI 仅阻止有限误操作，不能证明执行真实性或防止伪造新记录。
+
+界面验证按需求指定的终端范围执行；未要求移动端时不默认增加手机尺寸测试。本项目默认验证桌面网页。可运行夹具可用于贴近真实业务的场景评测，但需求/角色输入、实际执行者、原始结果与真实人工接受要分别标注。

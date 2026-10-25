@@ -10,7 +10,7 @@
 </style>
 <div class="report-toolbar"><a class="report-brand" href="#">ZL <span>DEV</span></a><div class="report-meta"><span id="task-id"></span><span id="stage"></span><time id="generated-time"></time></div><div id="demo-notice" hidden></div></div>
 <header class="report-hero"><p class="eyebrow" id="phase-heading"></p><h1 id="title"></h1><p id="summary" class="hero-summary"></p><dl id="reading-brief" class="hero-facts"></dl></header>
-<main><section class="panel" id="overview"></section><section class="reading-tools" id="reading-tools"><h2>补充依据与反馈</h2></section><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
+<main><section class="report-changes" id="round-changes" hidden></section><section class="panel" id="overview"></section><section class="reading-tools" id="reading-tools"><h2>补充依据与反馈</h2></section><section class="panel" id="scenarios" hidden></section><section class="panel" id="behavior" hidden></section><section class="panel" id="implementation" hidden></section><section class="panel" id="decisions" hidden></section><section class="panel" id="evidence" hidden></section><section class="panel" id="design" hidden></section><section class="panel" id="handoffs" hidden></section><section class="panel" id="operations" hidden></section><section class="panel" id="stage-views" hidden></section><footer>本页面是生成时的快照，不会自动运行测试或同步审批。代码、需求变更后请重新生成。所有模拟均不能作为运行成功证据。</footer></main>
 <script id="task-data" type="application/json">__TASK_DATA__</script>
 <script>
 'use strict';
@@ -32,6 +32,19 @@ function feedbackComposer(parent,task,stage,buildBody){
 function evidenceOrigin(e){return e.verification_source==='parsed_result'?'结构化结果已解析；仍需核对执行环境与原始来源。':e.verification_source==='invalid'?'结果回执无效 · 不可采信，已降级为未执行，请重新验证。':'模型记录 · 尚未独立解析结果，不是执行真实性证明。';}
 function card(parent,title,body){const n=el('article',undefined,'card');n.append(el('h3',title),el('p',text(body)));parent.append(n);return n;}
 function list(parent,title,items){const c=card(parent,title,items.length?'':'尚未记录');if(items.length){c.lastChild.remove();const ul=el('ul');items.forEach(x=>ul.append(el('li',text(x))));c.append(ul);}return c;}
+function renderRoundChanges(parent, changes){
+  parent.replaceChildren();parent.hidden=true;
+  const values=Array.isArray(changes)?changes:[];
+  const unique=[...new Set(values.map(value=>value===undefined||value===null?'':typeof value==='string'?formatTimes(value.trim()):text(value)).filter(Boolean))];
+  if(!unique.length)return;
+  parent.hidden=false;parent.setAttribute('aria-labelledby','round-changes-title');
+  const heading=el('h2','本轮变化');heading.id='round-changes-title';
+  const content=el('div',undefined,'round-change-content'),visible=el('ul',undefined,'round-change-list');
+  unique.slice(0,3).forEach(value=>visible.append(el('li',value)));content.append(visible);
+  if(unique.length>3){const more=el('details',undefined,'round-change-more'),rest=el('ul',undefined,'round-change-more-list');more.append(el('summary','还有 '+(unique.length-3)+' 项变化'));unique.slice(3).forEach(value=>rest.append(el('li',value)));more.append(rest);content.append(more);}
+  parent.append(heading,content);
+}
+renderRoundChanges($('round-changes'),task.changes);
 $('title').textContent=task.title;$('task-id').textContent=text(task.id);$('generated-time').textContent=formatTimes(task.generated_at||'');$('summary').textContent=text(task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage);$('phase-heading').textContent='当前阶段 · '+$('stage').textContent;document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
 const tabs=[['overview','任务概览'],['stage-views','当前阶段材料'],['scenarios','场景演示'],['behavior','业务变化'],['implementation','实现解释'],['decisions','需要你决定'],['evidence','验证证据'],['design','方案与职责'],['handoffs','交接记录'],['operations','生产与运维']];
 const has=key=>Array.isArray(task[key])&&task[key].length>0;
@@ -80,7 +93,7 @@ const stageInline=['acceptance','release'].includes(workflow.focus_stage)&&popul
 if(stageInline)renderStages(viewRoot,task);else renderView(viewRoot,task,viewUI);
 const checks=el('details');checks.append(el('summary','本阶段的范围与风险'));
 if(['review','testing','acceptance','operations','release'].includes(workflow.focus_stage))card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${unresolved} 条当前验证尚未解决；${stale} 条历史或未知证据需核对。`);
-if(!stageInline&&['testing','acceptance','release'].includes(workflow.focus_stage)&&!(((task.stage_details||{}).acceptance||{}).items||[]).length)list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);list(checks,'自上次更新后的变化',task.changes||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);story.append(checks);
+if(!stageInline&&['testing','acceptance','release'].includes(workflow.focus_stage)&&!(((task.stage_details||{}).acceptance||{}).items||[]).length)list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);story.append(checks);
 const sceneHints={feature:'选择用户操作，理解正常及异常路径。',change:'比较规则调整前后，关注历史数据和生效范围。',bugfix:'先看复现条件，再看修复如何阻断问题。',refactor:'结构可以变化，对外行为应保持。',performance:'比较相同条件下的基线与结果。',migration:'核对数据转换、异常处理和恢复路径。',upgrade:'关注兼容性变化与新旧实现的一致性。',incident:'区分现场事实、诊断假设、止损动作和恢复证据。',operations:'先确认操作范围与授权，再核对执行结果和恢复条件。'};
 $('scenarios').append(el('h2','从一个具体例子理解'),el('p',sceneHints[task.kind]));const sceneButtons=el('div',undefined,'scene-buttons'),sceneContent=el('div');$('scenarios').append(sceneButtons,sceneContent);
 function scene(index){sceneContent.replaceChildren();[...sceneButtons.children].forEach((b,i)=>b.classList.toggle('active',i===index));const s=task.scenarios[index];card(sceneContent,s.title,s.kind==='simulation'?'设计模拟：用于理解预期行为，未证明实际实现成功。':'记录回放：来自任务提供的记录，请对照证据确认来源。');(s.steps||[]).forEach((step,i)=>{const n=el('div',undefined,'step');n.append(el('h3',`${i+1}. ${text(step.action)}`),el('p',text(step.result)));sceneContent.append(n);});}

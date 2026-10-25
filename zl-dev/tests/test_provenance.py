@@ -104,6 +104,43 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(payload['task_revision'], api.task_revision((self.folder / 'task.json').read_bytes()))
         self.assertEqual(payload['provenance']['project_path'], str(self.repo))
 
+    def test_report_copied_versions_must_match_provenance(self):
+        import re
+        report = api.render(self.folder)
+        original = report.read_text()
+        payload = read_payload(original)
+        self.assertEqual(api.report_state(self.folder)['freshness'], 'current')
+        for field in ('task_revision', 'assessment_revision', 'current_fingerprint'):
+            with self.subTest(field=field):
+                altered = dict(payload)
+                altered[field] = '0' * 64
+                embedded = json.dumps(altered, ensure_ascii=False)
+                report.write_text(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
+                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S))
+                before = self.tree()
+                result = api.report_state(self.folder)
+                self.assertEqual(result['freshness'], 'stale')
+                self.assertIn('复制版本与来源不一致', result['reason'])
+                self.assertEqual(before, self.tree())
+        report.write_text(original)
+        self.assertEqual(api.report_state(self.folder)['freshness'], 'current')
+
+    def test_report_without_top_level_copy_versions_is_unknown(self):
+        import re
+        report = api.render(self.folder)
+        original = report.read_text()
+        payload = read_payload(original)
+        for field in ('task_revision', 'assessment_revision', 'current_fingerprint'):
+            with self.subTest(field=field):
+                legacy = dict(payload)
+                del legacy[field]
+                embedded = json.dumps(legacy, ensure_ascii=False)
+                report.write_text(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
+                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S))
+                before = self.tree()
+                self.assertEqual(api.report_state(self.folder)['freshness'], 'unknown')
+                self.assertEqual(before, self.tree())
+
     def test_handoff_preserves_human_text_and_backs_up_legacy_once(self):
         handoff = self.folder / 'HANDOFF.md'
         legacy = b'# Old handoff\r\nPort: 18921\r\n'

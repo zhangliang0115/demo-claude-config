@@ -15,6 +15,7 @@ class Element {
  insertBefore(node,target){const i=this.children.indexOf(target);this.children.splice(i<0?this.children.length:i,0,node);}
  replaceChildren(...xs){this.children=xs;this._text='';}
  setAttribute(k,v){this.attributes[k]=v;}
+ set innerHTML(value){throw new Error('Task content must not be parsed as markup');}
  get textContent(){return this._text+this.children.map(x=>typeof x==='string'?x:x.textContent).join(' ');}
  set textContent(x){this._text=String(x);this.children=[];}
  focus(){} select(){} setSelectionRange(){}
@@ -24,7 +25,12 @@ const document={createElement:t=>new Element(t),getElementById:id=>ids[id]||(ids
 const sandbox={document,URL,navigator:{clipboard:{writeText:async value=>{copied=value;}}},formatTimes:x=>String(x),console};
 sandbox.feedbackComposer=(parent,task,stage,body)=>{composers.push(body);return ()=>{};};
 vm.createContext(sandbox);
-if(input.kind==='composer'){
+if(input.kind==='changes'){
+ vm.runInContext(input.source,sandbox);sandbox.task=input.task;sandbox.root=new Element('section');sandbox.changesExecuted=false;
+ vm.runInContext('renderRoundChanges(root,task.changes)',sandbox);
+ const flat=[];function walk(n){if(typeof n==='string')return;flat.push(n);n.children.forEach(walk);}walk(sandbox.root);
+ process.stdout.write(JSON.stringify({text:sandbox.root.textContent,hidden:sandbox.root.hidden,executed:sandbox.changesExecuted,nodes:flat.map(n=>({tag:n.tag,text:n.textContent,className:n.className,open:!!n.open}))}));
+}else if(input.kind==='composer'){
  vm.runInContext(input.source,sandbox);sandbox.task=input.task;sandbox.root=new Element('root');sandbox.body=input.body;
  vm.runInContext("feedbackComposer(root,task,'人工核验',()=>body)",sandbox);
  const flat=[];function walk(n){if(typeof n==='string')return;flat.push(n);n.children.forEach(walk);}walk(sandbox.root);
@@ -49,7 +55,11 @@ if(input.kind==='composer'){
 @unittest.skipUnless(shutil.which('node'), 'Node required for presentation execution')
 class HumanReportTests(unittest.TestCase):
     def run_ui(self, task, kind='stage', draft=False, body='本次意见'):
-        if kind == 'composer':
+        if kind == 'changes':
+            template=(ASSETS / 'report.html').read_text()
+            helpers='function el(tag,text,cls){'+template.split('function el(tag,text,cls){',1)[1].split('function feedbackComposer(',1)[0]
+            source=helpers+'function renderRoundChanges(parent, changes){'+template.split('function renderRoundChanges(parent, changes){',1)[1].split("renderRoundChanges($('round-changes'),task.changes);",1)[0]
+        elif kind == 'composer':
             source=(ASSETS / 'report.html').read_text().split('function el(tag,text,cls){',1)[1].split('function evidenceOrigin(e){',1)[0]
             source='function el(tag,text,cls){'+source
         elif kind == 'evidence':
@@ -69,6 +79,44 @@ class HumanReportTests(unittest.TestCase):
 
     def task(self):
         return dict(id='T1', title='名额调整', focus_stage='acceptance',current_fingerprint='current', stage_catalog={'acceptance':{'title':'人工验收','fields':[['scenario','场景'],['instruction','操作'],['expected','预期'],['actual','观察'],['reviewer','核验人'],['result','结果'],['reviewed_revision','版本'],['verification_mode','核验方式']]}}, stage_details={'acceptance':{'summary':'核验关键路径','items':[dict(id='AC1',scenario='保存',instruction='填写3并保存',expected='显示3',actual='显示旧值',reviewer='张三',result='退回',reviewed_revision='old',verification_mode='assisted')]}})
+
+    def test_round_changes_empty_values_hide_the_entire_region(self):
+        for changes in [None, [], ['', '  ', None]]:
+            with self.subTest(changes=changes):
+                result=self.run_ui({'changes':changes},'changes')
+                self.assertTrue(result['hidden'])
+                self.assertEqual('',result['text'])
+                self.assertFalse(any(n['tag'] in {'h2','select','button'} for n in result['nodes']))
+
+    def test_round_changes_single_item_is_direct_without_material_selection(self):
+        result=self.run_ui({'changes':['审核期间继续公开旧版本']},'changes')
+        self.assertFalse(result['hidden'])
+        self.assertIn('本轮变化',result['text'])
+        rows=[n for n in result['nodes'] if n['tag']=='li']
+        self.assertEqual(['审核期间继续公开旧版本'],[n['text'] for n in rows])
+        self.assertFalse(any(n['tag'] in {'details','select','button'} for n in result['nodes']))
+
+    def test_round_changes_five_items_show_three_and_fold_two_without_duplicates(self):
+        changes=['变化'+str(i) for i in range(1,6)]
+        result=self.run_ui({'changes':changes+[changes[0],'  '+changes[1]+'  ']},'changes')
+        visible=next(n for n in result['nodes'] if n.get('className')=='round-change-list')
+        remaining=next(n for n in result['nodes'] if n.get('className')=='round-change-more-list')
+        fold=next(n for n in result['nodes'] if n.get('className')=='round-change-more')
+        self.assertEqual('变化1 变化2 变化3',visible['text'])
+        self.assertEqual('变化4 变化5',remaining['text'])
+        self.assertFalse(fold['open'])
+        self.assertIn('还有 2 项变化',fold['text'])
+        for change in changes:self.assertEqual(1,result['text'].count(change))
+        template=(ASSETS / 'report.html').read_text()
+        self.assertNotIn("list(checks,'自上次更新后的变化'",template)
+        self.assertLess(template.index('id="round-changes"'),template.index('id="overview"'))
+
+    def test_round_changes_task_markup_stays_literal_text(self):
+        markup='<img src=x onerror="changesExecuted=true"><script>changesExecuted=true</script>'
+        result=self.run_ui({'changes':[markup]},'changes')
+        self.assertFalse(result['executed'])
+        self.assertEqual([markup],[n['text'] for n in result['nodes'] if n['tag']=='li'])
+        self.assertFalse(any(n['tag'] in {'script','img','iframe'} for n in result['nodes']))
 
     def test_real_feedback_composer_copies_record_assessment_and_code_versions(self):
         task=self.task();task.update(task_revision='record-v2',assessment_revision='assessment-v3')
