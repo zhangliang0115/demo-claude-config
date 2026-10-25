@@ -2,13 +2,39 @@
 
 用户只需 `/zl-dev:go`（做事/继续）和 `/zl-dev:status`（看状态）。其余动作是插件内部资料，不注册斜杠命令。旧版阶段命令已撤下；旧任务数据和 CLI 仍可继续使用。
 
-## 任务定位
+## 任务定位与会话关联
 
-- 新描述先判断是否延续当前明确任务。只有一个历史任务也不能据此自动接入新需求。
-- 无参数或明确说“继续”：优先使用已明确的任务目录，运行 `reviewable.py continue <任务目录> --project <真实项目> --no-render`；未知目录时才省略该参数。单个候选可恢复，多个任务按标题简短询问；此处没有新增持久化会话绑定。
-- 使用返回的真实任务路径，不手算项目路径哈希。不确定是否延续时只问一个简短问题。
-- 新建：只有需要长期任务记录时，使用 `reviewable.py init <slug> --project <真实项目绝对路径> --title <标题> --kind <类型> --no-render`。读取生成的 task.json 后按下述安全更新流程维护；普通解释、追问、状态回复不为生成报告新建任务。
-- 所有工具位于 `${CLAUDE_PLUGIN_ROOT}/scripts/`，默认输出 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`。源码仍在业务仓库。脚本参数用独立参数和正确引号，不能将需求拼成可执行代码。
+用户仍只需 go/status。长期 task/feature 保持跨会话事实；会话关联只是当前工具会话在某个项目或工作区的焦点，不是权限、任务所有权或代码隔离。
+
+- 先判断本轮意图。普通概念解释和无新事实的追问不创建任务、不 bind/clear。明确新事项不复用旧焦点，也不因唯一历史任务自动接入。
+- 本轮明确任务/功能引用优先于旧关联。go 先核对实际目标的项目绑定，只有创建成功、明确接手或切换目标后才保存关联。新建使用 `reviewable.py init <slug> --project <真实项目> --title <标题> --kind <类型> --no-render`，从返回 JSON 的 task_dir 取真实目录，不手算路径哈希。
+- 空输入或“继续”：仅从本会话、本项目的有效关联恢复，不调用省略目标的旧 continue 来猜任务。task 使用 `reviewable.py continue <target.path> --project <target.project_path> --no-render`；feature 使用 `feature.py locate/status <target.path>`，后续按需要推进。
+- 无关联、索引损坏或目标失效时，返回实际缺口并在必要时按标题消歧。即使只有一个历史任务也只能视为候选，不默认为本会话目标；明确新目标可经核对后重新 bind，不静默把旧关联改绑到猜测目标。
+- status 的明确目标只覆盖本次查询；无明确目标才 resolve，始终不 bind/clear、不修复索引。查看 B 不会把原焦点 A 切换到 B。
+- 子代理可能共享父会话标识；只使用显式分配的 task/feature，不修改父会话焦点。会话关联不继承另一个 Agent 的修改、生产或对外操作权限。
+- 所有工具位于 `${CLAUDE_PLUGIN_ROOT}/scripts/`，任务默认输出 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`。源码仍在业务仓库。写入被拒绝时如实报告，不能换工具/路径绕过。创建或关联失败需说明未完成且原焦点未切换，不能把旧任务当成本轮新目标。
+
+### 内部关联调用
+
+Claude Code 的 go/status 技能正文提供 `${CLAUDE_SESSION_ID}` 展开值，host 固定为 `claude-code`。详细协议与边界按需读 [session-context.md](session-context.md)。不要假设 Bash 自动有同名变量；ID 仍是占位符、空或 unknown 时，不调用关联写入、不猜 PID/目录，回退到明确任务引用。其他工具只有提供可靠会话标识时才使用各自 host 命名空间。
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/session_context.py" resolve --host claude-code --session "<技能中已展开的本会话ID>" --project "<任务项目或总功能工作区>"
+# go：明确核对目标后，使用刚才 resolve 返回的 context_revision（missing 或哈希）
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/session_context.py" bind --host claude-code --session "<已展开ID>" --project "<同一作用范围>" --target-kind task --target "<已核对任务绝对目录>" --expect-revision "<context_revision>"
+```
+
+resolve 返回 state、action、context_revision 及 target；只有 state=bound 的 target 才可用于无参数续作。target 为 `{kind,path,id,title,project_path}`，不存在时是 null。bind/clear 是 go 的显式关联变更，版本冲突先重读并核对目标，不盲目重试覆盖。它们不修改 task.json/feature.json、代码或报告。clear 仅在用户明确要求忘记当前关联时使用，不删任务。旧 reviewable CLI 的无目标候选行为为兼容保留，go/status 不将其当会话绑定。
+
+### 仅关联或切换时立即收尾
+
+用户只要求改变本会话焦点，未请求继续业务时，走最短路径：
+
+1. 确认用户给出的目标类型、绝对路径及项目/工作区作用范围。信息已明确时，bind 本身会核验目标事实记录，不必额外扫描源码或反复读取整个任务；缺少必要字段时只补查该目标的元数据。
+2. 调用一次 resolve 获取当前 target 和 context_revision。若已是同一有效目标，直接依据返回值确认，不重复 bind。
+3. 需要改变时调用一次 CAS bind；以返回的 state=bound、target.kind/path/id/project_path 与 context_revision 确认成功，文字说明当前焦点后结束，不再用第二次 resolve 验证同一次成功返回。
+
+无异常且现成字段足够时，不扫描插件目录、不读取脚本自行重算索引、不调用 continue/render/index，不执行业务测试或重走需求/设计/开发流程。这不是每轮强制工具清单，只适用于确需建立或切换关联的请求。冲突、失效、权限拒绝或返回状态不符合预期时如实说明，并仅针对实际问题重读/调查；不能省略错误或把失败当成功。
 
 ## 按需读取内部资料
 

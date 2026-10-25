@@ -8,7 +8,9 @@ user-invocable: true
 
 用户输入：$ARGUMENTS
 
-先定位当前会话任务及真实项目；优先使用紧凑的 locate，一次查询通常足够；仅需具体证据明细才追加 status。需要候选时执行 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" locate --project "<项目绝对路径>"`。多个候选只列标题请用户选，不默选最近任务。明确功能目录则使用 `scripts/feature.py status`。
+宿主：claude-code；本会话 ID：`${CLAUDE_SESSION_ID}`。仅使用宿主展开值；未展开、为空或不可用时不编造会话身份。
+
+先定位真实项目及本轮明确目标。显式指定任务/功能时直接只读查询它；这是临时查看，不改变本会话原焦点。无显式目标时按 docs/entry-workflow.md 的会话关联规则调用 session_context.py resolve，仅 state=bound 时使用 target.kind/path。unbound/invalid_index/invalid_target 不猜唯一或最近任务，简短说明缺口并列候选标题供指定；宿主 ID 不可用时仅使用明确任务引用。status 绝不 bind/clear，也不创建、修复会话关联；需要切换焦点由 go 处理。子代理只查询显式分配目标。优先使用紧凑 locate，只有需要具体证据才追加 status；target.kind=feature 时使用 feature.py locate/status。
 
 已有明确任务目录时使用 `reviewable.py locate "<任务目录>"` 或 `status "<任务目录>"`；`--project` 只能传业务源码项目路径，不能传 `~/.claude/zl-dev/.../tasks/...` 产出目录。
 

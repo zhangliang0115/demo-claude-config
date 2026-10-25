@@ -109,3 +109,7 @@ acceptance/release 条目可选 result_status: pass/fail/blocked/not_checked，�
 条目可选 `acceptance_delegation`，只允许四个必填字段：`kind="acceptance"`、非空字符串 `revision`、`source`（用户明确委托原话）与 `criteria`（本条标准与委托范围）。仅委托检查不填写。它是来源记录，不是身份认证，不授予发布权限，release 条目不接受此字段。委托元数据不改变代码/行为指纹，但改变精确记录及评估版本。
 
 派生 `acceptance_verification` 将当前人工结果与本版明确受托 AI 结果分开保留；普通 AI pass 不会算接受，`human_verification` 不变。当前 AI fail/blocked 无论是否被委托都形成待 AI 调查的阻塞。有效委托但结果未执行/过期由 AI 继续；委托绑定旧指纹时仅派 AI 核对适用范围，不直接接受旧结果。全部项目当前验收通过后无真实待决问题则 `action_owner=none`，不要求人重复验收，不生成新发布批准；后续沿用已有授权。
+
+## 会话恢复索引（不属于 task.json）
+
+内部 session_context.py 的 resolve/bind/clear 按 host、可靠 session ID 和项目/工作区作用范围管理焦点，详见[关联协议](session-context.md)。resolve 返回 context_revision、state、action 和 target；context_revision 仅用于关联 CAS，不能替代任务/功能 revision 或代码指纹。关联变更不修改 task/feature、证据或报告；状态查询不写索引。旧任务无需加 session 字段，不自动迁移、复制或重绑。

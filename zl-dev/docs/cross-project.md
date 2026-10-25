@@ -88,3 +88,7 @@ AI 应先查清：页面在哪里、API 由谁提供、订单/库存数据归谁
 ## 功能报告版本
 
 feature 的 render、locate/status 输出 feature_revision（精确记录）及 assessment_revision（实时派生评估），report_state 只读区分 current/stale/unknown/missing；旧报告路径仍保留供追溯。复制反馈带两种版本及契约版本，只比较 contract_version 不足以确认材料最新。子任务记录、代码或日志变化可使整体报告过期；status 不自动 sync/render。新字段是派生信息，不手填到 feature.json，也不据本地哈希推断身份认证。
+
+## 整体功能的会话焦点
+
+按[会话关联](session-context.md)，整体功能用 target-kind=feature，作用范围是已核对的 feature.json.workspace_path；子任务用 target-kind=task，作用范围是自己的 project_path。主会话明确选择整体功能后保存关联，再由 target.kind/path 恢复。显式查看某个子任务不自动替换整体焦点；只有用户明确切换才由 go 绑定新目标。status 只读，不 bind/clear。换目录或缺失关联时不扫描其他项目猜测总功能，必要时使用明确功能路径。

@@ -13,3 +13,5 @@
 工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。重要事实按入口安全更新流程及时保存；只有符合 entry-workflow.md 按需产出策略时才执行 `render <任务目录>` 并返回真实链接。阶段结束或内部动作结束不强制生成 HTML，不批量 index 其他任务。
 
 读取 `${CLAUDE_PLUGIN_ROOT}/docs/team-workflow.md`。填写 roles 与 handoffs（交出人、接收人、版本、未决问题），执行 `handoff <任务目录>` 生成跨工具 HANDOFF.md；HTML 不是导出交接包的必需前提。不要只交聊天摘要；不得把尚未确认的假设改成硬性需求。接手者通过 `/zl-dev:go` 继续，按 HANDOFF.md 复述并核对实际状态。
+
+新会话接手按 entry-workflow.md 的关联规则，在核对明确目标后由主会话 go 建立本机焦点；status 和子代理不 bind/clear。缺宿主 ID 时使用明确任务路径，不能把交接包中的旧会话或机器路径直接当作本次关联，也不继承旧权限。

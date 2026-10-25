@@ -17,3 +17,5 @@
 需要汇总整体进度时用 `sync <功能目录>` 读取显式 task_path；确需结构化交付时用 `render <功能目录>` 生成固定 feature.html；只读查询用 `status <功能目录>` 显示快照新鲜度和缺口。不在每个子动作结束时 sync/render；尚未汇总的状态如实说明。总功能完成必须有指定环境、所有项目实际版本、真实跨项目 E2E 和人工核验；各子项目测试通过不能直接宣布整体通过。结束说明整体实际结果及各项目下一步；只有本轮生成或复用有效报告时才附 feature.html，缺失或过期不能冒称当前。
 
 默认产出必须使用用户 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。后续使用返回的绝对功能目录，或同一个 slug + --workspace。子任务由 reviewable.py init <slug> --project <项目绝对路径> --no-render 创建；从返回 JSON 的 task_dir 取得绝对目录，projects[].task_path 记录该值，task.json.project_path 必须与关联项目路径一致。
+
+主会话明确选定整体功能后可按 entry-workflow.md 用 target-kind=feature 关联其 workspace。子任务仍使用明确路径；派发子代理不改变父焦点，不因临时查询某个项目就自动切换总功能关联。
