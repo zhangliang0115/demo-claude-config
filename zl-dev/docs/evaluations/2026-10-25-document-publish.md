@@ -57,3 +57,11 @@
 `replay.py` 只启动本夹具的两个 loopback 服务；端口被占用时拒绝覆盖，Ctrl-C 只停止它拥有的子进程。归档副本可重放业务页面；若将项目移到归档位置用于插件工作，必须重新绑定任务并重新验证，不能把原路径的回执直接当新位置的当前证据。
 
 当前阶段页为 `~/.claude/zl-dev/projects/portal-8585da0046c2/tasks/document-publish-portal/report.html`；整体功能另有 `~/.claude/zl-dev/projects/workspace-87f5093ff6d1/features/document-publish/feature.html`。不要用演示总目录代替实际当前页。
+
+## 追加：用户委托 AI 代验
+
+用户随后明确要求由 AI 代替人工做既定功能验收。两项标准通过真实桌面控件重新执行，初验发现此前检查遗漏的页面缺陷：公开接口已返回 404、列表已移除文档，阅读区却仍残留旧正文。因此先记录 AC2 退回、当前失败与审查阻塞，未直接宣布通过。
+
+真实 Claude Code 在 portal 仓库加入实际执行 app.js 的 Node 回归，修复前五项中三项失败；最小修复后五项全部通过，覆盖撤回、新公开版本、切换、读取失败与未变化时保留有效正文。控制器另在真实网页复核撤回清除、恢复旧稿且新稿待审、审核后再读取新版，并在最终本地提交上通过 JUnit 回执重验五项，再关闭原阻塞。原失败记录保留为历史，没有改绑。
+
+最终 AC1/AC2 均为 AI 代验通过，reviewer_kind 保持 ai，不伪造 human 签字。当前通用状态仍区分人工签字与 AI 记录；代验结论以同任务目录的 AI-ACCEPTANCE.md 为准，不表示用户必须重复本轮操作。生产发布未执行。原始代验、退回、Claude Code 修复、前后测试和浏览器复验归档于 `~/.claude/zl-dev/evaluations/2026-10-25-ai-acceptance/`。本次修复属于合成业务夹具；插件运行代码未变更。
