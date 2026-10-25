@@ -450,17 +450,21 @@ def preflight(folder):
                 notice='只读前置核对，不修改快照，不替代人工确认或运行验证，也不能拦截任意代码编辑。')
 
 
-def render(folder):
-    from provenance import atomic_write
-    data = snapshot(folder)
+def render(folder, state=None):
+    from provenance import report_bytes, publish_report
+    target = Path(folder) / 'feature.html'
+    with write_lock(folder):
+        expected_report = report_bytes(target)
+        data = snapshot(folder) if state is None else json.loads(json.dumps(state))
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets/feature.html').read_text(encoding='utf-8')
     if '/* REPORT_THEME */' in template:
         template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
     replacements = {'__FEATURE_DATA__': payload, '__FEATURE_TITLE__': html.escape(data['title'])}
-    target = Path(folder) / 'feature.html'
-    atomic_write(target, re.sub('__FEATURE_DATA__|__FEATURE_TITLE__', lambda m: replacements[m.group()], template).encode('utf-8'))
-    return target
+    output = re.sub('__FEATURE_DATA__|__FEATURE_TITLE__', lambda m: replacements[m.group()], template).encode('utf-8')
+    return publish_report(target, output, expected_report, data,
+                          lambda: snapshot(folder), lambda: write_lock(folder),
+                          'feature-data', reuse_matching=state is not None)
 
 
 def main():

@@ -7,6 +7,7 @@ import json
 import re
 import os
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 import subprocess
 import sys
@@ -276,16 +277,26 @@ def locate(task_dir):
                 **state['workflow_summary'])
 
 
-def update_task(task_dir, source, project, expected_revision, expected_fingerprint=None):
-    """Validate a complete replacement and atomically save, without rendering.
-
-    A stable advisory lock serializes cooperating CLI writers. External editors do
-    not honor that lock; they must not edit task.json concurrently with this CLI.
-    """
+@contextmanager
+def write_lock(task_dir):
+    """Serialize cooperating task fact updates and report publication."""
     try:
         import fcntl
     except ImportError as exc:
         raise ValueError('当前平台不支持任务写锁；未写入 task.json，请在支持 fcntl 的平台更新') from exc
+    lock_path = Path(task_dir) / '.task-update.lock'
+    if lock_path.is_symlink():
+        raise ValueError('任务写锁不能为符号链接')
+    with lock_path.open('a') as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
+def update_task(task_dir, source, project, expected_revision, expected_fingerprint=None):
+    """Validate a full replacement under a shared advisory lock and CAS."""
     folder = Path(task_dir)
     target = folder / 'task.json'
     if target.is_symlink() or not target.is_file():
@@ -294,8 +305,7 @@ def update_task(task_dir, source, project, expected_revision, expected_fingerpri
     if not expected_revision:
         raise ValueError('更新必须提供 locate 返回的 --expect-revision')
     # Do not mkdir: permission and missing-directory failures must remain failures.
-    with (folder / '.task-update.lock').open('a') as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+    with write_lock(folder):
         if target.is_symlink():
             raise ValueError('目标 task.json 不能是符号链接')
         raw = target.read_bytes()
@@ -371,7 +381,11 @@ def assessed(data, current, task_dir=None):
 
 def render(task_dir, state=None):
     task_dir = Path(task_dir)
-    data = snapshot(task_dir) if state is None else state
+    from provenance import report_bytes, publish_report
+    target = task_dir / 'report.html'
+    with write_lock(task_dir):
+        expected_report = report_bytes(target)
+        data = snapshot(task_dir) if state is None else json.loads(json.dumps(state))
     # Escape inline JSON closing tags and all markup-sensitive chars.
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets' / 'report.html').read_text(encoding='utf-8')
@@ -386,10 +400,9 @@ def render(task_dir, state=None):
         '__STAGE_LABEL__': html.escape(data['workflow_summary']['stage_label']),
     }
     output = re.sub('__TASK_DATA__|__PAGE_TITLE__|__STAGE_LABEL__', lambda match: replacements[match.group()], template)
-    target = task_dir / 'report.html'
-    from provenance import atomic_write
-    atomic_write(target, output.encode('utf-8'))
-    return target
+    return publish_report(target, output.encode('utf-8'), expected_report, data,
+                          lambda: snapshot(task_dir), lambda: write_lock(task_dir),
+                          'task-data', reuse_matching=state is not None)
 
 
 def build_index(task_root):

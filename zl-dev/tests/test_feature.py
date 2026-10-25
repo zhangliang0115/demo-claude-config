@@ -214,7 +214,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
     def test_render_injection(self):
         assets = self.root / 'assets'
         assets.mkdir()
-        (assets / 'feature.html').write_text('<title>__FEATURE_TITLE__</title><script type="application/json">__FEATURE_DATA__</script>')
+        (assets / 'feature.html').write_text('<title>__FEATURE_TITLE__</title><script type="application/json" id="feature-data">__FEATURE_DATA__</script>')
         data = feature.load(self.folder)
         data['title'] = '</script><img src=x onerror=alert(1)>'
         feature.save(self.folder, data)
