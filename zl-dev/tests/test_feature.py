@@ -567,7 +567,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         import builtins
         original_import = builtins.__import__
         def windows_import(name, *args, **kwargs):
-            if name == 'fcntl':
+            if name in ('fcntl', 'msvcrt'):
                 raise ImportError('Windows has no fcntl')
             return original_import(name, *args, **kwargs)
         before = (self.folder / 'feature.json').read_bytes()

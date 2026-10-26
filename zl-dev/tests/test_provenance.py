@@ -107,7 +107,7 @@ class ProvenanceTests(unittest.TestCase):
     def test_report_copied_versions_must_match_provenance(self):
         import re
         report = api.render(self.folder)
-        original = report.read_text(encoding='utf-8')
+        original = report.read_bytes().decode('utf-8')
         payload = read_payload(original)
         self.assertEqual(api.report_state(self.folder)['freshness'], 'current')
         for field in ('task_revision', 'assessment_revision', 'current_fingerprint'):
@@ -115,8 +115,8 @@ class ProvenanceTests(unittest.TestCase):
                 altered = dict(payload)
                 altered[field] = '0' * 64
                 embedded = json.dumps(altered, ensure_ascii=False)
-                report.write_text(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
-                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S), encoding='utf-8')
+                report.write_bytes(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
+                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S).encode('utf-8'))
                 before = self.tree()
                 result = api.report_state(self.folder)
                 self.assertEqual(result['freshness'], 'stale')
@@ -135,8 +135,8 @@ class ProvenanceTests(unittest.TestCase):
                 legacy = dict(payload)
                 del legacy[field]
                 embedded = json.dumps(legacy, ensure_ascii=False)
-                report.write_text(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
-                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S), encoding='utf-8')
+                report.write_bytes(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
+                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S).encode('utf-8'))
                 before = self.tree()
                 self.assertEqual(api.report_state(self.folder)['freshness'], 'unknown')
                 self.assertEqual(before, self.tree())

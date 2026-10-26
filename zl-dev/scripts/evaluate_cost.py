@@ -144,7 +144,7 @@ def prepare(output, repository=REPOSITORY):
                     setup_scope='CLI initialization/rendering measured separately; no model sessions during prepare',
                     environment_isolation='Global Claude settings/plugins/hooks remain enabled and must be compared using actual init events')
     write_json(output/'prepared.json',manifest)
-    files = {str(p.relative_to(output)):digest(p.read_bytes()) for p in fixture_files(output)
+    files = {p.relative_to(output).as_posix():digest(p.read_bytes()) for p in fixture_files(output)
              if '.git' not in p.parts}
     write_json(output/'integrity.json',dict(version=1, files=files))
     return dict(output=str(output), prepared_cases=len(cases), model_calls=0)
@@ -171,8 +171,8 @@ def validate_prepared(output):
     for variant in manifest['variants'].values():
         plugin = Path(variant['plugin'])
         for path in fixture_files(plugin):
-            if str(path.relative_to(output)) not in expected_files:
-                raise ValueError('Unexpected plugin file: '+str(path.relative_to(output)))
+            if path.relative_to(output).as_posix() not in expected_files:
+                raise ValueError('Unexpected plugin file: '+path.relative_to(output).as_posix())
     for case in manifest['cases']:
         if git_state(case['repo']) != case.get('git_state'):
             raise ValueError('Prepared Git state changed: '+case['id'])
@@ -191,7 +191,7 @@ def plugin_integrity(output, manifest, expected_files=None):
             plugin=Path(variant['plugin'])
             if plugin.resolve()!=plugin:
                 raise ValueError('Plugin root is no longer its prepared physical path')
-            prefix=str(plugin.relative_to(output))+'/'
+            prefix=plugin.relative_to(output).as_posix()+'/'
             expected={p:sha for p,sha in expected_files.items() if p.startswith(prefix)}
             row['expected_files']=len(expected)
             if not expected:
@@ -202,11 +202,11 @@ def plugin_integrity(output, manifest, expected_files=None):
                     row['changed_files'].append(relative)
             for path in plugin.rglob('*'):
                 if path.is_symlink():
-                    relative=str(path.relative_to(output))
+                    relative=path.relative_to(output).as_posix()
                     if relative not in expected:
                         row['unexpected_files'].append(relative)
             for path in fixture_files(plugin):
-                relative=str(path.relative_to(output))
+                relative=path.relative_to(output).as_posix()
                 if relative not in expected and relative not in row['unexpected_files']:
                     row['unexpected_files'].append(relative)
             row['state']='changed' if row['changed_files'] or row['unexpected_files'] else 'current'
@@ -332,4 +332,7 @@ def main():
         print('错误：'+str(exc),file=sys.stderr);return 1
 
 
-if __name__=='__main__':sys.exit(main())
+if __name__=='__main__':
+    from filelock import utf8_stdio
+    utf8_stdio()
+    sys.exit(main())

@@ -15,6 +15,9 @@ import uuid
 from provenance import atomic_write
 from session_context import _identity, inspect_target
 
+# 只校验 host/session 时的占位绝对路径；'/' 在 Windows 上不是绝对路径
+ANY_ROOT = Path.home().anchor or '/'
+
 NOTICE = '仅观察本机工作区和遵循协议的活动；不授予权限，不拦截外部编辑，不证明代码、端口或数据已隔离。registry_revision只核对活动索引字节，不说明源码或外部状态是否变化；observation_unstable=false仅表示未观察到登记写入。'
 HISTORY_LIMIT = 20
 MODES = {'read', 'write', 'verify'}
@@ -227,7 +230,7 @@ def _read():
                 or ('ended_at' in row and (not isinstance(row['ended_at'], str) or not row['ended_at']))):
                 raise ValueError('活动模式无效')
             _resources(row['resources'])
-            _identity(row['host'], row['session_id'], '/')
+            _identity(row['host'], row['session_id'], ANY_ROOT)
             if not isinstance(row['token'], str) or not re.fullmatch(r'[0-9a-f]{32}', row['token']) or row['token'] in tokens:
                 raise ValueError('活动 token 无效或重复')
             tokens.add(row['token'])
@@ -349,7 +352,7 @@ def begin(host, session, project, task_dir, mode, expected_revision, resources=N
 
 
 def end(host, session, token, expected_revision):
-    _identity(host, session, '/')
+    _identity(host, session, ANY_ROOT)
     _expected(expected_revision)
     if not isinstance(token, str) or not re.fullmatch(r'[0-9a-f]{32}', token):
         raise ValueError('必须提供 begin 返回的明确活动 token')
@@ -409,4 +412,6 @@ def main():
 
 
 if __name__ == '__main__':
+    from filelock import utf8_stdio
+    utf8_stdio()
     sys.exit(main())

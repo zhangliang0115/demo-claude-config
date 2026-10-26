@@ -277,7 +277,7 @@ class StorageTests(unittest.TestCase):
         import builtins
         original_import = builtins.__import__
         def missing_lock(name, *args, **kwargs):
-            if name == 'fcntl':
+            if name in ('fcntl', 'msvcrt'):
                 raise ImportError('not available on this platform')
             return original_import(name, *args, **kwargs)
         with patch.object(builtins, '__import__', side_effect=missing_lock):

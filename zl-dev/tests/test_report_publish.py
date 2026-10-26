@@ -267,7 +267,7 @@ class ReportPublishTests(unittest.TestCase):
         previous_feature = self.artifact(self.coord, 'feature.html')
         original = builtins.__import__
         def importing(name, *args, **kwargs):
-            if name == 'fcntl':
+            if name in ('fcntl', 'msvcrt'):
                 raise ImportError('no fcntl')
             return original(name, *args, **kwargs)
         with patch('builtins.__import__', side_effect=importing):

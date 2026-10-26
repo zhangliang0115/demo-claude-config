@@ -239,6 +239,7 @@ except ValueError as e:print(json.dumps({'state':'rejected','reason':str(e)}))
         self.assertEqual(workspace.inspect(self.repo)['root_path'],str(moved))
         self.assertEqual(path.read_bytes(),before)
 
+    @unittest.skipIf(os.name == 'nt', 'Windows 默认不允许普通用户创建目录符号链接')
     def test_active_observation_paths_are_not_rebound_by_later_symlink(self):
         self.begin();path=workspace.registry_path();before=path.read_bytes()
         moved=self.root/'repo-moved';self.repo.rename(moved);self.repo.symlink_to(moved,target_is_directory=True)

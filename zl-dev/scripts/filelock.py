@@ -60,3 +60,11 @@ def copy_mode(stream, target):
         os.fchmod(stream.fileno(), mode)
     else:
         os.chmod(stream.name, mode)
+
+
+def utf8_stdio():
+    """CLI output is UTF-8 JSON/Chinese text; Windows consoles default to a legacy code page."""
+    import sys
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure') and (stream.encoding or '').lower().replace('-', '') != 'utf8':
+            stream.reconfigure(encoding='utf-8', errors='backslashreplace')
