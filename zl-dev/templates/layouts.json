@@ -7,5 +7,6 @@
   "refactor": "invariants → structure → regression",
   "performance": "baseline/target/actual → bottleneck → tradeoffs",
   "migration": "transform → dry-run → reconcile → restore",
-  "upgrade": "compatibility → unit-sequence → comparison → rollout"
+  "upgrade": "compatibility → unit-sequence → comparison → rollout",
+  "analysis": "question → conclusion → business rules / data mappings → source references → gaps"
 }

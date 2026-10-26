@@ -100,6 +100,8 @@ def execute(task_dir, project, fmt, behaviors, argv, result_file=None, timeout=1
     folder, project = Path(task_dir).resolve(), Path(project).resolve()
     raw = (folder/'task.json').read_bytes()
     task = api.validate(json.loads(raw))
+    if task.get('kind') == 'analysis':
+        raise ValueError('只读分析任务不执行测试命令；如需运行验证请另建已授权的验证/开发任务')
     if not task.get('project_path') or Path(task['project_path']).resolve() != project:
         raise ValueError('任务绑定项目与 --project 不匹配')
     known = {b['id'] for b in task.get('behaviors',[])}

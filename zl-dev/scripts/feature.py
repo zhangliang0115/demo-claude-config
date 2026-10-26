@@ -325,6 +325,8 @@ def project_snapshot(p):
     try:
         # A task from another repository cannot supply this project's evidence.
         child = reviewable.snapshot(task)
+        if child.get('kind') == 'analysis':
+            snap['issues'].append('关联任务仅为只读分析，不构成实施、测试或联调完成证据')
         binding = child.get('project_path')
         if binding is not None:
             if Path(binding).resolve() != path.resolve():

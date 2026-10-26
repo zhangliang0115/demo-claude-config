@@ -40,7 +40,8 @@ resolve 返回 state、action、context_revision 及 target；只有 state=bound
 
 | 当前问题 | 内部动作文件 | 读取时机 |
 |---|---|---|
-| 模糊需求、行为边界 | start.md、spec.md | 缺少目标行为时 |
+| 理解现有业务逻辑、数据来源/流转，只分析不改变行为 | analyze.md；需要字段时读 analysis-workflow.md | 目标是解释现状时优先，短问题不强建任务 |
+| 模糊需求、行为边界 | start.md、spec.md | 需要明确开发目标行为时 |
 | 方案和取舍 | design.md、plan.md | 有实质设计决策时 |
 | 实施 | build.md | 行为已明确后 |
 | 查遗漏与反例 | review.md | 交付前或高风险切片后 |
@@ -54,7 +55,7 @@ resolve 返回 state、action、context_revision 及 target；只有 state=bound
 
 ## 每轮保持轻量
 
-遵循探索现状、按需要计划、实施和实际验证的顺序。小改动无需单独计划审批；不明确的关键业务决定集中问，已授权事项持续推进。需要数据字段时读 init 骨架及 docs/schema-reference.md；需要专项展示时读 docs/stage-templates.md；真正交接时读 docs/team-workflow.md。不要每轮加载全部资料。
+只读分析遵循 analyze.md，结束于可追溯解释和明确断点；不要求 implementation、测试或人工验收。其他开发任务遵循探索现状、按需要计划、实施和实际验证的顺序。小改动无需单独计划审批；不明确的关键业务决定集中问，已授权事项持续推进。需要数据字段时读 init 骨架及 docs/schema-reference.md；需要专项展示时读 docs/stage-templates.md；真正交接时读 docs/team-workflow.md。不要每轮加载全部资料。
 
 事实最小集为目标/原因、范围、具体行为和场景、实际实现、验证及待决问题。stage_details 只补有信息价值的内容。固定渲染器决定页面风格，不针对某个任务另造 HTML；模拟场景、真实测试与人工接受必须分开标注。
 

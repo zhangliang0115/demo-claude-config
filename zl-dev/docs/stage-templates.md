@@ -71,3 +71,7 @@ start/spec → requirements；design/plan → solution；handoff/intake → hand
 阶段完成不强制 render；重要事实按入口策略保存，确需结构化交付或用户明确要求时才生成报告，任务总览仅显式需要时 index。模板不足时修改插件版本并增加校验/测试，不在某个任务里偷偷修改渲染风格。
 
 旧任务不含 stage_details 仍可打开，工作台显示待补齐。新 init 自动生成全部阶段骨架。已有任务按以下字段添加，不覆盖旧内容。
+
+## analysis — 只读分析（0.18）
+
+新增 kind=analysis 专用阶段，主要材料以顶层 analysis 为唯一来源，不在 stage_details 重复抄录。展示问题、流程、业务规则或字段映射、事实/推断/未知、源码与断点，遵循 [analysis-workflow.md](analysis-workflow.md)。该阶段不要求开发、项目测试、验收或放行，也不强制生成 HTML。

@@ -1,5 +1,5 @@
 """Evidence-derived current action; no automatic human approval."""
-STAGE_LABELS = {'requirements':'理解需求','solution':'确定方案','implementation':'开发中','testing':'验证中','acceptance':'待人工核验','operations':'排查与运维','handoff':'上下文交接','review':'审查中','release':'发布准备'}
+STAGE_LABELS = {'analysis':'只读分析','requirements':'理解需求','solution':'确定方案','implementation':'开发中','testing':'验证中','acceptance':'待人工核验','operations':'排查与运维','handoff':'上下文交接','review':'审查中','release':'发布准备'}
 
 def reading_guide(kind, focus):
     """Reading intent only: never infer completion or verification results."""
@@ -26,6 +26,7 @@ def reading_guide(kind, focus):
     return dict(zip(('page_purpose', 'read_first', 'human_action'), values))
 
 PHASE_SECTIONS = {
+    'analysis':[],
     'requirements':['scenarios','behavior','decisions','stage-views'],
     'solution':['scenarios','design','decisions','stage-views'],
     'implementation':['implementation','behavior','decisions','stage-views'],
@@ -107,6 +108,9 @@ def acceptance_verification(data):
 
 
 def summarize(data):
+    if data.get('kind') == 'analysis':
+        from analysis import summarize as summarize_analysis
+        return summarize_analysis(data)
     behaviors = data.get('behaviors', [])
     evidence = data.get('evidence', [])
     current = [e for e in evidence if e.get('freshness') == '当前']

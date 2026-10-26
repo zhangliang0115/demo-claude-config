@@ -17,12 +17,13 @@
 function formatTimes(value){return String(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g,stamp=>{const time=new Date(stamp);if(Number.isNaN(time.getTime()))return stamp;const d=new Date(time.getTime()+8*60*60*1000),pad=n=>String(n).padStart(2,'0');return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());});}
 
 const task=JSON.parse(document.getElementById('task-data').textContent);
+const isAnalysis=task.kind==='analysis';
 const $=id=>document.getElementById(id);
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=formatTimes(typeof text==='string'?text:JSON.stringify(text));if(cls)n.className=cls;return n;}
 function text(value){return value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?formatTimes(value):JSON.stringify(value);}
 function feedbackComposer(parent,task,stage,buildBody){
   const box=el('article',undefined,'feedback-composer');
-  box.append(el('p','复制给 AI 后继续处理；页面不会自动批准或保存。','feedback-hint'));
+  box.append(el('p',task.kind==='analysis'?'复制补充线索给 AI；页面不会自动保存分析记录。':'复制给 AI 后继续处理；页面不会自动批准或保存。','feedback-hint'));
   const label=el('label','可复制的反馈预览'),preview=el('textarea');preview.readOnly=true;preview.rows=12;preview.setAttribute('aria-label','可复制的反馈预览');label.append(preview);
   const button=el('button','复制反馈'),status=el('p','尚未填写','muted');button.type='button';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   function update(){const body=buildBody().trim();preview.value=['任务：'+text(task.title),'任务 ID：'+text(task.id),'代码/行为版本：'+(task.current_fingerprint?text(task.current_fingerprint):'未知（旧页面未记录）'),'页面记录版本：'+(task.task_revision?text(task.task_revision):'未知（旧页面未记录）'),'页面评估版本：'+(task.assessment_revision?text(task.assessment_revision):'未知（旧页面未记录）'),'页面生成时间：'+text(task.generated_at),'反馈阶段：'+stage,'','请先核对任务 ID、代码/行为版本，以及页面记录版本和页面评估版本。任一不同或未知时，先说明差异并重新确认，再应用反馈。','以下是我的反馈；未填写的事项保持待确认。','',body||'尚未填写'].join('\n');button.disabled=!body;status.textContent=body?'填写完成后点击复制反馈，再粘贴到开发会话。':'尚未填写';}
@@ -45,19 +46,19 @@ function renderRoundChanges(parent, changes){
   parent.append(heading,content);
 }
 renderRoundChanges($('round-changes'),task.changes);
-$('title').textContent=task.title;$('task-id').textContent=text(task.id);$('generated-time').textContent=formatTimes(task.generated_at||'');$('summary').textContent=text(task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage);$('phase-heading').textContent='当前阶段 · '+$('stage').textContent;document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
+$('title').textContent=task.title;$('task-id').textContent=text(task.id);$('generated-time').textContent=formatTimes(task.generated_at||'');$('summary').textContent=text(isAnalysis?((task.analysis||{}).conclusion||task.summary):task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage);$('phase-heading').textContent='当前阶段 · '+$('stage').textContent;if(isAnalysis)document.querySelector('footer').textContent='本页是只读源码分析快照；源码依据、推断和未知分别记录。它不证明业务链路实际运行，不会连接业务接口或修改项目。';document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
 const tabs=[['overview','任务概览'],['stage-views','当前阶段材料'],['scenarios','场景演示'],['behavior','业务变化'],['implementation','实现解释'],['decisions','需要你决定'],['evidence','验证证据'],['design','方案与职责'],['handoffs','交接记录'],['operations','生产与运维']];
 const has=key=>Array.isArray(task[key])&&task[key].length>0;
 const populated={overview:true,'stage-views':(()=>{const x=(task.stage_details||{})[(task.workflow_summary||{}).focus_stage];return !!(x&&((x.items||[]).length||x.summary));})(),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
 function show(id){if(id==='decisions'){const panel=document.querySelector('.decision-panel');if(panel){panel.scrollIntoView({behavior:'smooth',block:'start'});const input=panel.querySelector('input,textarea');if(input)input.focus({preventScroll:true});return;}}const section=$(id);if(!section)return;const fold=section.closest('details.material');if(fold)fold.open=true;section.scrollIntoView({behavior:'smooth',block:'start'});}
 const workflow=task.workflow_summary||{};
-[[task.why,'用户问题'],[task.scope,'本次范围']].forEach(([value,label])=>{if(!value)return;const line=el('div');line.append(el('dt',label),el('dd',text(value)));$('reading-brief').append(line);});
+[[isAnalysis?((task.analysis||{}).question||task.why):task.why,isAnalysis?'分析问题':'用户问题'],[task.scope,isAnalysis?'分析边界':'本次范围']].forEach(([value,label])=>{if(!value)return;const line=el('div');line.append(el('dt',label),el('dd',text(value)));$('reading-brief').append(line);});
 if(task.demo===true||(task.demo&&task.demo.simulation===true)){
   const notice=$('demo-notice');notice.hidden=false;notice.className='demo-notice';notice.append(document.createTextNode('模拟示例 · '));notice.title='模拟资料，不代表实际项目进度或运行证据';const gallery=el('a','场景目录');gallery.href='../index.html';notice.append(gallery);
 }
 
 const evidenceRecords=task.evidence||[];
-const pendingDecisions=(task.decisions||[]).filter(d=>d.status!=='confirmed');
+const pendingDecisions=(isAnalysis?[]:(task.decisions||[])).filter(d=>d.status!=='confirmed');
 const verification=workflow.verification||{};
 const uncovered=verification.missing_behavior_ids?.length??workflow.missing_verification_count??0;
 const stale=verification.historical_evidence_count??workflow.stale_evidence_count??0;
@@ -71,7 +72,7 @@ const next=el('article',undefined,'decision-panel');next.dataset.actionOwner=pri
 if(primary.reason)next.append(el('p',text(primary.reason),'action-reason'));
 const blockers=(workflow.blockers||[]).filter(b=>typeof b==='string'||b.type!=='decision');
 if(blockers.length){const blocked=el('ul',undefined,'current-blockers'),line=b=>el('li',typeof b==='string'?b:text(b.summary||b.message||b.reason||b.label||b.action||b.title));blockers.slice(0,3).forEach(b=>blocked.append(line(b)));next.append(blocked);if(blockers.length>3){const more=el('details'),rest=el('ul');more.append(el('summary','还有 '+(blockers.length-3)+' 项待处理'));blockers.slice(3).forEach(b=>rest.append(line(b)));more.append(rest);next.append(more);}}
-let feedbackHost=next;if(!humanPrimary){feedbackHost=el('details',undefined,'optional-feedback');feedbackHost.append(el('summary',primary.owner==='none'?'补充或更正（选填）':'其他待决与反馈（AI 需先处理当前阻塞）'));next.append(feedbackHost);}
+let feedbackHost=next;if(!humanPrimary){feedbackHost=el('details',undefined,'optional-feedback');feedbackHost.append(el('summary',isAnalysis?'补充线索或纠正理解（选填）':primary.owner==='none'?'补充或更正（选填）':'其他待决与反馈（AI 需先处理当前阻塞）'));next.append(feedbackHost);}
 const notes=Object.create(null);let updateDecisionFeedback=()=>{};
 function decisionInput(parent,d,primary){
  if(d.reason)parent.append(el('p',text(d.reason),'decision-context'));
@@ -81,19 +82,19 @@ function decisionInput(parent,d,primary){
  const label=el('label','补充意见（选填）','feedback-label'),area=el('textarea');area.rows=2;area.placeholder='填写条件、疑问或其他选择…';area.setAttribute('aria-label',`${d.id} 决策草稿`);area.oninput=()=>{notes[d.id+'-comment']=area.value;updateDecisionFeedback();};label.append(area);parent.append(label);
 }
 if(decision){if(!humanPrimary)feedbackHost.append(el('h3',text(decision.question)));decisionInput(feedbackHost,decision,true);}
-else {const label=el('label',['human_reviewed','delegated_reviewed'].includes(primary.kind)?'补充或更正（选填）':'你的反馈','feedback-label'),area=el('textarea');area.rows=3;area.setAttribute('aria-label','当前阶段反馈');area.placeholder='哪里符合预期，哪里还需要调整？';area.oninput=()=>{notes.general=area.value;updateDecisionFeedback();};label.append(area);feedbackHost.append(label);}
+else {const label=el('label',isAnalysis?'补充线索或纠正理解（选填）':['human_reviewed','delegated_reviewed'].includes(primary.kind)?'补充或更正（选填）':'你的反馈','feedback-label'),area=el('textarea');area.rows=3;area.setAttribute('aria-label','当前阶段反馈');area.placeholder=isAnalysis?'哪些解释需要纠正，或还有哪些源码线索？':'哪里符合预期，哪里还需要调整？';area.oninput=()=>{notes.general=area.value;updateDecisionFeedback();};label.append(area);feedbackHost.append(label);}
 if(pendingDecisions.length>1){const more=el('details',undefined,'more-decisions');more.append(el('summary','还有 '+(pendingDecisions.length-1)+' 项待确认'));pendingDecisions.slice(1).forEach(d=>{const item=el('section');item.append(el('h3',text(d.question)));decisionInput(item,d,false);more.append(item);});feedbackHost.append(more);}
 sidebar.append(next);
 updateDecisionFeedback=feedbackComposer(feedbackHost,task,workflow.stage_label||task.stage,()=>{const body=pendingDecisions.map(d=>{const choice=(notes[d.id]||'').trim(),comment=(notes[d.id+'-comment']||'').trim();return choice||comment?`问题 ${d.id}：${d.question}\n我的判断：${choice||'尚未选择'}${comment?'\n补充：'+comment:''}`:'';}).filter(Boolean);if((notes.general||'').trim())body.push(notes.general.trim());return body.join('\n\n');});
 // VIEW_SCRIPT
 const viewRoot=el('div');story.append(viewRoot);
 const viewUI={el,card,list,text,show,evidenceOrigin};
-const renderView=task.kind==='incident'?renderIncidentView:task.kind==='bugfix'?renderBugfixView:task.kind==='operations'?renderOperationsView:['refactor','performance','migration','upgrade'].includes(task.kind)?renderEngineeringView:renderFeatureView;
-const stageInline=['acceptance','release'].includes(workflow.focus_stage)&&populated['stage-views'];
+const renderView=isAnalysis?renderAnalysisView:task.kind==='incident'?renderIncidentView:task.kind==='bugfix'?renderBugfixView:task.kind==='operations'?renderOperationsView:['refactor','performance','migration','upgrade'].includes(task.kind)?renderEngineeringView:renderFeatureView;
+const stageInline=!isAnalysis&&['acceptance','release'].includes(workflow.focus_stage)&&populated['stage-views'];
 if(stageInline)renderStages(viewRoot,task);else renderView(viewRoot,task,viewUI);
 const checks=el('details');checks.append(el('summary','本阶段的范围与风险'));
 if(['review','testing','acceptance','operations','release'].includes(workflow.focus_stage))card(checks,'验证现状',`${uncovered} 条行为缺少当前通过证据；${unresolved} 条当前验证尚未解决；${stale} 条历史或未知证据需核对。`);
-if(!stageInline&&['testing','acceptance','release'].includes(workflow.focus_stage)&&!(((task.stage_details||{}).acceptance||{}).items||[]).length)list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);story.append(checks);
+if(!stageInline&&['testing','acceptance','release'].includes(workflow.focus_stage)&&!(((task.stage_details||{}).acceptance||{}).items||[]).length)list(checks,'亲自验收',task.acceptance||[]);list(checks,'风险与未覆盖项',task.risks||[]);card(checks,'范围与边界',task.scope);card(checks,'停用与恢复',task.rollback);if(!isAnalysis)story.append(checks);
 const sceneHints={feature:'选择用户操作，理解正常及异常路径。',change:'比较规则调整前后，关注历史数据和生效范围。',bugfix:'先看复现条件，再看修复如何阻断问题。',refactor:'结构可以变化，对外行为应保持。',performance:'比较相同条件下的基线与结果。',migration:'核对数据转换、异常处理和恢复路径。',upgrade:'关注兼容性变化与新旧实现的一致性。',incident:'区分现场事实、诊断假设、止损动作和恢复证据。',operations:'先确认操作范围与授权，再核对执行结果和恢复条件。'};
 $('scenarios').append(el('h2','从一个具体例子理解'),el('p',sceneHints[task.kind]));const sceneButtons=el('div',undefined,'scene-buttons'),sceneContent=el('div');$('scenarios').append(sceneButtons,sceneContent);
 function scene(index){sceneContent.replaceChildren();[...sceneButtons.children].forEach((b,i)=>b.classList.toggle('active',i===index));const s=task.scenarios[index];card(sceneContent,s.title,s.kind==='simulation'?'设计模拟：用于理解预期行为，未证明实际实现成功。':'记录回放：来自任务提供的记录，请对照证据确认来源。');(s.steps||[]).forEach((step,i)=>{const n=el('div',undefined,'step');n.append(el('h3',`${i+1}. ${text(step.action)}`),el('p',text(step.result)));sceneContent.append(n);});}
@@ -116,9 +117,9 @@ $('operations').append(el('p','此页面不执行生产操作。建议动作、�
 recordCards('operations','诊断、操作与恢复',task.operations||[],[['id','编号'],['type','诊断 / 变更 / 止损 / 恢复'],['environment','环境与目标范围'],['impact','用户影响'],['observation','已观察事实'],['hypothesis','待验证假设'],['action','计划动作'],['authorization','授权来源与范围'],['stop_condition','停止条件'],['rollback','恢复办法'],['result','实际结果'],['verification','恢复验证'],['status','状态'],['owner','负责人']]);
 
 // STAGE_SCRIPT
-if(!stageInline)renderStages($('stage-views'), task);
+if(!stageInline&&!isAnalysis)renderStages($('stage-views'), task);
 let materialCount=0;
-tabs.filter(([key])=>key!=='overview'&&key!=='decisions'&&!(stageInline&&key==='stage-views')&&populated[key]&&(workflow.visible_sections||[]).includes(key)).forEach(([key,label])=>{const fold=el('details',undefined,'material');fold.id='material-'+key;fold.append(el('summary',label));const content=$(key);content.hidden=false;fold.append(content);$('reading-tools').append(fold);materialCount++;});
+tabs.filter(([key])=>!isAnalysis&&key!=='overview'&&key!=='decisions'&&!(stageInline&&key==='stage-views')&&populated[key]&&(workflow.visible_sections||[]).includes(key)).forEach(([key,label])=>{const fold=el('details',undefined,'material');fold.id='material-'+key;fold.append(el('summary',label));const content=$(key);content.hidden=false;fold.append(content);$('reading-tools').append(fold);materialCount++;});
 $('reading-tools').hidden=materialCount===0;
 
 </script></html>

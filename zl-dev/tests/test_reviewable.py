@@ -94,6 +94,8 @@ class ReportTests(unittest.TestCase):
     def test_page_title_uses_current_stage(self):
         from workflow import STAGE_LABELS
         for stage, label in STAGE_LABELS.items():
+            if stage == 'analysis':
+                continue  # Analysis has a dedicated kind/lifecycle, covered by test_analysis.
             self.data['focus_stage'] = stage
             self.save()
             out = m.render(self.task).read_text()
@@ -141,7 +143,7 @@ class ReportTests(unittest.TestCase):
         with self.assertRaises(ValueError):m.validate(self.data)
     def test_all_stage_skeletons(self):
         self.data['stage_details']=m.stage_skeleton()
-        self.assertEqual(9,len(self.data['stage_details']))
+        self.assertEqual(len(m.STAGES),len(self.data['stage_details']))
         m.validate(self.data)
 
     def test_shared_contract_version_invalidates(self):

@@ -2,7 +2,7 @@
 
 Python 3.9+，UTF-8 JSON 对象。以 scripts/reviewable.py 的 validate 为基础结构校验，以下语义仍需人工与 AI 核对。
 
-必填：version=1；id/title 非空字符串；kind 为 feature/change/bugfix/refactor/performance/migration/upgrade/incident/operations。
+必填：version=1；id/title 非空字符串；kind 为 feature/change/bugfix/refactor/performance/migration/upgrade/incident/operations/analysis。
 summary/why/scope/stage/rollback 为字符串。changes/risks/acceptance 为字符串数组。
 
 对象数组字段（无内容用 []）：
@@ -113,3 +113,7 @@ acceptance/release 条目可选 result_status: pass/fail/blocked/not_checked，�
 ## 会话恢复索引（不属于 task.json）
 
 内部 session_context.py 的 resolve/bind/clear 按 host、可靠 session ID 和项目/工作区作用范围管理焦点，详见[关联协议](session-context.md)。resolve 返回 context_revision、state、action 和 target；context_revision 仅用于关联 CAS，不能替代任务/功能 revision 或代码指纹。关联变更不修改 task/feature、证据或报告；状态查询不写索引。旧任务无需加 session 字段，不自动迁移、复制或重绑。
+
+## 只读源码分析（0.18）
+
+kind=analysis 使用固定 analysis 阶段和顶层 analysis 对象，不按开发/验收状态派生；字段与来源工具见 [analysis-workflow.md](analysis-workflow.md)。来源元数据由 analysis.py source 读取实际文件取得，不手编哈希。推断/未知不能冒充事实，source_ids 必须存在。来源当前状态重新计算，观察变化参与 assessment；旧九类业务指纹保持兼容。通用 verify 不执行 analysis 任务，需运行验证时另行明确范围。

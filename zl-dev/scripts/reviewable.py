@@ -15,6 +15,7 @@ from workflow import summarize
 from storage import project_root, resolve_output, task_project
 
 KINDS = {'feature': '新功能：使用场景与异常路径', 'change': '业务调整：规则差异与生效范围', 'bugfix': '缺陷修复：复现、根因与回归', 'refactor': '重构：结构变化与行为保持', 'performance': '性能优化：同条件基线与代价', 'migration': '数据迁移：转换、核对与恢复', 'upgrade': '技术升级：兼容性与行为对比'}
+KINDS['analysis'] = '只读分析：业务逻辑、数据链路与源码依据'
 KINDS.update({'incident': '生产事件：影响、止损、诊断与恢复', 'operations': '日常运维：检查、变更、验证与恢复'})
 ROOT = Path(__file__).resolve().parents[1]
 STAGES = json.loads((ROOT / 'templates/stages.json').read_text(encoding='utf-8'))
@@ -38,6 +39,9 @@ def semantic_contract(data):
     release = details.get('release', {}).get('items', [])
     if release:
         contract['stage_contract']['release'] = [{field: item.get(field) for field in ('id', 'check', 'environment', 'metric', 'stop', 'rollback')} for item in release]
+    if data.get('kind') == 'analysis':
+        value = data.get('analysis', {})
+        contract['analysis'] = {key: value.get(key) for key in ('mode', 'question', 'project_paths')}
     return contract
 
 
@@ -92,6 +96,13 @@ def validate(data):
             raise ValueError(f'{key} 必须是非空字符串')
     if data['kind'] not in KINDS:
         raise ValueError('不支持的任务类型')
+    if data.get('focus_stage') == 'analysis' and data['kind'] != 'analysis':
+        raise ValueError('analysis 阶段仅用于只读分析任务')
+    if data['kind'] == 'analysis' and data.get('focus_stage', 'analysis') != 'analysis':
+        raise ValueError('只读分析任务不能切换到开发、验证或验收阶段')
+    if data['kind'] == 'analysis':
+        from analysis import validate as validate_analysis
+        validate_analysis(data)
     for key in ('behaviors', 'scenarios', 'implementation', 'decisions', 'evidence', 'roles', 'assumptions', 'design', 'handoffs', 'timeline', 'operations'):
         rows = data.get(key, [])
         if not isinstance(rows, list) or any(not isinstance(x, dict) for x in rows):
@@ -373,6 +384,10 @@ def assessed(data, current, task_dir=None):
     from datetime import datetime, timezone
     result['generated_at'] = datetime.now(timezone.utc).isoformat()
     result['current_fingerprint'] = current
+    result.pop('analysis_assessment', None)
+    if result.get('kind') == 'analysis':
+        from analysis import assess
+        result['analysis_assessment'] = assess(result)
     result['workflow_summary'] = summarize(result)
     result['stage_catalog'] = STAGES
     result['kind_label'] = KINDS[result['kind']]
@@ -390,7 +405,7 @@ def render(task_dir, state=None):
     payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     template = (ROOT / 'assets' / 'report.html').read_text(encoding='utf-8')
     template = template.replace('/* STAGE_STYLES */', (ROOT / 'assets/stages.css').read_text(encoding='utf-8')).replace('// STAGE_SCRIPT', (ROOT / 'assets/stages.js').read_text(encoding='utf-8'))
-    view_scripts = '\n'.join((ROOT / 'assets/views' / (name + '.js')).read_text(encoding='utf-8') for name in ('feature','bugfix','incident','operations','engineering'))
+    view_scripts = '\n'.join((ROOT / 'assets/views' / (name + '.js')).read_text(encoding='utf-8') for name in ('feature','bugfix','incident','operations','engineering','analysis'))
     template = template.replace('// VIEW_SCRIPT', view_scripts)
     if '/* REPORT_THEME */' in template:
         template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
@@ -516,6 +531,10 @@ def main():
         if args.command == 'init':
             args.task_dir.mkdir(parents=True, exist_ok=True)
             data = dict(version=1, project_path=str(args.project.expanduser().resolve()), id=args.task_dir.name, title=args.title, kind=args.kind, summary='', why='', scope='', stage='需求待确认', behaviors=[], scenarios=[], roles=[], assumptions=[], design=[], handoffs=[], timeline=[], operations=[], implementation=[], decisions=[], evidence=[], risks=[], changes=[], acceptance=[], rollback='待定义', stage_details=stage_skeleton())
+            if args.kind == 'analysis':
+                data['stage'] = '只读分析待明确'
+                data['focus_stage'] = 'analysis'
+                data['analysis'] = dict(mode='business_logic', question='', conclusion='', project_paths=[], sources=[], steps=[], rules=[], mappings=[], findings=[], gaps=[])
             with (args.task_dir / 'task.json').open('x', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             if args.no_render:
