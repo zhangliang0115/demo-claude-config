@@ -56,7 +56,7 @@ AI 按需进入 [跨项目流程](docs/cross-project.md)，共用整体方案和
 
 ## 存储与边界
 
-版本 0.26.0，Python 3.9+ 标准库。写入锁在 POSIX 用 `fcntl`，Windows 用 `msvcrt`（0.26.0 新增，CI 中运行但尚未在真实 Windows 用户环境验证）。
+版本 0.26.0，Python 3.9+ 标准库。写入锁在 POSIX 用 `fcntl`，Windows 用 `msvcrt`（0.26.0 新增，GitHub Actions Windows 上全量测试通过，尚无真实 Windows 用户反馈）。
 
 任务默认存放于 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/`，跨项目功能放于归属工作区的 `features/`。原仓库保存业务代码，产出绑定原项目路径。旧任务不自动搬迁。 Claude Code 对项目外产出目录的访问可能需要针对具体任务目录授权；非交互 CLI 的 acceptEdits 不保证允许这些读写或 Bash。权限拒绝时保留原记录并报告未完成内容，不改全局权限、不换路径或工具绕过。
 

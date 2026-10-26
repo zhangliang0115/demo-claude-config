@@ -98,11 +98,11 @@ R0～R3 的定位、按需报告和快照保护已基本落地，剩余问题主
 | M3 提示词瘦身（0.25.0 已完成） | 降低加载量和理解成本 | go-design.md/html 与 evaluations 移出插件运行时加载路径；entry-workflow 按分支拆分；长句与叠加限定改为短规则 | 首轮加载字节下降，M2 场景不退化 |
 | M4 成本归因（已完成：ZL-12 不实施） | 判断 ZL-12 是否值得做 | 基于 M2 重复样本完成 ZL-11 归因 | 能回答全量 JSON 往返是否为主要成本 |
 | M5 按证据扩展（0.26.0 已完成） | 只做有数据支持的功能 | ZL-12（取决于 M4）、ZL-13 变更归属、ZL-14 精简轨迹、ZL-09 跨机器关联 | 沿用 TODO 验收条件 |
-| M6 真实使用（工具与指南已就绪，待真人反馈） | 走出合成夹具 | 1～2 个真实项目试用并记录人的反馈；评估 Windows 写入锁（msvcrt） | 有真实用户反馈记录 |
+| M6 真实使用（Windows 已在 CI 通过；试用指南就绪，真人反馈待收集） | 走出合成夹具 | 1～2 个真实项目试用并记录人的反馈；评估 Windows 写入锁（msvcrt） | 有真实用户反馈记录 |
 
 顺序：M0 → M1 与 M2 并行 → M3 → M4 → M5；M6 可在 M1 后随时开始。暂不做的范围保持上一节不变。
 
 
 0.25.0：Sonnet 5.5 五场景各 3 次，0.24.0 与 0.25.0 均 15/15 通过；entry-workflow 21.9KB→15.0KB，handoff 平均输入 tokens 382K→220K。成本主体是宿主每轮重发的上下文，每多一轮约多 40K 输入 tokens；JSON 往返占比很小，ZL-12 不实施。见[评测记录](../docs/zl-dev/evaluations/2026-10-26-claude-models.md)。
 
-0.26.0：ZL-13 增加声明对照的变更归属（不放宽证据、不缩小重验）；ZL-14 增加可选、有界的 execution_trace，locate 与交接包只给最近 3 条；ZL-09 增加只读 `workspace.py relate`，区分同一 checkout、同仓 worktree、共享 remote 的克隆和无关目录，不迁移任务或改绑证据。写锁抽到 `filelock.py`，Windows 用 msvcrt，CI 增加 Windows（暂不阻塞）。M6 的试用指南见 [trial-guide.md](../docs/zl-dev/trial-guide.md)，真实反馈需要使用者提供。
+0.26.0：ZL-13 增加声明对照的变更归属（不放宽证据、不缩小重验）；ZL-14 增加可选、有界的 execution_trace，locate 与交接包只给最近 3 条；ZL-09 增加只读 `workspace.py relate`，区分同一 checkout、同仓 worktree、共享 remote 的克隆和无关目录，不迁移任务或改绑证据。写锁抽到 `filelock.py`，Windows 用 msvcrt；修复 fchmod、注册表占位路径、UTF-8 输出等 Windows 问题后，CI 在 macOS/Linux/Windows × Python 3.9/3.12 全部通过，Windows 改为阻塞。M6 的试用指南见 [trial-guide.md](../docs/zl-dev/trial-guide.md)，真实反馈需要使用者提供。
