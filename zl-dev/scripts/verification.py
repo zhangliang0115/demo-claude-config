@@ -275,7 +275,8 @@ def inspect_receipt(task_dir, task, evidence, current_context=None, current_fing
             raise ValueError('解析结果与回执/证据声明不符')
         from evidence_context import explain
         source = dict(verification_source='parsed_result', parsed_result=parsed)
-        source['freshness_details'] = explain(evidence, current_fingerprint, current_context, receipt.get('fingerprint_context'), source)
+        source['freshness_details'] = explain(evidence, current_fingerprint, current_context, receipt.get('fingerprint_context'), source,
+                                              task.get('implementation'))
         return source
     except (OSError,ValueError,KeyError,TypeError,ET.ParseError) as exc:
         return dict(verification_source='invalid',verification_error=str(exc))

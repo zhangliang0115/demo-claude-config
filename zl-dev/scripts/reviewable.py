@@ -126,6 +126,9 @@ def validate(data):
         rows = data.get(key, [])
         if not isinstance(rows, list) or any(not isinstance(x, dict) for x in rows):
             raise ValueError(f'{key} 必须是对象数组')
+    if 'execution_trace' in data:
+        from exec_trace import validate as validate_trace
+        validate_trace(data['execution_trace'])
     for scene in data.get('scenarios', []):
         if scene.get('kind') not in ('simulation', 'recorded'):
             raise ValueError('场景必须标记 simulation 或 recorded')
@@ -274,6 +277,7 @@ def handoff_state(task_dir, revision, current, state=None):
 def locate(task_dir):
     """Locate and assess without creating directories or regenerating reports."""
     from brief import task_brief
+    from exec_trace import summary as trace_summary
     folder = Path(task_dir)
     state = snapshot(folder)
     report = report_state(folder, state)
@@ -283,6 +287,7 @@ def locate(task_dir):
                          key=lambda e: priority.get(e['freshness_details']['state'], 4))
     return dict(task_dir=str(folder), title=state['title'], report=report['path'], report_state=report,
                 task_brief=task_brief(state),
+                execution_trace=trace_summary(state.get('execution_trace')),
                 evidence_freshness=dict(total=len(evidence), diagnostic_count=len(diagnostics),
                     omitted_current_count=len(evidence)-len(diagnostics), truncated=len(diagnostics) > 5,
                     scope_notice='此列表解释历史证据原因，不等于当前验证缺口；已有有效覆盖不因旧记录单独重跑。',
@@ -295,19 +300,12 @@ def locate(task_dir):
 @contextmanager
 def write_lock(task_dir):
     """Serialize cooperating task fact updates and report publication."""
-    try:
-        import fcntl
-    except ImportError as exc:
-        raise ValueError('当前平台不支持任务写锁；未写入 task.json，请在支持 fcntl 的平台更新') from exc
+    from filelock import exclusive
     lock_path = Path(task_dir) / '.task-update.lock'
     if lock_path.is_symlink():
         raise ValueError('任务写锁不能为符号链接')
-    with lock_path.open('a') as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    with exclusive(lock_path, '当前平台不支持任务写锁；未写入 task.json'):
+        yield
 
 
 def update_task(task_dir, source, project, expected_revision, expected_fingerprint=None):
@@ -380,7 +378,7 @@ def assessed(data, current, task_dir=None, current_context=None):
         e.update(source)
         if 'freshness_details' not in source:
             from evidence_context import explain
-            e['freshness_details'] = explain(e, current, current_context, source=source)
+            e['freshness_details'] = explain(e, current, current_context, source=source, declared=data.get('implementation'))
         if source['verification_source'] == 'invalid':
             e['claimed_status'] = e['status']
             e['status'] = 'not_run'
@@ -494,6 +492,13 @@ def export_handoff(task_dir):
             lines.append('其余 ' + str(len(sources) - 12) + ' 项来源见 task.json 的 analysis.sources。')
         if not sources:
             lines.append('尚未记录源码来源；不可据此当作分析已完成。')
+    from exec_trace import summary as trace_summary
+    recent = trace_summary(state.get('execution_trace'))
+    if recent['total']:
+        lines += ['## 最近执行记录（执行者声明，不是执行证明）']
+        lines += ['- ' + ' | '.join(row.get(k, '') for k in ('at', 'actor', 'branch', 'workspace', 'outcome')) for row in recent['recent']]
+        if recent['total'] > len(recent['recent']):
+            lines.append('更早的 ' + str(recent['total'] - len(recent['recent'])) + ' 条见 task.json 的 execution_trace。')
     lines += ['## 使用其他工具', '本包可供 Codex、Cursor 等 agent 阅读；它们不会原生加载 Claude Code 插件命令。',
              'Python 3.9+：python3 /插件路径/scripts/reviewable.py locate /任务目录。',
              '只有新增必要事实时才按 locate → CAS update 保存 task.json；普通解释或仅导出无需修改任务事实。HTML 按需使用固定模板，不要求读取脚本或重复运行已适用的检查。重新导出仅刷新本生成区，区外人工说明保留。']

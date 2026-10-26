@@ -3,11 +3,11 @@
 ## 基本信息
 
 - 插件名：`zl-dev`
-- 当前版本：`0.25.0`
+- 当前版本：`0.26.0`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
-- 运行依赖：Claude Code；Python 3.9+ 标准库。安全写入依赖 POSIX `fcntl` 文件锁；Windows 只读路径仅做模拟测试，尚未真机验证，写入暂不支持
+- 运行依赖：Claude Code；Python 3.9+ 标准库。写入锁在 POSIX 用 `fcntl`，Windows 用 `msvcrt`（0.26.0 新增，尚未在真实 Windows 用户环境验证）
 
 ## 解决什么问题
 

@@ -117,20 +117,15 @@ def resolve(host, session, project):
 
 @contextmanager
 def _lock(path):
-    try:
-        import fcntl
-    except ImportError as exc:
-        raise ValueError('当前平台不支持会话写锁；只读 resolve 仍可使用') from exc
+    from filelock import _backend, exclusive
+    if _backend()[0] is None:
+        raise ValueError('当前平台不支持会话写锁；只读 resolve 仍可使用')
     path.parent.mkdir(parents=True, exist_ok=True)
     lock = path.with_suffix('.lock')
     if lock.is_symlink():
         raise ValueError('会话关联锁不能为符号链接')
-    with lock.open('a') as stream:
-        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+    with exclusive(lock, '当前平台不支持会话写锁；只读 resolve 仍可使用'):
+        yield
 
 
 def _expected(value):

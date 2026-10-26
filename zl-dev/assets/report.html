@@ -66,7 +66,11 @@ function renderEvidenceFreshnessDetails(parent,evidence){
     if(value.paths_truncated||count===null||(count!==null&&count>paths.length))detail.append(el('p','仅显示可用路径样本，未列出的文件不代表没有变化，不能据此缩小重验范围。','muted'));
     box.append(detail);
   }else if(value.paths_truncated)box.append(el('p','路径明细不完整，不能定位全部变更或推断其他文件未变。','muted'));
-  box.append(el('p','变更归属与依赖关系未知；不能据此归因于其他任务，路径差异也不证明业务行为变化或其他检查可免验。','muted'));
+  const attribution={declared_by_this_task:'变更路径均在本任务声明的实现文件内（声明对照，不是作者认证）。',partially_declared:'部分变更路径不在本任务声明的实现文件内，来源未知（可能是其他任务、手工修改或声明遗漏）。',outside_declared:'变更路径都不在本任务声明的实现文件内，来源未知（可能是其他任务、手工修改或声明遗漏）。'}[value.attribution];
+  if(attribution)box.append(el('p',attribution,'muted'));
+  const undeclared=Array.isArray(value.undeclared_paths)?value.undeclared_paths.filter(x=>typeof x==='string'):[];
+  if(undeclared.length)box.append(el('p','未声明的变更路径：'+undeclared.slice(0,10).join('、'),'muted'));
+  box.append(el('p',attribution?'依赖关系未知；声明对照不能据此归因于具体人员或其他任务，路径差异也不证明业务行为变化或其他检查可免验。':'变更归属与依赖关系未知；不能据此归因于其他任务，路径差异也不证明业务行为变化或其他检查可免验。','muted'));
   parent.append(box);
 }
 function renderRoundChanges(parent, changes){

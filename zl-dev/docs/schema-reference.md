@@ -8,7 +8,7 @@ summary/why/scope/stage/rollback 为字符串。changes/risks/acceptance 为字�
 对象数组字段（无内容用 []）：
 - behaviors: id（唯一）、before、after、status。明确规则已确认/已实现是不同事实；验证状态由 evidence 单独呈现。
 - scenarios: title、kind（simulation/recorded）、steps（action/result 对象数组）。recorded 只能来自真实记录。
-- implementation: title、description、files（路径或路径数组）。
+- implementation: title、description、files（路径或路径数组）。files 也用于证据失效的变更归属对照（路径可相对 Git 根或项目目录，以 / 结尾表示目录；绝对路径和含 .. 的路径不参与对照）：变更路径都在声明文件内显示 declared_by_this_task，否则 partially_declared/outside_declared；这是声明对照，不是作者认证，不缩小重验范围。
 - decisions: id、question、recommendation、status（pending/confirmed）、owner、source、at。confirmed 需人的明确依据。
 - evidence: id、behavior_ids（必须引用存在行为）、status（passed/failed/blocked/not_run）、command、summary、revision、source、executed_at；可加 actor/environment。source 是原始记录位置，页面不自动执行或读取路径。
 - roles: role、owner、responsibility、accepts。
@@ -16,6 +16,7 @@ summary/why/scope/stage/rollback 为字符串。changes/risks/acceptance 为字�
 - design: id、title、description、alternatives、tradeoffs、status。
 - handoffs: id、from、to、deliverable、readback、open_questions、status（pending/accepted/rejected）、actor、at。
 - timeline: at、actor、action、reason、impact。
+- execution_trace（可选，最多 20 条，旧条目由执行者删除）: at、actor、branch、outcome 必填；target、reason、workspace 可选短文本（≤400 字）；guides_loaded、commands 为 ≤12 项的短字符串数组。记录实际选择的任务、分支原因、实际读取的指引、执行工作区与结果，不记录整段对话或提示词原文。它是执行者声明，不是执行证明，不进入行为指纹。locate 只返回最近 3 条的紧凑摘要，交接包同样只列最近 3 条。
 - operations: id、type、environment、impact、observation、hypothesis、action、authorization、stop_condition、rollback、result、verification、status、owner。
 
 ## CLI

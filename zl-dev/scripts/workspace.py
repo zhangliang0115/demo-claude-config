@@ -87,6 +87,70 @@ def inspect(project, task_dir=None):
 
 
 
+def _redact(url):
+    # 不在输出中暴露 URL 里的凭据
+    return re.sub(r'^([a-z][a-z0-9+.-]*://)[^/@]*@', r'\1', url, flags=re.I)
+
+
+def _remote_urls(root):
+    try:
+        result = _git(root, 'remote', '-v')
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if result.returncode:
+        return []
+    return sorted({_redact(line.split()[1]) for line in result.stdout.splitlines() if len(line.split()) >= 2})
+
+
+def _commit_known(root, commit):
+    try:
+        return bool(commit) and _git(root, 'cat-file', '-e', commit + '^{commit}').returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def relate(task_dir, other):
+    """Read-only comparison of a task's bound checkout with another checkout (worktree, clone, other machine).
+
+    Reports observable relations only. It never migrates the task, rebinds evidence or treats a shared
+    remote URL as proof that two directories are the same project.
+    """
+    folder = Path(task_dir).expanduser().resolve()
+    data = json.loads((folder / 'task.json').read_bytes())
+    if not isinstance(data, dict):
+        raise ValueError('task.json 不是对象，未比较')
+    bound = data.get('project_path')
+    if not isinstance(bound, str) or not Path(bound).is_absolute():
+        raise ValueError('任务缺少明确的 project_path 绑定，先人工核对')
+    candidate = inspect(other)
+    original = inspect(bound) if Path(bound).is_dir() else dict(identity_state='missing', project_path=bound)
+    relation = dict(task_id=data.get('id'), bound_project=bound, candidate_project=candidate['project_path'],
+                    bound_available=original['identity_state'] != 'missing', notice=(
+                        '只读比较；不迁移任务、不改 project_path、不把旧证据改绑到候选工作区。'
+                        '在候选工作区继续时，旧证据按指纹规则视为不适用，需在该工作区重新验证。'))
+    if candidate['identity_state'] != 'git':
+        relation.update(state='not_comparable', reason='候选目录不是可识别的 Git checkout：' + str(candidate.get('reason')))
+        return relation
+    same_path = original.get('checkout_id') is not None and original.get('checkout_id') == candidate['checkout_id']
+    same_family = original.get('repository_family') and original.get('repository_family') == candidate['repository_family']
+    shared_remotes = sorted(set(_remote_urls(candidate['root_path'])) & set(_remote_urls(original['root_path']))) if original.get('identity_state') == 'git' else []
+    rows = data.get('evidence') if isinstance(data.get('evidence'), list) else []
+    evidence_revisions = sorted({e.get('revision') for e in rows if isinstance(e, dict) and isinstance(e.get('revision'), str) and e['revision']})
+    relation.update(candidate_head=candidate['head'], bound_head=original.get('head'),
+                    shared_remote_urls=shared_remotes, same_checkout=same_path, same_local_family=bool(same_family),
+                    bound_head_known_in_candidate=_commit_known(candidate['root_path'], original.get('head')),
+                    evidence_bound_revisions=len(evidence_revisions))
+    if same_path:
+        relation.update(state='same_checkout', reason='候选与任务绑定位于同一 checkout（可能是其中的不同子目录）。')
+    elif same_family:
+        relation.update(state='same_local_family', reason='同一本机 Git 仓库的另一个 worktree；Git 管理数据共享，工作区文件与证据不共享。')
+    elif shared_remotes:
+        relation.update(state='shared_remote', reason='有相同 remote URL，可能是另一台机器或另一份克隆；remote 相同不证明代码、配置或依赖相同。')
+    else:
+        relation.update(state='unrelated_or_unknown', reason='没有可观察的共同 Git 家族或 remote；不能认定为同一逻辑项目。')
+    return relation
+
+
 def _validate_observation(row):
     value = row['checkout']
     fields = {'requested_path','project_path','root_path','identity_state','checkout_id','repository_family',
@@ -181,21 +245,16 @@ def _read():
 
 @contextmanager
 def _lock():
-    try:
-        import fcntl
-    except ImportError as exc:
-        raise ValueError('当前平台不支持活动写锁；只读 inspect/status 仍可使用') from exc
+    from filelock import _backend, exclusive
+    if _backend()[0] is None:
+        raise ValueError('当前平台不支持活动写锁；只读 inspect/status 仍可使用')
     path = registry_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     lock = path.with_suffix('.lock')
     if lock.is_symlink():
         raise ValueError('活动锁不能为符号链接')
-    with lock.open('a') as stream:
-        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+    with exclusive(lock, '当前平台不支持活动写锁；只读 inspect/status 仍可使用'):
+        yield
 
 
 def _overlap(a, b):
@@ -312,7 +371,8 @@ def end(host, session, token, expected_revision):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['inspect','status','begin','end'])
+    parser.add_argument('command', choices=['inspect','status','begin','end','relate'])
+    parser.add_argument('--other', type=Path)
     parser.add_argument('--project', type=Path)
     parser.add_argument('--task', type=Path)
     parser.add_argument('--host')
@@ -327,6 +387,10 @@ def main():
             if args.project or args.task or args.mode or args.resource:
                 raise ValueError('end 只接受活动 token、宿主、会话和索引版本')
             result = end(args.host, args.session, args.token, args.expect_revision)
+        elif args.command == 'relate':
+            if not args.task or not args.other or args.project or args.resource or args.host or args.session or args.mode or args.expect_revision or args.token:
+                raise ValueError('relate 只接受 --task 与 --other，且只读')
+            result = relate(args.task, args.other)
         elif not args.project:
             raise ValueError('必须提供 --project')
         elif args.command == 'begin':
@@ -339,7 +403,7 @@ def main():
             result = inspect(args.project, args.task) if args.command == 'inspect' else status(args.project)
         print(json.dumps(result, ensure_ascii=False, separators=(',', ':')))
         return 0
-    except (OSError, ValueError, TypeError, KeyError) as exc:
+    except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError) as exc:
         print('错误：' + str(exc), file=sys.stderr)
         return 1
 

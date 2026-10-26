@@ -67,13 +67,65 @@ def valid_context(value, fingerprint=None):
         return False
 
 
-def explain(evidence, current, current_context=None, baseline=None, source=None):
+def _normalize(value, prefix=''):
+    """Relative POSIX path under the Git root, or None when it cannot be compared safely."""
+    text = value.strip().replace('\\', '/')
+    if not text or text.startswith('/') or re.match(r'[A-Za-z]:/', text):
+        return None
+    while text.startswith('./'):
+        text = text[2:]
+    parts = [part for part in text.split('/') if part not in ('', '.')]
+    if not parts or '..' in parts:
+        return None
+    joined = '/'.join(parts)
+    return (prefix + '/' + joined).strip('/') if prefix else joined
+
+
+def declared_files(implementation, prefix=''):
+    """Paths this task declares as changed, relative to the Git root; a claim used only for explanation.
+
+    Paths may be written relative to the Git root or to the project directory (prefix). A trailing
+    slash declares a directory. Absolute, parent-relative and non-string values are ignored.
+    """
+    declared = set()
+    rows = implementation if isinstance(implementation, list) else []
+    for row in rows:
+        files = row.get('files') if isinstance(row, dict) else None
+        values = [files] if isinstance(files, str) else (files if isinstance(files, list) else [])
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            directory = value.strip().replace('\\', '/').endswith('/')
+            for base in {'', prefix}:
+                path = _normalize(value, base)
+                if path:
+                    declared.add(path + '/' if directory else path)
+    return declared
+
+
+def _declared(path, declared):
+    return path in declared or any(entry.endswith('/') and path.startswith(entry) for entry in declared)
+
+
+def attribute(changed, complete, declared):
+    """Compare observed paths with this task's declared files. Never widens evidence validity."""
+    if not changed or not declared:
+        return 'unknown', []
+    inside = [p for p in changed if _declared(p, declared)]
+    outside = [p for p in changed if not _declared(p, declared)]
+    if not outside:
+        # 明细截断时未见路径无法判断，不声称全部属于本任务
+        return ('declared_by_this_task' if complete else 'unknown'), []
+    return ('outside_declared' if not inside else 'partially_declared'), outside[:MAX_CHANGED_PATHS]
+
+
+def explain(evidence, current, current_context=None, baseline=None, source=None, declared=None):
     source = source or {}
     revision = evidence.get('revision')
     baseline_state = 'legacy_missing' if baseline is None else ('captured' if valid_context(baseline, revision) else 'invalid')
     result = dict(state='unknown', baseline=baseline_state, reason_codes=[], reasons=[], changed_paths=[],
                   changed_path_count=None, paths_truncated=False, behavior_ids=list(evidence.get('behavior_ids', [])),
-                  recheck='', attribution='unknown', dependency_scope='whole_repository_conservative')
+                  recheck='', attribution='unknown', undeclared_paths=[], dependency_scope='whole_repository_conservative')
     def reason(code, text):
         result['reason_codes'].append(code); result['reasons'].append(text)
     if source.get('verification_source') == 'invalid':
@@ -110,6 +162,13 @@ def explain(evidence, current, current_context=None, baseline=None, source=None)
                     elif (a['kind'], a['sha256']) != (b['kind'], b['sha256']):
                         changed.append(b['path'] + ('（类型变化）' if a['kind'] != b['kind'] else '（内容变化）'))
                 result['changed_paths'] = changed[:MAX_CHANGED_PATHS]
+                bare = [path.rsplit('（', 1)[0] for path in changed]
+                try:
+                    prefix = Path(current_context['project_path']).relative_to(current_context['root_path']).as_posix()
+                    declared_paths = declared_files(declared, '' if prefix == '.' else prefix) if declared else set()
+                    result['attribution'], result['undeclared_paths'] = attribute(bare, complete, declared_paths)
+                except (TypeError, ValueError, AttributeError):
+                    pass  # 归属只是解释；声明格式异常时保持 unknown，绝不影响证据判断
                 result['changed_path_count'] = len(changed) if complete else None
                 result['paths_truncated'] = not complete or len(changed) > MAX_CHANGED_PATHS
                 if not complete:

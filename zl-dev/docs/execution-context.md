@@ -59,3 +59,20 @@ registry_revision 只表示活动索引字节版本；即使前后相同，也�
 begin 返回 active 才登记成功；conflict 表示未登记，不能当成功继续编辑。CLI 进程正常返回不等于 state=active。end 返回 ended 才确实结束对应登记；not_found 表示此 token 当前没有活动，不是停止了业务进程。state=unknown 或 registry_revision=null 时不尝试 begin/end，也不把 null 换成 missing；如实说明登记不可用并调查原因。CAS 失败先核对，不更改其他会话记录来消除冲突。
 
 无可靠会话 ID 时仍可 inspect/status，不伪造 owner、不调用 begin；说明本次未登记，无法提供会话级活动恢复或完整冲突识别。在明确任务与已有授权下可按单执行者安排继续，不因此新增人工审批；已知写入/资源冲突仍先解决，不能以缺 ID 绕过。索引损坏或不可读与缺 ID 不同，不能称无活动或登记保护已生效，应结合原任务范围和风险处理。原会话无法恢复的遗留登记仍需受控核对后恢复；本版不提供自动接管，不能直接删除索引来假装安全。
+
+## 换工作区或换机器接手（0.26.0）
+
+接手者在另一个 worktree、另一份克隆或另一台机器上继续时，先只读比较：
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/workspace.py" relate --task "<任务绝对目录>" --other "<接手者的 checkout>"
+```
+
+| state | 含义 | 接手方式 |
+| --- | --- | --- |
+| same_checkout | 就是任务绑定的目录 | 照常继续 |
+| same_local_family | 同一本机仓库的另一个 worktree | 可协作；旧证据不适用于该 worktree |
+| shared_remote | 共享 remote URL 的另一份克隆，可能在另一台机器 | 核对 HEAD、配置与依赖后在该工作区重新验证 |
+| unrelated_or_unknown / not_comparable | 无可观察关系 | 不当作同一项目；需人工确认 |
+
+`relate` 不迁移任务、不改 project_path、不改绑证据。任务记录（`~/.claude/zl-dev/`）不随代码同步到其他机器；跨机器接手用 handoff 导出的 HANDOFF.md 与 task.json 副本，在新机器上 init 新任务并在描述中引用原任务 id，旧证据只作参考，不作为新工作区的通过依据。

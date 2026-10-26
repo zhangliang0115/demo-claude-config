@@ -81,16 +81,9 @@ def load(folder):
 
 @contextmanager
 def write_lock(folder):
-    try:
-        import fcntl
-    except ImportError as exc:
-        raise ValueError('当前平台不支持 feature 写锁（需要 fcntl）；只读 locate/status/preflight 仍可使用，未执行写入') from exc
-    with (Path(folder) / '.feature-update.lock').open('a') as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    from filelock import exclusive
+    with exclusive(Path(folder) / '.feature-update.lock', '当前平台不支持 feature 写锁；只读 locate/status/preflight 仍可使用，未执行写入'):
+        yield
 
 
 def _replace_locked(folder, data, previous=None):

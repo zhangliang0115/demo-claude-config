@@ -65,6 +65,29 @@ class EvidenceContextTests(unittest.TestCase):
         self.assertEqual(d['state'],'stale');self.assertIn('source_changed',d['reason_codes'])
         self.assertIn('code.txt（内容变化）',d['changed_paths']);self.assertEqual(d['behavior_ids'],['B1'])
         self.assertNotEqual(state['evidence'][0]['freshness'],'当前');self.assertEqual(d['attribution'],'unknown')
+    def test_attribution_compares_changed_paths_with_declared_implementation_files(self):
+        self.verify();(self.repo/'code.txt').write_text('different')
+        self.data=api.load(self.task);self.data['implementation']=[dict(title='edit',description='d',files=['code.txt'])];self.save()
+        d=self.detail();self.assertEqual(d['attribution'],'declared_by_this_task');self.assertEqual(d['undeclared_paths'],[])
+        self.assertEqual(d['state'],'stale');self.assertIn('source_changed',d['reason_codes'])
+        self.data=api.load(self.task);self.data['implementation']=[dict(title='edit',description='d',files='other.txt')];self.save()
+        d=self.detail();self.assertEqual(d['attribution'],'outside_declared');self.assertEqual(d['undeclared_paths'],['code.txt'])
+        self.assertEqual(d['dependency_scope'],'whole_repository_conservative')
+    def test_declared_path_normalization_and_directories(self):
+        f = context.declared_files
+        self.assertEqual(f([dict(files=['./.github/ci.yml', '.env'])]), {'.github/ci.yml', '.env'})
+        self.assertEqual(f([dict(files=['../x.py', '/abs/b.py', 'C:\\a\\b.py', 5, None])]), set())
+        self.assertEqual(f([dict(files='src\\c.py')]), {'src/c.py'})
+        self.assertEqual(f([dict(files=5)]), set())
+        self.assertEqual(f('not a list'), set())
+        self.assertEqual(f([dict(files=['src/a.py'])], 'pkg'), {'src/a.py', 'pkg/src/a.py'})
+        self.assertEqual(context.attribute(['src/x/y.py'], True, f([dict(files='src/')])), ('declared_by_this_task', []))
+        self.assertEqual(context.attribute(['a.py'], False, {'a.py'}), ('unknown', []))
+    def test_malformed_implementation_files_never_break_locate_or_receipts(self):
+        self.verify();(self.repo/'code.txt').write_text('different')
+        self.data=api.load(self.task);self.data['implementation']=[dict(title='x',description='d',files=5)];self.save()
+        state=api.snapshot(self.task);e=state['evidence'][0]
+        self.assertEqual(e['verification_source'],'parsed_result');self.assertEqual(e['freshness_details']['attribution'],'unknown')
     def test_contract_change_is_separate_from_source(self):
         self.verify();self.data=api.load(self.task);self.data['scope']='changed scope';self.save()
         d=self.detail();self.assertIn('contract_changed',d['reason_codes']);self.assertNotIn('source_changed',d['reason_codes'])
