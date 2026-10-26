@@ -56,7 +56,7 @@ AI 按需进入 [跨项目流程](docs/cross-project.md)，共用整体方案和
 
 ## 存储与边界
 
-版本 0.26.0，Python 3.9+ 标准库。写入锁在 POSIX 用 `fcntl`，Windows 用 `msvcrt`（0.26.0 新增，GitHub Actions Windows 上全量测试通过，尚无真实 Windows 用户反馈）。
+版本 0.27.0，Python 3.9+ 标准库。写入锁在 POSIX 用 `fcntl`，Windows 用 `msvcrt`（0.26.0 新增，GitHub Actions Windows 上全量测试通过，尚无真实 Windows 用户反馈）。
 
 任务默认存放于 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/`，跨项目功能放于归属工作区的 `features/`。原仓库保存业务代码，产出绑定原项目路径。旧任务不自动搬迁。 Claude Code 对项目外产出目录的访问可能需要针对具体任务目录授权；非交互 CLI 的 acceptEdits 不保证允许这些读写或 Bash。权限拒绝时保留原记录并报告未完成内容，不改全局权限、不换路径或工具绕过。
 
@@ -180,3 +180,7 @@ claude plugin validate --strict zl-dev
 ## 受保护记录写入拦截（0.24.0）
 
 插件附带 PreToolUse hook（`hooks/hooks.json` → `scripts/guard.py`）：Write/Edit 直接改 `~/.claude/zl-dev` 下的 task.json、feature.json、report.html、feature.html 及 contexts/executions 记录时拒绝，并提示 locate → 临时完整 JSON → `update --expect-revision` 的正确路径。Bash 按写入目标启发式检查（重定向、tee、cp/mv 目标、sed -i、Python 写打开），读取和插件 CLI 调用放行。它是防误用护栏，不是沙箱：变量拼接路径等写法仍可能绕过，hook 未运行的宿主也不受保护。真实 Claude Code 会话验证 Write 被拒、文件未变。
+
+## status 只读硬拦截（0.27.0）
+
+同一个 PreToolUse hook 读取宿主提供的会话记录：最近一条真实用户输入是 `/zl-dev:status` 时，拒绝 reviewable.py update/render/init/continue/index/handoff/verify、feature.py init/sync/render/update、session_context.py bind/clear、workspace.py begin/end；locate/status/resolve/inspect 放行。会话记录不可读时不拦截（不误伤 go）。判断依据是会话记录格式，宿主格式变化时会退化为只靠提示词约束。

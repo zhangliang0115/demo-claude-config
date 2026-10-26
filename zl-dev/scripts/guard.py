@@ -23,6 +23,14 @@ BASH_WRITE_TARGET = [
     re.compile(r'open\([^)]*(%s)[^)]*[\'"][wax+]' % NAME),
     re.compile(r'(%s)[^;&|]*\.(write_text|write_bytes)\(' % NAME),
 ]
+# status 是只读入口：这些子命令会写任务记录、报告、会话关联或活动登记
+STATUS_WRITES = re.compile(
+    r'\b(reviewable\.py["\']?\s+(update|render|init|continue|index|handoff|verify)'
+    r'|feature\.py["\']?\s+(init|sync|render|update)'
+    r'|session_context\.py["\']?\s+(bind|clear)'
+    r'|workspace\.py["\']?\s+(begin|end))\b')
+STATUS_COMMAND = '<command-name>/zl-dev:status</command-name>'
+TRANSCRIPT_TAIL_BYTES = 2 * 1024 * 1024
 ADVICE = ('zl-dev 记录只能经 CLI 修改：先 locate 取得 task_revision，把合并后的完整 JSON 写到系统临时目录，'
           '再运行 reviewable.py update --from-file <临时文件> --expect-revision <revision>；页面用 render 生成。'
           '不要改用其他工具或命令绕过。')
@@ -51,6 +59,41 @@ def bash_violation(command):
                for seg in segments)
 
 
+def _user_text(entry):
+    content = (entry.get('message') or {}).get('content')
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return ''.join(part.get('text', '') for part in content if isinstance(part, dict) and part.get('type') == 'text')
+    return ''
+
+
+def in_status_turn(transcript_path):
+    """True when the latest real user prompt invoked /zl-dev:status. Unknown transcript means False."""
+    if not transcript_path:
+        return False
+    try:
+        with open(transcript_path, 'rb') as stream:
+            stream.seek(0, os.SEEK_END)
+            size = stream.tell()
+            stream.seek(max(0, size - TRANSCRIPT_TAIL_BYTES))
+            lines = stream.read().decode('utf-8', 'replace').splitlines()
+    except OSError:
+        return False
+    for line in reversed(lines):
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if entry.get('type') != 'user' or entry.get('isMeta'):
+            continue
+        content = (entry.get('message') or {}).get('content')
+        if isinstance(content, list) and all(isinstance(p, dict) and p.get('type') == 'tool_result' for p in content):
+            continue  # 工具返回，不是用户输入
+        return STATUS_COMMAND in _user_text(entry)
+    return False
+
+
 def check(event):
     tool = event.get('tool_name')
     params = event.get('tool_input') or {}
@@ -60,6 +103,9 @@ def check(event):
             return f'已拒绝直接修改 {target}。' + ADVICE
     elif tool == 'Bash' and bash_violation(params.get('command', '')):
         return '已拒绝用 shell 命令改写 zl-dev 记录或页面。' + ADVICE
+    if tool == 'Bash' and STATUS_WRITES.search(params.get('command', '')) and in_status_turn(event.get('transcript_path')):
+        return ('/zl-dev:status 是只读入口，已拒绝本次写入类命令（update/render/bind/begin 等）。'
+                '只用 locate/status/resolve/inspect 回答；需要保存、生成报告或改关联时，请用户改用 /zl-dev:go。')
     return None
 
 

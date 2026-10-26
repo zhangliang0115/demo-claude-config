@@ -3,7 +3,7 @@
 ## 基本信息
 
 - 插件名：`zl-dev`
-- 当前版本：`0.26.0`
+- 当前版本：`0.27.0`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
@@ -165,3 +165,7 @@ locate/status 返回 report_state，路径存在不代表报告当前；记录�
 ## 受保护记录写入拦截（0.24.0）
 
 插件附带 PreToolUse hook（`hooks/hooks.json` → `scripts/guard.py`）：Write/Edit 直接改 `~/.claude/zl-dev` 下的 task.json、feature.json、report.html、feature.html 及 contexts/executions 记录时拒绝，并提示 locate → 临时完整 JSON → `update --expect-revision` 的正确路径。Bash 按写入目标启发式检查（重定向、tee、cp/mv 目标、sed -i、Python 写打开），读取和插件 CLI 调用放行。它是防误用护栏，不是沙箱：变量拼接路径等写法仍可能绕过，hook 未运行的宿主也不受保护。真实 Claude Code 会话验证 Write 被拒、文件未变。
+
+## status 只读硬拦截（0.27.0）
+
+同一个 PreToolUse hook 读取宿主提供的会话记录：最近一条真实用户输入是 `/zl-dev:status` 时，拒绝 reviewable.py update/render/init/continue/index/handoff/verify、feature.py init/sync/render/update、session_context.py bind/clear、workspace.py begin/end；locate/status/resolve/inspect 放行。会话记录不可读时不拦截（不误伤 go）。判断依据是会话记录格式，宿主格式变化时会退化为只靠提示词约束。

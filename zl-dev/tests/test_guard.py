@@ -62,6 +62,41 @@ class GuardTests(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(self.run_guard('Bash', command=command).returncode, 0)
 
+    def transcript(self, *prompts):
+        path = self.home / 'session.jsonl'
+        rows = []
+        for prompt in prompts:
+            rows.append(dict(type='user', message=dict(role='user', content=prompt)))
+            rows.append(dict(type='user', isMeta=True, message=dict(role='user', content=[dict(type='text', text='skill body')])))
+            rows.append(dict(type='user', message=dict(role='user', content=[dict(type='tool_result', tool_use_id='x', content='r')])))
+        path.write_text('\n'.join(json.dumps(r, ensure_ascii=False) for r in rows) + '\n', encoding='utf-8')
+        return str(path)
+
+    def run_bash(self, command, transcript):
+        env = dict(os.environ, HOME=str(self.home))
+        payload = json.dumps(dict(tool_name='Bash', tool_input=dict(command=command), transcript_path=transcript))
+        return subprocess.run([sys.executable, str(GUARD)], input=payload, text=True, capture_output=True, env=env, encoding='utf-8')
+
+    def test_status_turn_blocks_write_subcommands_only(self):
+        status = self.transcript('<command-message>zl-dev:status</command-message> <command-name>/zl-dev:status</command-name>')
+        for command in ['python3 "$P/scripts/reviewable.py" render /t', 'python3 /p/scripts/reviewable.py update /t --from-file a',
+                        'python3 /p/scripts/session_context.py bind --host h', 'python3 /p/scripts/workspace.py begin --project /r',
+                        'python3 /p/scripts/feature.py sync /f']:
+            with self.subTest(command=command):
+                result = self.run_bash(command, status)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('/zl-dev:go', result.stderr)
+        for command in ['python3 /p/scripts/reviewable.py locate /t', 'python3 /p/scripts/session_context.py resolve --host h',
+                        'python3 /p/scripts/workspace.py status --project /r', 'python3 /p/scripts/feature.py locate /f']:
+            with self.subTest(command=command):
+                self.assertEqual(self.run_bash(command, status).returncode, 0)
+
+    def test_go_turn_and_unknown_transcript_allow_writes(self):
+        later_go = self.transcript('<command-name>/zl-dev:status</command-name>', '<command-name>/zl-dev:go</command-name> 保存')
+        self.assertEqual(self.run_bash('python3 /p/scripts/reviewable.py update /t', later_go).returncode, 0)
+        self.assertEqual(self.run_bash('python3 /p/scripts/reviewable.py render /t', None).returncode, 0)
+        self.assertEqual(self.run_bash('python3 /p/scripts/reviewable.py render /t', str(self.home / 'missing.jsonl')).returncode, 0)
+
     def test_malformed_input_never_blocks_host(self):
         result = subprocess.run([sys.executable, str(GUARD)], input='not json', text=True, encoding='utf-8', capture_output=True)
         self.assertEqual(result.returncode, 0)
