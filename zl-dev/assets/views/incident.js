@@ -42,6 +42,7 @@ function renderIncidentView(parent, task, ui) {
       [['source', '来源'], ['executed_at', '执行时间'], ['revision', '代码版本'], ['command', '验证命令'], ['freshness', '新鲜度'], ['stale', '过期标记']].forEach(([key, label]) => field(detail, label, e[key]));
       const snippet = e.output || e.snippet || e.raw || e.log;
       detail.append(el('pre', text(snippet))); box.append(detail);
+      if(typeof renderEvidenceFreshnessDetails==='function')renderEvidenceFreshnessDetails(detail,e);
     });
     if (focus === 'acceptance') { const list = el('ol'); (arr((((task.stage_details || {}).acceptance || {}).items)).length ? arr(task.stage_details.acceptance.items).map(item => [item.scenario,item.instruction,item.expected].filter(Boolean).join('；')) : arr(task.acceptance)).forEach(a => list.append(el('li', text(a)))); box.append(el('h3', '人工恢复核验'), list); }
     if (focus === 'release') field(box, '整体恢复 / 回滚办法', task.rollback);

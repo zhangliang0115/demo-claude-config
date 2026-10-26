@@ -42,6 +42,33 @@ function feedbackComposer(parent,task,stage,buildBody){
 function evidenceOrigin(e){return e.verification_source==='parsed_result'?'结构化结果已解析；仍需核对执行环境与原始来源。':e.verification_source==='invalid'?'结果回执无效 · 不可采信，已降级为未执行，请重新验证。':'模型记录 · 尚未独立解析结果，不是执行真实性证明。';}
 function card(parent,title,body){const n=el('article',undefined,'card');n.append(el('h3',title),el('p',text(body)));parent.append(n);return n;}
 function list(parent,title,items){const c=card(parent,title,items.length?'':'尚未记录');if(items.length){c.lastChild.remove();const ul=el('ul');items.forEach(x=>ul.append(el('li',text(x))));c.append(ul);}return c;}
+function renderEvidenceFreshnessDetails(parent,evidence){
+  const value=evidence.freshness_details;
+  if(!value||typeof value!=='object')return;
+  const state=evidence.verification_source==='invalid'?'invalid_receipt':value.state;
+  if(!['stale','unbound','unknown','invalid_receipt','invalid'].includes(state))return;
+  const box=el('section',undefined,'evidence-freshness-explanation');
+  box.append(el('h4','这条记录为何不能直接作为当前依据'));
+  if(state==='invalid_receipt')box.append(el('p','原始回执或日志无法通过核对；代码版本匹配也不代表结果可信。'));
+  const reasons=Array.isArray(value.reasons)?value.reasons.filter(x=>typeof x==='string'&&x.trim()):[];
+  if(reasons.length){const list=el('ul');[...new Set(reasons)].slice(0,6).forEach(reason=>list.append(el('li',reason)));box.append(list);}
+  if(value.baseline==='legacy_missing')box.append(el('p','旧证据没有保存分项基线，无法反推具体变更原因。','muted'));
+  else if(value.baseline==='invalid')box.append(el('p','分项基线无法核对，不能据此判断哪些检查不受影响。','muted'));
+  const behaviors=Array.isArray(value.behavior_ids)?value.behavior_ids:Array.isArray(evidence.behavior_ids)?evidence.behavior_ids:[];
+  box.append(el('p','原证据关联行为（声明范围）：'+(behaviors.filter(x=>typeof x==='string').join('、')||'未记录')));
+  box.append(el('p',typeof value.recheck==='string'&&value.recheck.trim()?value.recheck:'是否仍需重验以当前验证缺口为准；已有有效覆盖不因历史记录单独重跑。仍缺时按原关联范围核对。','evidence-recheck'));
+  const paths=Array.isArray(value.changed_paths)?value.changed_paths.filter(x=>typeof x==='string'):[];
+  const count=Number.isInteger(value.changed_path_count)&&value.changed_path_count>=0?value.changed_path_count:null;
+  if(paths.length||count>0){
+    const detail=el('details',undefined,'evidence-changed-paths');
+    detail.append(el('summary','观察到的变更路径'+(count===null?'（数量未知）':'（'+count+' 项）')));
+    const list=el('ul');paths.slice(0,10).forEach(path=>{const item=el('li');item.textContent=path;list.append(item);});detail.append(list);
+    if(value.paths_truncated||count===null||(count!==null&&count>paths.length))detail.append(el('p','仅显示可用路径样本，未列出的文件不代表没有变化，不能据此缩小重验范围。','muted'));
+    box.append(detail);
+  }else if(value.paths_truncated)box.append(el('p','路径明细不完整，不能定位全部变更或推断其他文件未变。','muted'));
+  box.append(el('p','变更归属与依赖关系未知；不能据此归因于其他任务，路径差异也不证明业务行为变化或其他检查可免验。','muted'));
+  parent.append(box);
+}
 function renderRoundChanges(parent, changes){
   parent.replaceChildren();parent.hidden=true;
   const values=Array.isArray(changes)?changes:[];
@@ -113,7 +140,7 @@ function rows(){table.replaceChildren();const head=el('tr');['编号','原来','
 $('implementation').append(el('h2','实现如何支持业务行为'));(task.implementation||[]).forEach((i,index)=>{const c=card($('implementation'),`${index+1}. ${i.title}`,i.description);const d=el('details');d.append(el('summary','代码位置（人工核对）'),el('pre',text(i.files)));c.append(d);});if(!(task.implementation||[]).length)card($('implementation'),'暂无实现记录','完成代码检查后补充，不以设计代替实际实现。');
 $('decisions').append(el('h2','待确认事项'),el('p','请在页面右侧填写并复制反馈。'));
 
-$('evidence').append(el('h2','为什么相信这次改动'),el('p','通过状态是任务记录声明；代码指纹匹配只说明内容未变，不证明命令实际运行。请核对原始结果。','warning'));(task.evidence||[]).forEach(e=>{const c=card($('evidence'),`${e.id}: ${text(e.status)} · ${e.freshness}`,e.summary);c.append(el('p',evidenceOrigin(e),'evidence-origin'));if(e.verification_source==='parsed_result'&&e.parsed_result)c.append(el('pre',JSON.stringify(e.parsed_result,null,2)));c.append(el('p',`关联规则：${text(e.behavior_ids)}`));c.append(el('p',`执行者 / 工具：${text(e.actor)} · 环境：${text(e.environment)}`));const d=el('details');d.append(el('summary','运行命令与版本指纹'),el('pre',`命令：${text(e.command)}\n结果来源：${text(e.source)}\n执行时间：${text(e.executed_at)}\n证据指纹（代码＋行为约定）：${text(e.revision)}\n当前指纹：${text(task.current_fingerprint)}`));c.append(d);});if(!(task.evidence||[]).length)card($('evidence'),'没有运行证据','尚不能根据演示或实现说明判定验收通过。');
+$('evidence').append(el('h2','为什么相信这次改动'),el('p','通过状态是任务记录声明；代码指纹匹配只说明内容未变，不证明命令实际运行。请核对原始结果。','warning'));(task.evidence||[]).forEach(e=>{const c=card($('evidence'),`${e.id}: ${text(e.status)} · ${e.freshness}`,e.summary);c.append(el('p',evidenceOrigin(e),'evidence-origin'));renderEvidenceFreshnessDetails(c,e);if(e.verification_source==='parsed_result'&&e.parsed_result)c.append(el('pre',JSON.stringify(e.parsed_result,null,2)));c.append(el('p',`关联规则：${text(e.behavior_ids)}`));c.append(el('p',`执行者 / 工具：${text(e.actor)} · 环境：${text(e.environment)}`));const d=el('details');d.append(el('summary','运行命令与版本指纹'),el('pre',`命令：${text(e.command)}\n结果来源：${text(e.source)}\n执行时间：${text(e.executed_at)}\n证据指纹（代码＋行为约定）：${text(e.revision)}\n当前指纹：${text(task.current_fingerprint)}`));c.append(d);});if(!(task.evidence||[]).length)card($('evidence'),'没有运行证据','尚不能根据演示或实现说明判定验收通过。');
 
 function recordCards(target,title,rows,fields){$(target).append(el('h2',title));if(!rows.length){card($(target),'尚未记录','缺失不表示已确认；交接或操作前补齐。');return;}rows.forEach(row=>{const c=el('article',undefined,'card');fields.forEach(([key,label])=>{if(row[key]!==undefined){c.append(el('h3',label),el('p',text(row[key])));}});$(target).append(c);});}
 recordCards('design','角色与责任',task.roles||[],[['role','职责'],['owner','负责人'],['responsibility','负责的决定与交付'],['accepts','接受条件']]);

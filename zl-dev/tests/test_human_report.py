@@ -68,7 +68,9 @@ class HumanReportTests(unittest.TestCase):
         elif kind.startswith('scene-'):
             name = kind.removeprefix('scene-')
             helper=(ASSETS / 'report.html').read_text().split('function evidenceOrigin(e){',1)[1].split('function card(',1)[0]
-            source='function evidenceOrigin(e){'+helper+'\n'+(ASSETS / 'views' / (name+'.js')).read_text()
+            template=(ASSETS/'report.html').read_text()
+            freshness='function renderEvidenceFreshnessDetails('+template.split('function renderEvidenceFreshnessDetails(',1)[1].split('function renderRoundChanges(',1)[0]
+            source='function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;}\nfunction evidenceOrigin(e){'+helper+'\n'+freshness+'\n'+(ASSETS / 'views' / (name+'.js')).read_text()
         elif kind == 'stage':
             source = (ASSETS / 'stages.js').read_text()
         else:
@@ -298,6 +300,13 @@ class HumanReportTests(unittest.TestCase):
                 with self.subTest(scene=scene,source=source):
                     task=dict(kind='refactor',focus_stage='review',evidence=[dict(id='E1',status='passed',summary='检查记录',verification_source=source)],workflow_summary={'focus_stage':'review'})
                     self.assertIn(label,self.run_ui(task,'scene-'+scene)['text'])
+
+    def test_scene_views_execute_freshness_explanation(self):
+        for scene in ['bugfix','incident','operations','engineering']:
+            task=dict(kind='refactor',workflow_summary={'focus_stage':'acceptance'},evidence=[dict(id='E1',status='passed',freshness_details=dict(state='stale',baseline='captured',reasons=['观察集合改变'],changed_paths=['rules.py'],changed_path_count=1,behavior_ids=['B1']))])
+            text=self.run_ui(task,'scene-'+scene)['text']
+            for value in ['这条记录为何不能直接作为当前依据','观察集合改变','rules.py','原证据关联行为']:
+                self.assertIn(value,text,(scene,value))
 
     def test_incident_uses_backend_current_counts_and_old_payload_stays_unknown(self):
         task=dict(focus_stage='acceptance',evidence=[dict(id='old',status='passed',freshness='过期或未绑定：需重新验证')],workflow_summary=dict(focus_stage='review',verification=dict(current_status_counts={'passed':0},historical_evidence_count=1)))

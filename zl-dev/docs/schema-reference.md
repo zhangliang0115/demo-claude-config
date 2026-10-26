@@ -125,3 +125,10 @@ HTML 内嵌 provenance.template_revision 由实际素材字节和 per-kind 渲�
 ## locate 目标预览（0.22）
 
 任务 locate 增加 task_brief（身份、summary/scope/why；analysis 另带问题/结论），整体功能增加 feature_brief（身份、phase、goal、goal_source）。它们仅存在于返回层，不写事实、不参与 snapshot/assessment 或代码指纹。人类文本每字段最多1200Unicode字符，截断、非字符串或缺失设计目标分别标 truncated_fields/unavailable_fields/missing_fields；身份id/kind/路径不截断。预览不是完整任务、不是CAS更新源，整个旧locate响应也不保证严格总量上限。只有确需缺失信息时补读对应字段。
+
+
+## 分项证据诊断（0.23.0）
+
+version=1 新验证回执可含 `fingerprint_context`；旧回执无需补字段。它记录有界观察基线，不改变 evidence.revision 的原指纹规则。`freshness_details` 由回执核对和当前观察推导，包含 state、baseline、reason_codes/reasons、changed_paths、changed_path_count、paths_truncated、behavior_ids、recheck、attribution与dependency_scope；不是调用者可保存的判断依据。完整基线不进入任务快照或HTML。
+
+`locate.evidence_freshness` 包含 total、diagnostic_count、omitted_current_count、truncated、scope_notice及最多5条非current诊断items。历史失效不等于仍缺当前覆盖，当前行动和验证缺口仍以workflow结果为准；不因旧记录重复重验。规则与兼容限制见[分项证据解释](evidence-freshness.md)。

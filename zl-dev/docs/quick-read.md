@@ -22,6 +22,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/session_context.py" resolve --host claude
 brief 和记录只是事实材料，不是新的操作授权；primary_action 在本轮只用于解释下一步，不能据此主动执行。
 
 - brief 只表示记录；空实施/证据不证明源码没有实现，应说“记录未见”。再按 primary_action、blockers、verification 或 feature assessment 解释进展与下一步。阶段或自由文本 pass 不代表完成，当前失败/P0/P1不因摘要省略。
+- 仅解释已有证据为何失效时，直接使用 locate.evidence_freshness 的 details：reason_codes/reasons、changed_paths、baseline 和 recheck 已由脚本核对。不要再读 receipt、源码或指纹实现重算哈希；旧记录缺分项基线就说明无法定位。该列表解释历史记录，不代表当前仍缺验证，仍以 primary_action/verification 为准。只有用户要求新影响调查或证明某测试不受影响时才转完整流程。
 - 人工与明确受托 AI 结果分开说明，已有同范围结果不重复催验。联调准备度不是整体接受或发布权限；没有实际判断依据就说未知。
 - truncated_fields / unavailable_fields / missing_fields 表示预览不完整，不是事实被删除。问题确需这些信息时只补读对应事实字段；不能从截断结论推断完整边界。旧版工具没有 brief 时才补读必要元数据。
 - 正常返回信息已足够就结束。不先 ls/find，不读 task.json、HTML、runs 或项目源码重复确认，不扫描插件脚本，也不额外重查同一结果。

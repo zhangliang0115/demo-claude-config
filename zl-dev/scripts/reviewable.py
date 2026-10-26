@@ -45,8 +45,9 @@ def semantic_contract(data):
     return contract
 
 
-def fingerprint(task_dir, task_data=None):
-    """Fingerprint HEAD + tracked and untracked nonignored contents, excluding reports."""
+def fingerprint_observation(task_dir, task_data=None):
+    """Observe the legacy fingerprint and bounded components in the same scan."""
+    from evidence_context import MAX_FILES, MAX_MANIFEST_BYTES, display_path, source_part
     task_dir = Path(task_dir).resolve()
     try:
         project = Path(task_data['project_path']).resolve() if task_data and task_data.get('project_path') else task_project(task_dir)
@@ -58,30 +59,48 @@ def fingerprint(task_dir, task_data=None):
         except subprocess.CalledProcessError:
             head = b'UNBORN'
         names = set(git(['ls-files', '-z', '--cached', '--others', '--exclude-standard'], root).split(b'\0'))
-        digest = hashlib.sha256(head)
+        digest, source_digest = hashlib.sha256(head), hashlib.sha256()
+        contract_raw = None
         task_file = task_dir / 'task.json'
         if task_file.exists():
             contract = task_data if task_data is not None else json.loads(task_file.read_text(encoding='utf-8'))
-            contract = semantic_contract(contract)
-            digest.update(json.dumps(contract, sort_keys=True, ensure_ascii=False).encode('utf-8'))
+            contract_raw = json.dumps(semantic_contract(contract), sort_keys=True, ensure_ascii=False).encode('utf-8')
+            digest.update(contract_raw)
+        files, count, used = [], 0, 2
         for raw in sorted(names):
             if not raw:
                 continue
             path = root / raw.decode('utf-8', 'surrogateescape')
-            # lexical exclusion prevents reading symlinked external content
             if path == task_dir or task_dir in path.parents:
                 continue
             digest.update(raw + b'\0')
             if path.is_symlink():
-                import os
-                digest.update(b'LINK' + os.fsencode(os.readlink(path)))
+                payload, kind = b'LINK' + os.fsencode(os.readlink(path)), 'link'
             elif path.is_file():
-                digest.update(b'FILE' + path.read_bytes())
+                payload, kind = b'FILE' + path.read_bytes(), 'file'
             else:
-                digest.update(b'MISSING')
-        return digest.hexdigest()
+                payload, kind = b'MISSING', 'missing'
+            digest.update(payload)
+            item_sha = hashlib.sha256(payload).hexdigest()
+            source_digest.update(source_part(raw, kind, item_sha))
+            count += 1
+            item = dict(path=display_path(raw), path_bytes_hex=raw.hex(), kind=kind, sha256=item_sha)
+            size = len(json.dumps(item, ensure_ascii=True).encode()) + 2
+            if len(files) < MAX_FILES and used + size <= MAX_MANIFEST_BYTES:
+                files.append(item); used += size
+        return dict(version=1, fingerprint=digest.hexdigest(), head=head.decode('ascii'),
+                    root_path=str(root), project_path=str(project),
+                    contract_sha256=hashlib.sha256(contract_raw).hexdigest() if contract_raw is not None else None,
+                    source_digest=source_digest.hexdigest(), file_count=count,
+                    files_truncated=len(files) != count, files=files)
     except (OSError, ValueError, subprocess.CalledProcessError):
         return None
+
+
+def fingerprint(task_dir, task_data=None):
+    """Keep the legacy HEAD + contract + typed source byte algorithm unchanged."""
+    value = fingerprint_observation(task_dir, task_data)
+    return value['fingerprint'] if value else None
 
 
 def validate(data):
@@ -206,7 +225,8 @@ def snapshot(task_dir):
     folder = Path(task_dir)
     raw = (folder / 'task.json').read_bytes()
     data = validate(json.loads(raw))
-    state = assessed(data, fingerprint(folder, data), folder)
+    observation = fingerprint_observation(folder, data)
+    state = assessed(data, observation['fingerprint'] if observation else None, folder, observation)
     state['task_revision'] = task_revision(raw)
     state['assessment_revision'] = assessment_revision(state)
     state['provenance'] = dict(version=1, task_id=data['id'], project_path=data.get('project_path'),
@@ -257,8 +277,16 @@ def locate(task_dir):
     folder = Path(task_dir)
     state = snapshot(folder)
     report = report_state(folder, state)
+    evidence = state.get('evidence', [])
+    priority = {'invalid_receipt': 0, 'stale': 1, 'unknown': 2, 'unbound': 3}
+    diagnostics = sorted((e for e in evidence if e['freshness_details']['state'] != 'current'),
+                         key=lambda e: priority.get(e['freshness_details']['state'], 4))
     return dict(task_dir=str(folder), title=state['title'], report=report['path'], report_state=report,
                 task_brief=task_brief(state),
+                evidence_freshness=dict(total=len(evidence), diagnostic_count=len(diagnostics),
+                    omitted_current_count=len(evidence)-len(diagnostics), truncated=len(diagnostics) > 5,
+                    scope_notice='此列表解释历史证据原因，不等于当前验证缺口；已有有效覆盖不因旧记录单独重跑。',
+                    items=[dict(id=e.get('id'), freshness=e.get('freshness'), details=e['freshness_details']) for e in diagnostics[:5]]),
                 task_revision=state['task_revision'], assessment_revision=state['assessment_revision'], fingerprint=state['current_fingerprint'],
                 handoff=handoff_state(folder, state['task_revision'], state['current_fingerprint'], state),
                 **state['workflow_summary'])
@@ -339,16 +367,20 @@ def update_task(task_dir, source, project, expected_revision, expected_fingerpri
     return dict(task_dir=str(folder), task_revision=task_revision(payload), updated=True)
 
 
-def assessed(data, current, task_dir=None):
+def assessed(data, current, task_dir=None, current_context=None):
     result = json.loads(json.dumps(data))
     for field in ('provenance', 'task_revision', 'assessment_revision'):
         result.pop(field, None)
     for e in result.get('evidence', []):
         e.pop('parsed_result', None)
         e.pop('verification_source', None)
+        e.pop('freshness_details', None)
         from verification import inspect_receipt
-        source = inspect_receipt(task_dir, data, e) if task_dir else dict(verification_source='invalid' if 'verification_receipt' in e else 'claim')
+        source = inspect_receipt(task_dir, data, e, current_context=current_context, current_fingerprint=current) if task_dir else dict(verification_source='invalid' if 'verification_receipt' in e else 'claim')
         e.update(source)
+        if 'freshness_details' not in source:
+            from evidence_context import explain
+            e['freshness_details'] = explain(e, current, current_context, source=source)
         if source['verification_source'] == 'invalid':
             e['claimed_status'] = e['status']
             e['status'] = 'not_run'

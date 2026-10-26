@@ -120,7 +120,10 @@ def execute(task_dir, project, fmt, behaviors, argv, result_file=None, timeout=1
     run_id = 'verify-' + uuid.uuid4().hex
     run = folder/'runs'/run_id
     run.mkdir(parents=True)
-    receipt = dict(version=1, run_id=run_id, task_id=task['id'], task_dir=str(folder), project_path=str(project), behavior_ids=list(dict.fromkeys(behaviors)), argv=argv, cwd=str(project), started_at=utc(), task_revision_before=api.task_revision(raw), fingerprint_before=api.fingerprint(folder), format=fmt, disclaimer=DISCLAIMER)
+    before_observation = api.fingerprint_observation(folder, task)
+    receipt = dict(version=1, run_id=run_id, task_id=task['id'], task_dir=str(folder), project_path=str(project), behavior_ids=list(dict.fromkeys(behaviors)), argv=argv, cwd=str(project), started_at=utc(), task_revision_before=api.task_revision(raw), fingerprint_before=before_observation['fingerprint'] if before_observation else None, format=fmt, disclaimer=DISCLAIMER)
+    if before_observation is not None:
+        receipt['fingerprint_context'] = before_observation
     stdout, stderr = run/'stdout.log', run/'stderr.log'
     timed_out, code, execution_error = False, None, ''
     proc = None
@@ -153,7 +156,8 @@ def execute(task_dir, project, fmt, behaviors, argv, result_file=None, timeout=1
         after_revision=api.task_revision((folder/'task.json').read_bytes())
     except OSError:
         after_revision=None
-    receipt.update(finished_at=utc(), exit_code=code, timed_out=timed_out, execution_error=execution_error, fingerprint_after=api.fingerprint(folder), task_revision_after=after_revision)
+    after_observation = api.fingerprint_observation(folder)
+    receipt.update(finished_at=utc(), exit_code=code, timed_out=timed_out, execution_error=execution_error, fingerprint_after=after_observation['fingerprint'] if after_observation else None, task_revision_after=after_revision)
     logs={}
     for name in ('stdout','stderr'):
         path=run/(name+'.log')
@@ -203,7 +207,7 @@ def execute(task_dir, project, fmt, behaviors, argv, result_file=None, timeout=1
         error='运行期间代码、验收约定或任务记录变化；只保留回执，未更新任务'
     return dict(receipt=str(receipt_path),parsed_result=parsed,version_stable=stable,evidence_appended=appended,error=error,disclaimer=DISCLAIMER), 0 if stable and appended and status=='passed' else 1
 
-def inspect_receipt(task_dir, task, evidence):
+def inspect_receipt(task_dir, task, evidence, current_context=None, current_fingerprint=None):
     ref=evidence.get('verification_receipt')
     if 'verification_receipt' not in evidence:
         return dict(verification_source='claim')
@@ -269,6 +273,9 @@ def inspect_receipt(task_dir, task, evidence):
         parsed=parse_result(receipt['format'],result,receipt['exit_code'])
         if parsed!=receipt.get('parsed_result') or parsed['status']!=evidence.get('status'):
             raise ValueError('解析结果与回执/证据声明不符')
-        return dict(verification_source='parsed_result',parsed_result=parsed)
+        from evidence_context import explain
+        source = dict(verification_source='parsed_result', parsed_result=parsed)
+        source['freshness_details'] = explain(evidence, current_fingerprint, current_context, receipt.get('fingerprint_context'), source)
+        return source
     except (OSError,ValueError,KeyError,TypeError,ET.ParseError) as exc:
         return dict(verification_source='invalid',verification_error=str(exc))

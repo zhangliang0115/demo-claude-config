@@ -16,7 +16,7 @@ function renderEngineeringView(parent, task, ui) {
   }
   function evidence(title) {
     const section = box(title, '未运行、模拟、过期与真实执行结果应按原状态判断。');
-    (task.evidence || []).forEach(e => card(section, text(e.id) + ' · ' + text(e.status)+' · '+text(e.freshness), origin(e) + '\n' + text(e.summary) + '\n命令：' + text(e.command) + '\n版本：' + text(e.revision)));
+    (task.evidence || []).forEach(e => { const row=card(section, text(e.id) + ' · ' + text(e.status)+' · '+text(e.freshness), origin(e) + '\n' + text(e.summary) + '\n命令：' + text(e.command) + '\n版本：' + text(e.revision)); if(typeof renderEvidenceFreshnessDetails==='function')renderEvidenceFreshnessDetails(row,e); });
     rows('testing').forEach(t => card(section, text(t.case), '模式：' + text(t.mode) + '\n环境：' + text(t.environment) + '\n预期：' + text(t.expected) + '\n实际：' + text(t.actual) + '\n来源：' + text(t.source)));
     if (!(task.evidence || []).length && !rows('testing').length) section.append(el('p', '未记录执行证据，无法判断结果。'));
   }

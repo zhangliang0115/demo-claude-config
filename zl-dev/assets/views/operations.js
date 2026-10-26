@@ -25,6 +25,7 @@ function renderOperationsView(parent, task, ui) {
   });
   (task.evidence || []).forEach(e => {
     results.append(el('p', text(e.id) + ' · ' + text(e.status) + ' · ' + text(e.freshness)), el('p', text(e.summary)), el('p', origin(e), 'evidence-origin'), el('p', '来源：' + text(e.source)));
+      if(typeof renderEvidenceFreshnessDetails==='function')renderEvidenceFreshnessDetails(results,e);
   });
   if (!operations.length && !(task.evidence || []).length) results.append(el('p', '没有执行或恢复证据。'));
   if (['testing', 'acceptance'].includes(focus)) {

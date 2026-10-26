@@ -51,6 +51,7 @@ function renderBugfixView(parent, task, ui) {
   proof.append(el('h2', '实际证据'));
   (task.evidence || []).forEach(item => {
     proof.append(el('h3', text(item.id) + ' · ' + text(item.status)), el('p', text(item.summary)), el('p', origin(item), 'evidence-origin'), el('p', '来源：' + text(item.source)), el('p', '有效性：' + text(item.freshness)));
+      if(typeof renderEvidenceFreshnessDetails==='function')renderEvidenceFreshnessDetails(proof,item);
   });
   if (!(task.evidence || []).length) proof.append(el('p', '尚无运行证据，根因与修复效果均待验证。'));
   causes.append(hypothesis, proof); parent.append(causes);
