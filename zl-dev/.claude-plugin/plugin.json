@@ -13,5 +13,6 @@
     "verification",
     "operations",
     "html"
-  ]
+  ],
+  "license": "MIT"
 }
