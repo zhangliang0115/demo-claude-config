@@ -42,6 +42,7 @@ class CostRunnerTests(unittest.TestCase):
         return output,cases,plugin
 
     def test_prepare_uses_pinned_archives_and_six_independent_sessions_without_model(self):
+        if os.name == 'nt':self.skipTest('固定回放的 0.16.0/0.20.0 插件没有 Windows 写锁，按设计拒绝写入')
         missing=[c for c in runner.VARIANTS.values() if subprocess.run(['git','cat-file','-e',c+'^{commit}'],cwd=runner.REPOSITORY,capture_output=True).returncode]
         if missing:self.skipTest('固定回放提交不在当前克隆中（浅克隆或非 Git 副本）：'+', '.join(missing))
         result=runner.prepare(self.root/'actual')
@@ -117,7 +118,8 @@ class CostRunnerTests(unittest.TestCase):
             with self.assertRaises(ValueError):runner.run(output,6)
             launch.assert_not_called()
         self.assertEqual(raw,(Path(cases[0]['folder'])/'events.jsonl').read_bytes())
-        self.assertEqual((Path(cases[0]['folder'])/'events.jsonl').stat().st_mode & 0o777,0o600)
+        if os.name != 'nt':  # Windows 没有 POSIX 权限位
+            self.assertEqual((Path(cases[0]['folder'])/'events.jsonl').stat().st_mode & 0o777,0o600)
 
     def test_partial_and_malformed_events_are_preserved_as_missing_result(self):
         path=self.root/'events.jsonl';path.write_text('{"type":"assistant"}\nnot-json\n', encoding='utf-8')
