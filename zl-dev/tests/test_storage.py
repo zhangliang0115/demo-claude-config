@@ -88,6 +88,16 @@ class StorageTests(unittest.TestCase):
         return {str(p.relative_to(self.root)): (p.read_bytes(), p.stat().st_mtime_ns) if p.is_file() else None
                 for p in self.root.rglob('*')}
 
+    def test_empty_task_dir_argument_fails_instead_of_listing_candidates(self):
+        self.task()
+        before = self.tree()
+        for command in ('locate', 'status', 'handoff', 'render'):
+            with self.subTest(command=command):
+                code, out = self.cli(command, '', '--project', str(self.repo))
+                self.assertEqual(code, 1)
+                self.assertNotIn('choose_or_start', out)
+        self.assertEqual(self.tree(), before)
+
     def test_locate_and_status_never_write_or_render(self):
         folder, data = self.task()
         for report_exists in (False, True):

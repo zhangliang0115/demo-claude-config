@@ -1,29 +1,4 @@
-# ZL Dev · go 完整设计与技术方案
-
-> 更新说明：0.22.0 将已有记录查询分到 [短查询规则](quick-read.md)，实际推进仍走完整入口；原文附录继续保留历史版本。
-
-> 更新说明：0.20.0 新增同版报告复用与独立模板时效，见 [报告复用](report-reuse.md)；下文历史源码仍保留原行为。
-
-> 更新说明：0.19.1 统一共用提示词与最小加载路径，见 [入口工作流](entry-workflow.md)；下文历史附录不作为当前执行指令。
-
-> 更新说明：0.19.0 增加本机 checkout 观察和协作活动登记，见 [执行上下文](execution-context.md)；不改任务路径、不自动隔离代码，下文仍为历史快照。
-
-> 更新说明：0.18.0 新增独立只读分析分支，当前文件加载、记录结构及结束条件见 [分析流程](analysis-workflow.md)；下文源码附录仍为历史快照。
-
-> 更新说明：0.17.1 已增加 task/feature 报告发布核对和并发保护，当前协议见 [报告发布](report-publishing.md)；下文仍为 0.16.0 历史快照。
-
-> 更新说明：0.17.0 新增会话焦点关联，当前定位协议见 [会话关联](session-context.md)。下文仍保留 0.16.0 原始设计快照。
-
-> 更新说明：0.16.1 已将报告改为按需生成，go 使用 `init/continue --no-render`；下文及原文附录保留 0.16.0 设计快照，不应作为当前报告生成指令。当前规则见 [入口工作流](entry-workflow.md)。
-
-本文描述源码 0.16.0（基线提交 a329f16）的实际设计。日期：2026-10-25。范围包括入口、分支、提示词加载、内部执行、事实数据、状态派生、报告和反馈闭环。它是源码审计说明，不是某次 Agent 会话的执行日志，也不表示所有设计意图已由程序强制执行。
-
-## 1. 总体结构：三层协作，一份事实记录
-
-插件由提示词编排层、Python 工具层、离线呈现层组成。Claude Code 提供模型、会话和工具执行环境；插件没有另外启动一个常驻调度服务。
-
-```text
-用户 /zl-dev:go <输入>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZL Dev · go 完整设计与技术方案</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:28px}body{margin:0;background:#f4f5f7;color:#273244;font:14px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}aside{position:fixed;left:0;top:0;width:246px;height:100vh;background:#162538;color:#cad5e3;padding:24px 18px;overflow:auto}aside .brand{font-size:19px;font-weight:750;color:#fff}aside .sub{font-size:12px;color:#8fa5bf;margin:8px 0 20px}aside a{display:block;font-size:12px;color:#c7d3e1;text-decoration:none;padding:6px 9px;border-radius:5px;line-height:1.55}aside a:hover,aside a:focus{background:#2a405a;color:#fff}main{margin-left:246px;max-width:1320px;padding:28px 42px 64px}header{background:#fff;border:1px solid #dbe1e8;border-top:4px solid #2e6e9f;border-radius:8px;padding:24px 28px;margin-bottom:24px}.eyebrow{color:#44799c;font-size:12px;font-weight:750;letter-spacing:1px}h1{font-size:28px;line-height:1.35;margin:8px 0 12px;color:#122a41}header p{margin:8px 0}.meta{font-size:12px;color:#65768a}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.chip{font-size:12px;padding:3px 10px;border:1px solid #d7e1eb;border-radius:5px;background:#f1f6fa;color:#365e7d}.warn{background:#fff5e9;border:1px solid #efd8b8;border-radius:6px;padding:12px 16px;color:#775421;margin:18px 0}article{background:#fff;padding:12px 28px 28px;border:1px solid #dbe1e8;border-radius:8px}h2{font-size:20px;color:#1d4666;margin:34px 0 13px;padding-top:7px;border-top:1px solid #e1e6ec}p{margin:11px 0}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;background:#edf2f7;border-radius:3px;padding:1px 4px}pre{margin:12px 0;padding:16px 18px;background:#f0f4f8;border:1px solid #dce4ed;border-radius:6px;overflow:auto;line-height:1.6;font-size:12px;tab-size:2}pre code{background:none;padding:0}.flow{border-left:3px solid #4d88b1}table{width:100%;border-collapse:collapse;font-size:12px;line-height:1.65;min-width:700px}th,td{text-align:left;vertical-align:top;padding:10px 12px;border:1px solid #dfe6ee;overflow-wrap:anywhere}th{background:#eef4f8;color:#234b6b;font-weight:700}tbody tr:nth-child(even){background:#fafcfe}.table-wrap{overflow:auto;margin:13px 0 22px}ol,ul{padding-left:24px}li{margin:6px 0}a{color:#286898}.sources{margin-top:22px}.source{background:#fff;border:1px solid #dce3eb;border-radius:6px;margin:9px 0}.source summary{cursor:pointer;padding:12px 15px;font-size:13px;font-weight:600}.source summary span{color:#66839a;margin-right:10px}.source small{float:right;color:#7b8998;font-weight:400}.source pre{margin:8px 14px 14px;max-height:620px;white-space:pre-wrap;word-break:break-word}.source-meta{padding:0 15px;font-size:11px;overflow-wrap:anywhere;color:#718295}.toolbar{display:flex;gap:9px;margin:14px 0;align-items:center}.toolbar input{flex:1;padding:10px 12px;border:1px solid #b8c9d8;border-radius:5px;font:inherit}.toolbar button{background:#fff;padding:9px 12px;border:1px solid #b8c9d8;border-radius:5px;color:#244e6e;cursor:pointer}.count{font-size:12px;color:#65798a}.map{display:flex;gap:8px;align-items:stretch;margin:18px 0}.map a{flex:1;text-decoration:none;border:1px solid #cbdae6;border-radius:6px;padding:11px 12px;background:#f5f9fc;line-height:1.5;font-size:12px}.map b{display:block;font-size:14px;margin-bottom:5px}.map a:last-child{border-color:#e5c69e;background:#fff8ef}footer{font-size:12px;color:#718297;margin-top:24px}@media print{aside,.toolbar{display:none}main{margin:0;padding:0}article{border:0}details:not([open]){display:none}}</style></head><body><aside style="padding:12px 20px;background:#e6f2f5;color:#234556">0.22.0：已有记录查询使用<a href="quick-read.md">短查询路径</a>；实质工作保留完整流程，本页附录仍为历史源码。</aside><aside style="padding:12px 20px;background:#e6f2f5;color:#234556">0.20.0：新增同版报告复用与模板过期识别，<a href="report-reuse.md">查看当前规则</a>；历史源码附录保持原版本。</aside><aside style="padding:12px 20px;background:#e6f2f5;color:#234556">0.19.1：当前提示词与最小加载路径已统一，<a href="entry-workflow.md">查看当前入口协议</a>；本页源码附录保留历史版本。</aside><aside style="padding:12px 20px;background:#e6f2f5;color:#234556">0.19.0：新增 checkout 观察和协作活动登记，<a href="execution-context.md">查看当前执行协议</a>；不自动隔离或迁移任务。本页附录仍为历史快照。</aside><aside style="padding:12px 20px;background:#fff4d6;color:#574312">0.18.0：新增独立只读业务逻辑 / 数据链路分析。<a href="analysis-workflow.md">查看当前分析流程</a>；本页源码附录仍是历史快照。</aside><aside><div class="brand">ZL DEV / GO</div><div class="sub">设计与技术方案 · 源码现状<br>0.16.0 / a329f16</div><a href="#s1">1. 总体结构：三层协作，一份事实记录</a><a href="#s2">2. 插件组成与职责</a><a href="#s3">3. go 入口的完整契约</a><a href="#s4">4. 第一层分支：定位与交互意图</a><a href="#s5">5. 第二层分支：事项类型与提示词组合</a><a href="#s6">6. 十二份内部动作文件分别说什么</a><a href="#s7">7. 按需共享资料与审查代理</a><a href="#s8">8. 数据模型：谁写事实，谁算结论</a><a href="#s9">9. 工具执行链与写入边界</a><a href="#s10">10. 当前行动的完整条件分支</a><a href="#s11">11. 跨项目子流程</a><a href="#s12">12. 报告如何选模板及完成反馈闭环</a><a href="#s13">13. 文件产物与结束条件</a><a href="#s14">14. 贯穿例子：同一输入如何沿分支落盘</a><a href="#s15">15. 源码审计发现与当前缺口</a><a href="#s16">16. 官方宿主机制参考与源码原文</a><a href="#sources">附录 · 26 份完整原文</a></aside><main><header><div class="warn">更新说明：0.17.1 已为 task/feature 报告增加发布时核对和晚写保护；当前协议见 report-publishing.md。下文仍为 0.16.0 历史快照。</div><div class="warn">更新说明：0.17.0 已加入会话焦点关联，当前定位协议见 session-context.md。下文仍保留 0.16.0 原始设计快照，不代表当前完整能力。</div><div class="warn">更新说明：0.16.1 已解除 go 的强制报告生成，创建/恢复使用 --no-render。此页及原文附录保留 0.16.0 设计快照，当前报告策略以入口工作流为准。</div><div class="eyebrow">PLUGIN ARCHITECTURE · SOURCE AUDIT</div><h1>go 完整设计与技术方案</h1><p>从一次输入开始，看它如何选分支、加载哪些文件、要求 Agent 做什么，以及如何形成最终记录和报告。</p><p class="meta">源码基线 0.16.0 · a329f16 · 生成时间 2026-10-25 16:21:00（Asia/Shanghai）</p><div class="chips"><span class="chip">12 份内部动作</span><span class="chip">9 种事项 × 9 个展示阶段</span><span class="chip">13 个当前行动优先分支</span><span class="chip">完整提示词原文可展开</span></div><div class="map"><a href="#s3"><b>① 入口指令</b>参数、范围、通用约束</a><a href="#s5"><b>② 事项分支</b>加载条件与典型流程</a><a href="#s9"><b>③ 执行与记录</b>工具、状态与证据</a><a href="#s12"><b>④ 最终产物</b>报告、反馈与接手</a><a href="#s15"><b>⑤ 真实缺口</b>现状冲突和未实现项</a></div><div class="warn">阅读重点：Agent 的提示词路由、Python 的状态派生、HTML 的展示分支是三种不同机制。本文没有把提示词约定伪装成确定性执行器，也没有在说明过程中改动插件行为。</div></header><article><p>本文描述源码 0.16.0（基线提交 a329f16）的实际设计。日期：2026-10-25。范围包括入口、分支、提示词加载、内部执行、事实数据、状态派生、报告和反馈闭环。它是源码审计说明，不是某次 Agent 会话的执行日志，也不表示所有设计意图已由程序强制执行。</p><h2 id="s1">1. 总体结构：三层协作，一份事实记录</h2><p>插件由提示词编排层、Python 工具层、离线呈现层组成。Claude Code 提供模型、会话和工具执行环境；插件没有另外启动一个常驻调度服务。</p><pre class="flow"><code>用户 /zl-dev:go &lt;输入&gt;
   ↓ Claude Code 加载技能，带入参数
 skills/go/SKILL.md
   ↓ 指示 Agent 读取
@@ -37,295 +12,30 @@ task.json / feature.json / runs/*
   ↓ 固定渲染器
 report.html / feature.html / 按需 HANDOFF.md
   ↓ 人阅读、判断，必要时填写并复制反馈
-用户将反馈发回会话 → Agent 核对版本 → 更新事实 → 再生成
-```
-
-必须区分两个路由：提示词中的事项路由决定 Agent 读什么、做什么；workflow.py 的条件分支决定记录目前说明什么、下一步提示谁做什么。后者不自动运行前者。
-
-## 2. 插件组成与职责
-
-| 层 | 主要文件 | 职责 | 不负责什么 |
-| --- | --- | --- | --- |
-| 注册 | .claude-plugin/plugin.json；仓库 marketplace.json | 插件名称、版本、安装位置 | 不定义业务流程分支 |
-| 用户入口 | skills/go/SKILL.md；skills/status/SKILL.md | go 推进，status 只读查询 | 不直接完成业务工作 |
-| 编排约定 | docs/entry-workflow.md | 定位任务、按需读取、保存和反馈规则 | 不是可执行的工作流 DSL |
-| 动作提示词 | docs/internal-actions/ 下 12 份 Markdown | 某类动作的执行要求 | 不是 12 个用户命令，也不自动各启动一个 Agent |
-| 审查角色 | agents/reviewer.md | 可用时的独立只读审查 | 不会因文件存在就自动触发 |
-| 事实与工具 | scripts/*.py | 存储、校验、测试回执、派生状态、生成文件 | 不理解业务、不替人决定需求 |
-| 模板与视图 | templates/*.json；assets/* | 固定数据结构与展示 | 不执行业务接口、发布或生产操作 |
-
-## 3. go 入口的完整契约
-
-入口 frontmatter：name=go，user-invocable=true，disable-model-invocation=true。当前没有 context: fork、model 或 allowed-tools 配置；它未声明专用模型、独立执行上下文或技能级工具预授权。
-
-用户输入通过 `$ARGUMENTS` 放入正文。`${CLAUDE_PLUGIN_ROOT}` 用于定位插件资料和脚本，不是业务项目路径。插件命名空间形成 `/zl-dev:go`。宿主层语义参考文末官方文档；本插件没有自行实现参数展开机制。
-
-入口六项要求如下，完整原文在附录可展开：
-
-1. 定位业务项目；判断新任务还是同目标续作；不能因为只有一个历史任务就接入新需求。无参数或“继续”使用 continue 定位；多个候选由用户选标题。
-2. 探索、按需计划、实施和验证；先读项目约定与必要源码；用具体输入/操作/输出解释理解；关键未知集中提问，其余已授权工作继续。
-3. 多项目先调查和整体设计，再分配；共同规则变化先更新整体方案和子任务绑定，再运行 preflight。
-4. 只读本轮需要的内部动作；缺陷先复现；生产默认只读；生产写操作需要具体授权、范围、停止及恢复条件。
-5. 验证依据提前确定；优先支持的 unittest/JUnit 回执；独立审查或明确自审；失败先处理；区分检查、接受和行动授权。
-6. locate 获取记录版本 → 临时完整 JSON → update 比较后保存 → render。固定当前阶段模板，最终返回真实报告、验证结果和一条具体下一步；未保存不得称完成。
-
-这些是 Agent 要遵循的指令，不是每项都存在工具层强制拦截。用户明确只分析、先设计或禁止修改时，本轮工作必须受该范围约束；通用“实现/验证”字样不应扩大授权。
-
-## 4. 第一层分支：定位与交互意图
-
-| 输入情形 | Agent 选择 | 工具及产物 |
-| --- | --- | --- |
-| 新目标 | 先检查项目与相关历史，再新建对应任务 | init 创建 task.json 骨架并生成初版报告 |
-| 明确延续同一目标 | 读原记录与源码，合并新要求 | locate → update → render |
-| 空输入或继续 | 恢复已有任务；0/多个返回候选 | continue 计算快照并重生成报告；本命令本身不开发 |
-| 页面反馈 | 核对任务、代码/行为版本、记录版本、评估版本 | 按原意记录决定或结果，旧页只重新核对受影响项 |
-| 换人或换工具 | 导出或接收上下文，核对差异并复述 | handoff.md / intake.md；HANDOFF.md 与 handoffs |
-| 只查看状态 | 应使用 status 技能 | locate/status，只返回摘要与已有链接，不生成报告 |
-| 只分析业务或数据链路 | 当前没有独立分支与专用 schema | 只能由 Agent 遵从用户范围复用现有材料，不能声称已规范支持 |
-
-## 5. 第二层分支：事项类型与提示词组合
-
-下表是依据入口路由表和动作正文还原的典型组合。箭头表示工作依赖与可能的读取顺序，不表示代码自动调度，也不要求小任务完整走一遍。只有本轮确需相应动作时才加载。
-
-| 事项 / kind | 典型流程与加载 | 特别要求 | 当前最终产物 |
-| --- | --- | --- | --- |
-| 新功能 feature | start → spec；有设计取舍读 design/plan；授权后 build → review → verify | 主路径、异常、权限、关键未知 | 业务代码、行为/方案/证据记录、当前阶段 report.html |
-| 业务调整 change | spec → design/plan（按需）→ build → review → verify | 前后规则、生效范围、历史数据与在途流程 | 规则差异、代码与回归证据、report.html |
-| 缺陷 bugfix | start/spec 记录症状与预期 → 先复现 → build → review → verify | 复现、根因假设与证据、修复机制、回归；没有独立 reproduce.md | 修复与证据、缺陷专用 report.html |
-| 重构 refactor | spec 明确不变量 → plan → build → review → verify | 保持外部行为，不混无关改变 | 不变量、结构切片、回归、工程视图 |
-| 性能 performance | 明确同条件基线/目标 → design/plan → build → verify/review | 必须实际测量，不用示意提升率代替结果 | 测量、瓶颈、代价与正确性证据 |
-| 迁移 migration | spec 转换与边界 → design/plan 预演/核对/恢复 → build → verify | 数据恢复与代码回滚分开，操作受授权限制 | 转换/预演/核对记录及恢复依据 |
-| 升级 upgrade | spec 兼容性 → design/plan 试点/模块顺序 → build → verify/review | 对比新旧行为，记录回退条件 | 兼容矩阵、实施与验证、工程视图 |
-| 生产事件 incident | incident → team-workflow 事件协议；需修复再读 build/review/verify | 默认只读、影响/时间线/可证伪假设、止损/恢复 | 事件与操作记录、恢复证据、事件报告 |
-| 日常运维 operations | ops → team-workflow 运维协议；按需 verify | 环境/授权/步骤/指标/停止/恢复，区分建议与已执行 | 运维卡与实际结果、运维报告 |
-| 一个功能跨项目 | cross-project.md；start 引导 feature 流程，可读取 feature.md | 识别能力 → 整体设计 → 共同契约 → 分项目切片 → 联调 | feature.json/feature.html ＋ 每个项目 task.json/report.html |
-
-跨项目是组织方式，不是第十个 kind。验收、发布、交接也是活动维度，不是九种事项的替代枚举。
-
-## 6. 十二份内部动作文件分别说什么
-
-每份文件都注明“内部按需读取，不注册用户命令”，并接受当前 go 输入。多数重复声明用户目录存储、固定 schema、render 及返回报告。design/incident/intake/ops 会额外明确读取团队协议和字段参考；真正内容如下。
-
-| 文件 | 输入与读取重点 | 核心执行要求 | 主要记录 / 结束产物 |
-| --- | --- | --- | --- |
-| start.md | 用户目标、项目约定、当前任务 | 识别类型/风险，填写现状、范围、场景、未知；低风险明确事项可继续；跨项目先整体设计 | summary/why/scope、scenarios、decisions；首版报告和下一步 |
-| spec.md | 相关实现和测试 | 当前行为与目标行为分开；规则/场景稳定 ID；正常/异常/边界；权限、历史、重复和并发影响 | behaviors/scenarios、requirements 条目；未确认规则保留待决 |
-| design.md | 原需求、源码；team-workflow/schema | 事实与假设、候选方案和取舍、具体场景；关键业务假设需确认；模拟不等于实现 | roles/assumptions/design、solution 条目；方案报告 |
-| plan.md | 行为约定和授权范围 | 拆可解释验证的小切片，写模块/风险/验证，不默认引新架构依赖，只问重大或未授权取舍 | solution/实施计划记录；当前报告；没有独立 plan.json |
-| build.md | 已确认规则、当前切片、项目风格 | 范围内改代码；关键未知不设默认；同步实际改动与偏差，旧证据过期须重验 | 业务源码、implementation、changes、证据与报告 |
-| review.md | 规则、代码差异、异常/权限/并发/兼容与测试 | 独立 reviewer 可用则使用，否则标自审；发现需位置、条件、影响、复现；怀疑与确认分开 | review items、风险/待决、复查引用；报告 |
-| verify.md | 行为、结构化预期、环境和起始数据 | 执行真实检查；支持时用内部执行器；绑定实际覆盖；失败/跳过/版本变化不当通过；区分AI检查和受托接受 | runs、evidence、testing、acceptance 实际观察；之后另行 render |
-| handoff.md | 当前目标、范围、代码/契约/环境及记录 | 核对资料与实际差异，区分历史和当前；写交出/接收/未决；导出包，不只给聊天摘要 | roles/handoffs；HANDOFF.md、task.json、报告和证据 |
-| intake.md | HANDOFF.md、task.json、项目约定 | 核对版本，接收者复述范围/疑问/第一步；未明确确认不得记 accepted | handoffs.readback/open_questions/status、handoff 阶段报告 |
-| incident.md | 生产现场、团队事件协议 | 创建事件任务，影响/时间线/事实/假设/负责人，默认只读；恢复需用户路径或指标 | incident task、operations/timeline、事件报告 |
-| ops.md | 环境目标和团队运维协议 | 操作卡、授权、指标、停止、恢复；分计划/执行/验证；无授权不生产写 | operations task/操作卡、运维报告 |
-| feature.md | 候选项目、cross-project/entry | 先检查各项目真实能力，完整设计，再分配与依赖；变更回总方案；汇总、联调 | feature design/contracts/allocations、各子任务和整体报告 |
-
-验收没有 acceptance.md；发布没有 release.md；性能、迁移、升级也没有各自独立动作文件。它们使用通用动作、团队协议和专用展示。分析场景更缺少独立数据结构和完成条件，不能只加一个名称就认为已有流程。
-
-## 7. 按需共享资料与审查代理
-
-| 文件 | 谁在什么情况下读取 | 内容与约束 |
-| --- | --- | --- |
-| entry-workflow.md | go 第一层必读 | 定位、按需路由、事实最小集、反馈、版本与安全保存、受托验收 |
-| team-workflow.md | 设计、交接、事件、运维等需要角色和协作边界时 | 人与AI职责、渐进澄清、交接、E2E、生产与运维 |
-| collaboration-model.md | 协作边界设计说明，非 go 明确必读文件 | 执行/接受/授权分开；部分原则仍未完整运行时实现 |
-| schema-reference.md | 需要组织/更新数据时；部分动作显式要求 | task 字段、CLI、证据与版本、受托验收对象 |
-| stage-templates.md | 需要填 stage_details 时 | 九阶段字段及交互；部分旧人工验收措辞未同步 |
-| scenario-layouts.md | 需要事项专用展示时 | kind 与 focus 的页面组织原则、连续文档和补充材料 |
-| cross-project.md | 识别到同一功能涉及多个项目时 | 先整体设计再分配；版本、依赖、子任务、汇总与联调 |
-| workflow.md | reviewer.md 显式要求读取的旧工作协议 | 多轮历史规则堆叠，存在窄屏、强制加载和旧栏目措辞 |
-| agents/reviewer.md | Agent 具备独立代理能力且调用审查角色时 | 只读，不改规则、不批准；从需求/实际差异开始；提供可复现发现、范围与盲区 |
-
-加载这些文档依赖 Agent 的实际读文件操作；正文写了“读取”不代表宿主已经自动把所有内容加载。文件按需读取也不是隔离上下文：主会话已读材料可能继续影响后续行为。
-
-## 8. 数据模型：谁写事实，谁算结论
-
-task.json 是单项目任务事实来源；Agent 写业务语义，脚本检查结构并派生评估。不是每个字段都必填内容，也不要求人编辑 JSON。
-
-| 字段组 | 内容 | 来源 |
-| --- | --- | --- |
-| id/title/project_path/kind | 任务身份、绑定项目、事项类型 | init/Agent，update 禁止改任务身份与项目绑定 |
-| why/summary/scope、behaviors/scenarios | 目标、范围、可观察行为和例子 | Agent根据用户与源码维护，模拟需标记 |
-| roles/assumptions/design/decisions | 职责、假设、方案与业务决定 | 事实/推断/明确确认分开 |
-| implementation/changes/risks/rollback | 实际改动、变化、风险、恢复 | 来自实际工作，不能以计划代替实现 |
-| evidence、runs/* | 行为关联、检查状态、命令、来源、版本、原始回执 | 显式执行器或如实标注的模型记录 |
-| stage_details | 九个阶段各自 purpose/owner/summary/decision/exit_criteria/items | 固定字段，item.status 不等于批准 |
-| acceptance_setup、验收/发布 items | 环境/步骤/预期及实际观察/执行者/结果版本 | 预期与观察分开，页面草稿不会直接写入 |
-| workflow_summary、provenance、stage_catalog | 当前行动、阻塞、可见内容、版本来源、模板目录 | 读取/渲染时派生，不由Agent手填完成度 |
-
-九个 focus_stage：requirements、solution、implementation、review、testing、acceptance、release、operations、handoff。与九种 kind 可组合，但并不保证每个组合都有完整独立设计。
-
-三类版本：task_revision 是 JSON 精确字节哈希；current_fingerprint 是实际 Git 工作区与 semantic_contract 所选字段的指纹；assessment_revision 是不含生成时间等易变项的确定性评估哈希。反馈与快照同时核对三者，避免“代码没变就把旧业务判断当新批准”。
-
-指纹排除展示摘要、观察、测试/审查结果等；包含项目绑定、范围、行为、场景、acceptance_setup、关键需求/方案字段和验收预期，非空发布核验契约也参与。以 semantic_contract 实际选择为准；它不覆盖外部系统和 Git 忽略文件，也不证明测试真实发生。
-
-## 9. 工具执行链与写入边界
-
-| CLI / 模块 | 实际执行 | 写入与结果 |
-| --- | --- | --- |
-| init | 按 slug 和项目路径定位，创建九阶段骨架，首次 render | 新 task.json 和 report.html；不会覆盖既有 task.json |
-| locate / status | load → validate → fingerprint → assessed → summarize，核对报告和交接包 | 只读 JSON；不会开发、补建报告或修复文件 |
-| continue | 定位已有任务 → snapshot → render → 返回当前行动 | 更新报告，不执行需求分析或开发；后续由Agent推进 |
-| update | 校验项目绑定、schema、记录 revision；保留原证据绑定约束 | fcntl 锁＋比较后原子替换 task.json；不 render |
-| verify | 接收显式 argv，在绑定项目 cwd 用 shell=False 执行 | runs 下日志/回执；版本稳定且符合条件才 CAS 追加证据；不 render |
-| render | snapshot → 回执检查/状态派生 → 固定 HTML 模板替换 | 原子生成离线 report.html，不执行测试或业务请求 |
-| handoff | snapshot＋报告时效 → 更新生成标记区域 | HANDOFF.md；保留人工区，旧格式先唯一备份 |
-| index | 遍历任务并重新渲染，汇总链接 | index.html，且可能刷新多个 report；不是只读定位 |
-| storage.py | 真实路径规范化＋路径SHA256前12位区分同名项目 | ~/.claude/zl-dev/projects/ 下 tasks/features；不自动搬迁旧记录 |
-| provenance.py | 快照读取、确定性评估哈希、原子写入 | 为 reviewable.py / feature.py 的 report_state 判断提供底层能力 |
-
-典型安全保存链：
-
-```text
-Agent 读 locate 的 task_revision
+用户将反馈发回会话 → Agent 核对版本 → 更新事实 → 再生成</code></pre><p>必须区分两个路由：提示词中的事项路由决定 Agent 读什么、做什么；workflow.py 的条件分支决定记录目前说明什么、下一步提示谁做什么。后者不自动运行前者。</p><h2 id="s2">2. 插件组成与职责</h2><div class="table-wrap"><table><thead><tr><th>层</th><th>主要文件</th><th>职责</th><th>不负责什么</th></tr></thead><tbody><tr><td>注册</td><td>.claude-plugin/plugin.json；仓库 marketplace.json</td><td>插件名称、版本、安装位置</td><td>不定义业务流程分支</td></tr><tr><td>用户入口</td><td>skills/go/SKILL.md；skills/status/SKILL.md</td><td>go 推进，status 只读查询</td><td>不直接完成业务工作</td></tr><tr><td>编排约定</td><td>docs/entry-workflow.md</td><td>定位任务、按需读取、保存和反馈规则</td><td>不是可执行的工作流 DSL</td></tr><tr><td>动作提示词</td><td>docs/internal-actions/ 下 12 份 Markdown</td><td>某类动作的执行要求</td><td>不是 12 个用户命令，也不自动各启动一个 Agent</td></tr><tr><td>审查角色</td><td>agents/reviewer.md</td><td>可用时的独立只读审查</td><td>不会因文件存在就自动触发</td></tr><tr><td>事实与工具</td><td>scripts/*.py</td><td>存储、校验、测试回执、派生状态、生成文件</td><td>不理解业务、不替人决定需求</td></tr><tr><td>模板与视图</td><td>templates/*.json；assets/*</td><td>固定数据结构与展示</td><td>不执行业务接口、发布或生产操作</td></tr></tbody></table></div><h2 id="s3">3. go 入口的完整契约</h2><p>入口 frontmatter：name=go，user-invocable=true，disable-model-invocation=true。当前没有 context: fork、model 或 allowed-tools 配置；它未声明专用模型、独立执行上下文或技能级工具预授权。</p><p>用户输入通过 <code>$ARGUMENTS</code> 放入正文。<code>${CLAUDE_PLUGIN_ROOT}</code> 用于定位插件资料和脚本，不是业务项目路径。插件命名空间形成 <code>/zl-dev:go</code>。宿主层语义参考文末官方文档；本插件没有自行实现参数展开机制。</p><p>入口六项要求如下，完整原文在附录可展开：</p><ol><li>定位业务项目；判断新任务还是同目标续作；不能因为只有一个历史任务就接入新需求。无参数或“继续”使用 continue 定位；多个候选由用户选标题。</li><li>探索、按需计划、实施和验证；先读项目约定与必要源码；用具体输入/操作/输出解释理解；关键未知集中提问，其余已授权工作继续。</li><li>多项目先调查和整体设计，再分配；共同规则变化先更新整体方案和子任务绑定，再运行 preflight。</li><li>只读本轮需要的内部动作；缺陷先复现；生产默认只读；生产写操作需要具体授权、范围、停止及恢复条件。</li><li>验证依据提前确定；优先支持的 unittest/JUnit 回执；独立审查或明确自审；失败先处理；区分检查、接受和行动授权。</li><li>locate 获取记录版本 → 临时完整 JSON → update 比较后保存 → render。固定当前阶段模板，最终返回真实报告、验证结果和一条具体下一步；未保存不得称完成。</li></ol><p>这些是 Agent 要遵循的指令，不是每项都存在工具层强制拦截。用户明确只分析、先设计或禁止修改时，本轮工作必须受该范围约束；通用“实现/验证”字样不应扩大授权。</p><h2 id="s4">4. 第一层分支：定位与交互意图</h2><div class="table-wrap"><table><thead><tr><th>输入情形</th><th>Agent 选择</th><th>工具及产物</th></tr></thead><tbody><tr><td>新目标</td><td>先检查项目与相关历史，再新建对应任务</td><td>init 创建 task.json 骨架并生成初版报告</td></tr><tr><td>明确延续同一目标</td><td>读原记录与源码，合并新要求</td><td>locate → update → render</td></tr><tr><td>空输入或继续</td><td>恢复已有任务；0/多个返回候选</td><td>continue 计算快照并重生成报告；本命令本身不开发</td></tr><tr><td>页面反馈</td><td>核对任务、代码/行为版本、记录版本、评估版本</td><td>按原意记录决定或结果，旧页只重新核对受影响项</td></tr><tr><td>换人或换工具</td><td>导出或接收上下文，核对差异并复述</td><td>handoff.md / intake.md；HANDOFF.md 与 handoffs</td></tr><tr><td>只查看状态</td><td>应使用 status 技能</td><td>locate/status，只返回摘要与已有链接，不生成报告</td></tr><tr><td>只分析业务或数据链路</td><td>当前没有独立分支与专用 schema</td><td>只能由 Agent 遵从用户范围复用现有材料，不能声称已规范支持</td></tr></tbody></table></div><h2 id="s5">5. 第二层分支：事项类型与提示词组合</h2><p>下表是依据入口路由表和动作正文还原的典型组合。箭头表示工作依赖与可能的读取顺序，不表示代码自动调度，也不要求小任务完整走一遍。只有本轮确需相应动作时才加载。</p><div class="table-wrap"><table><thead><tr><th>事项 / kind</th><th>典型流程与加载</th><th>特别要求</th><th>当前最终产物</th></tr></thead><tbody><tr><td>新功能 feature</td><td>start → spec；有设计取舍读 design/plan；授权后 build → review → verify</td><td>主路径、异常、权限、关键未知</td><td>业务代码、行为/方案/证据记录、当前阶段 report.html</td></tr><tr><td>业务调整 change</td><td>spec → design/plan（按需）→ build → review → verify</td><td>前后规则、生效范围、历史数据与在途流程</td><td>规则差异、代码与回归证据、report.html</td></tr><tr><td>缺陷 bugfix</td><td>start/spec 记录症状与预期 → 先复现 → build → review → verify</td><td>复现、根因假设与证据、修复机制、回归；没有独立 reproduce.md</td><td>修复与证据、缺陷专用 report.html</td></tr><tr><td>重构 refactor</td><td>spec 明确不变量 → plan → build → review → verify</td><td>保持外部行为，不混无关改变</td><td>不变量、结构切片、回归、工程视图</td></tr><tr><td>性能 performance</td><td>明确同条件基线/目标 → design/plan → build → verify/review</td><td>必须实际测量，不用示意提升率代替结果</td><td>测量、瓶颈、代价与正确性证据</td></tr><tr><td>迁移 migration</td><td>spec 转换与边界 → design/plan 预演/核对/恢复 → build → verify</td><td>数据恢复与代码回滚分开，操作受授权限制</td><td>转换/预演/核对记录及恢复依据</td></tr><tr><td>升级 upgrade</td><td>spec 兼容性 → design/plan 试点/模块顺序 → build → verify/review</td><td>对比新旧行为，记录回退条件</td><td>兼容矩阵、实施与验证、工程视图</td></tr><tr><td>生产事件 incident</td><td>incident → team-workflow 事件协议；需修复再读 build/review/verify</td><td>默认只读、影响/时间线/可证伪假设、止损/恢复</td><td>事件与操作记录、恢复证据、事件报告</td></tr><tr><td>日常运维 operations</td><td>ops → team-workflow 运维协议；按需 verify</td><td>环境/授权/步骤/指标/停止/恢复，区分建议与已执行</td><td>运维卡与实际结果、运维报告</td></tr><tr><td>一个功能跨项目</td><td>cross-project.md；start 引导 feature 流程，可读取 feature.md</td><td>识别能力 → 整体设计 → 共同契约 → 分项目切片 → 联调</td><td>feature.json/feature.html ＋ 每个项目 task.json/report.html</td></tr></tbody></table></div><p>跨项目是组织方式，不是第十个 kind。验收、发布、交接也是活动维度，不是九种事项的替代枚举。</p><h2 id="s6">6. 十二份内部动作文件分别说什么</h2><p>每份文件都注明“内部按需读取，不注册用户命令”，并接受当前 go 输入。多数重复声明用户目录存储、固定 schema、render 及返回报告。design/incident/intake/ops 会额外明确读取团队协议和字段参考；真正内容如下。</p><div class="table-wrap"><table><thead><tr><th>文件</th><th>输入与读取重点</th><th>核心执行要求</th><th>主要记录 / 结束产物</th></tr></thead><tbody><tr><td>start.md</td><td>用户目标、项目约定、当前任务</td><td>识别类型/风险，填写现状、范围、场景、未知；低风险明确事项可继续；跨项目先整体设计</td><td>summary/why/scope、scenarios、decisions；首版报告和下一步</td></tr><tr><td>spec.md</td><td>相关实现和测试</td><td>当前行为与目标行为分开；规则/场景稳定 ID；正常/异常/边界；权限、历史、重复和并发影响</td><td>behaviors/scenarios、requirements 条目；未确认规则保留待决</td></tr><tr><td>design.md</td><td>原需求、源码；team-workflow/schema</td><td>事实与假设、候选方案和取舍、具体场景；关键业务假设需确认；模拟不等于实现</td><td>roles/assumptions/design、solution 条目；方案报告</td></tr><tr><td>plan.md</td><td>行为约定和授权范围</td><td>拆可解释验证的小切片，写模块/风险/验证，不默认引新架构依赖，只问重大或未授权取舍</td><td>solution/实施计划记录；当前报告；没有独立 plan.json</td></tr><tr><td>build.md</td><td>已确认规则、当前切片、项目风格</td><td>范围内改代码；关键未知不设默认；同步实际改动与偏差，旧证据过期须重验</td><td>业务源码、implementation、changes、证据与报告</td></tr><tr><td>review.md</td><td>规则、代码差异、异常/权限/并发/兼容与测试</td><td>独立 reviewer 可用则使用，否则标自审；发现需位置、条件、影响、复现；怀疑与确认分开</td><td>review items、风险/待决、复查引用；报告</td></tr><tr><td>verify.md</td><td>行为、结构化预期、环境和起始数据</td><td>执行真实检查；支持时用内部执行器；绑定实际覆盖；失败/跳过/版本变化不当通过；区分AI检查和受托接受</td><td>runs、evidence、testing、acceptance 实际观察；之后另行 render</td></tr><tr><td>handoff.md</td><td>当前目标、范围、代码/契约/环境及记录</td><td>核对资料与实际差异，区分历史和当前；写交出/接收/未决；导出包，不只给聊天摘要</td><td>roles/handoffs；HANDOFF.md、task.json、报告和证据</td></tr><tr><td>intake.md</td><td>HANDOFF.md、task.json、项目约定</td><td>核对版本，接收者复述范围/疑问/第一步；未明确确认不得记 accepted</td><td>handoffs.readback/open_questions/status、handoff 阶段报告</td></tr><tr><td>incident.md</td><td>生产现场、团队事件协议</td><td>创建事件任务，影响/时间线/事实/假设/负责人，默认只读；恢复需用户路径或指标</td><td>incident task、operations/timeline、事件报告</td></tr><tr><td>ops.md</td><td>环境目标和团队运维协议</td><td>操作卡、授权、指标、停止、恢复；分计划/执行/验证；无授权不生产写</td><td>operations task/操作卡、运维报告</td></tr><tr><td>feature.md</td><td>候选项目、cross-project/entry</td><td>先检查各项目真实能力，完整设计，再分配与依赖；变更回总方案；汇总、联调</td><td>feature design/contracts/allocations、各子任务和整体报告</td></tr></tbody></table></div><p>验收没有 acceptance.md；发布没有 release.md；性能、迁移、升级也没有各自独立动作文件。它们使用通用动作、团队协议和专用展示。分析场景更缺少独立数据结构和完成条件，不能只加一个名称就认为已有流程。</p><h2 id="s7">7. 按需共享资料与审查代理</h2><div class="table-wrap"><table><thead><tr><th>文件</th><th>谁在什么情况下读取</th><th>内容与约束</th></tr></thead><tbody><tr><td>entry-workflow.md</td><td>go 第一层必读</td><td>定位、按需路由、事实最小集、反馈、版本与安全保存、受托验收</td></tr><tr><td>team-workflow.md</td><td>设计、交接、事件、运维等需要角色和协作边界时</td><td>人与AI职责、渐进澄清、交接、E2E、生产与运维</td></tr><tr><td>collaboration-model.md</td><td>协作边界设计说明，非 go 明确必读文件</td><td>执行/接受/授权分开；部分原则仍未完整运行时实现</td></tr><tr><td>schema-reference.md</td><td>需要组织/更新数据时；部分动作显式要求</td><td>task 字段、CLI、证据与版本、受托验收对象</td></tr><tr><td>stage-templates.md</td><td>需要填 stage_details 时</td><td>九阶段字段及交互；部分旧人工验收措辞未同步</td></tr><tr><td>scenario-layouts.md</td><td>需要事项专用展示时</td><td>kind 与 focus 的页面组织原则、连续文档和补充材料</td></tr><tr><td>cross-project.md</td><td>识别到同一功能涉及多个项目时</td><td>先整体设计再分配；版本、依赖、子任务、汇总与联调</td></tr><tr><td>workflow.md</td><td>reviewer.md 显式要求读取的旧工作协议</td><td>多轮历史规则堆叠，存在窄屏、强制加载和旧栏目措辞</td></tr><tr><td>agents/reviewer.md</td><td>Agent 具备独立代理能力且调用审查角色时</td><td>只读，不改规则、不批准；从需求/实际差异开始；提供可复现发现、范围与盲区</td></tr></tbody></table></div><p>加载这些文档依赖 Agent 的实际读文件操作；正文写了“读取”不代表宿主已经自动把所有内容加载。文件按需读取也不是隔离上下文：主会话已读材料可能继续影响后续行为。</p><h2 id="s8">8. 数据模型：谁写事实，谁算结论</h2><p>task.json 是单项目任务事实来源；Agent 写业务语义，脚本检查结构并派生评估。不是每个字段都必填内容，也不要求人编辑 JSON。</p><div class="table-wrap"><table><thead><tr><th>字段组</th><th>内容</th><th>来源</th></tr></thead><tbody><tr><td>id/title/project_path/kind</td><td>任务身份、绑定项目、事项类型</td><td>init/Agent，update 禁止改任务身份与项目绑定</td></tr><tr><td>why/summary/scope、behaviors/scenarios</td><td>目标、范围、可观察行为和例子</td><td>Agent根据用户与源码维护，模拟需标记</td></tr><tr><td>roles/assumptions/design/decisions</td><td>职责、假设、方案与业务决定</td><td>事实/推断/明确确认分开</td></tr><tr><td>implementation/changes/risks/rollback</td><td>实际改动、变化、风险、恢复</td><td>来自实际工作，不能以计划代替实现</td></tr><tr><td>evidence、runs/*</td><td>行为关联、检查状态、命令、来源、版本、原始回执</td><td>显式执行器或如实标注的模型记录</td></tr><tr><td>stage_details</td><td>九个阶段各自 purpose/owner/summary/decision/exit_criteria/items</td><td>固定字段，item.status 不等于批准</td></tr><tr><td>acceptance_setup、验收/发布 items</td><td>环境/步骤/预期及实际观察/执行者/结果版本</td><td>预期与观察分开，页面草稿不会直接写入</td></tr><tr><td>workflow_summary、provenance、stage_catalog</td><td>当前行动、阻塞、可见内容、版本来源、模板目录</td><td>读取/渲染时派生，不由Agent手填完成度</td></tr></tbody></table></div><p>九个 focus_stage：requirements、solution、implementation、review、testing、acceptance、release、operations、handoff。与九种 kind 可组合，但并不保证每个组合都有完整独立设计。</p><p>三类版本：task_revision 是 JSON 精确字节哈希；current_fingerprint 是实际 Git 工作区与 semantic_contract 所选字段的指纹；assessment_revision 是不含生成时间等易变项的确定性评估哈希。反馈与快照同时核对三者，避免“代码没变就把旧业务判断当新批准”。</p><p>指纹排除展示摘要、观察、测试/审查结果等；包含项目绑定、范围、行为、场景、acceptance_setup、关键需求/方案字段和验收预期，非空发布核验契约也参与。以 semantic_contract 实际选择为准；它不覆盖外部系统和 Git 忽略文件，也不证明测试真实发生。</p><h2 id="s9">9. 工具执行链与写入边界</h2><div class="table-wrap"><table><thead><tr><th>CLI / 模块</th><th>实际执行</th><th>写入与结果</th></tr></thead><tbody><tr><td>init</td><td>按 slug 和项目路径定位，创建九阶段骨架，首次 render</td><td>新 task.json 和 report.html；不会覆盖既有 task.json</td></tr><tr><td>locate / status</td><td>load → validate → fingerprint → assessed → summarize，核对报告和交接包</td><td>只读 JSON；不会开发、补建报告或修复文件</td></tr><tr><td>continue</td><td>定位已有任务 → snapshot → render → 返回当前行动</td><td>更新报告，不执行需求分析或开发；后续由Agent推进</td></tr><tr><td>update</td><td>校验项目绑定、schema、记录 revision；保留原证据绑定约束</td><td>fcntl 锁＋比较后原子替换 task.json；不 render</td></tr><tr><td>verify</td><td>接收显式 argv，在绑定项目 cwd 用 shell=False 执行</td><td>runs 下日志/回执；版本稳定且符合条件才 CAS 追加证据；不 render</td></tr><tr><td>render</td><td>snapshot → 回执检查/状态派生 → 固定 HTML 模板替换</td><td>原子生成离线 report.html，不执行测试或业务请求</td></tr><tr><td>handoff</td><td>snapshot＋报告时效 → 更新生成标记区域</td><td>HANDOFF.md；保留人工区，旧格式先唯一备份</td></tr><tr><td>index</td><td>遍历任务并重新渲染，汇总链接</td><td>index.html，且可能刷新多个 report；不是只读定位</td></tr><tr><td>storage.py</td><td>真实路径规范化＋路径SHA256前12位区分同名项目</td><td>~/.claude/zl-dev/projects/ 下 tasks/features；不自动搬迁旧记录</td></tr><tr><td>provenance.py</td><td>快照读取、确定性评估哈希、原子写入</td><td>为 reviewable.py / feature.py 的 report_state 判断提供底层能力</td></tr></tbody></table></div><p>典型安全保存链：</p><pre class="flow"><code>Agent 读 locate 的 task_revision
 → 读取原 task.json，合并完整新对象到临时 JSON
 → update --from-file ... --expect-revision ...
 → 成功：render；冲突：重读并合并，不覆盖
-→ 核对生成成功，返回 report.html
-```
-
-verify 的链：校验项目和行为引用 → 保存开始版本 → 执行显式命令 → 保存结束版本与原始日志 → 解析 unittest/JUnit → 生成 receipt → 稳定时追加独立 evidence。零测试、跳过、未知/缺摘要、非零退出、超时和版本变化都不能算有效 passed。parsed_result 是解析证明，不是业务覆盖证明；有本地写权限者仍可能伪造整套记录。
-
-## 10. 当前行动的完整条件分支
-
-以下对应 workflow.summarize 的优先级，自上而下命中一条 primary_action。它派生建议，不自动调用动作文件或执行下一阶段。
-
-| 顺序 | 条件 | step | 默认负责人 / 行动 |
-| --- | --- | --- | --- |
-| 1 | 当前 evidence 有 failed/blocked/not_run | verify | AI解决并重验，其他passed不能掩盖 |
-| 2 | 未解决或无有效复查的 P0/P1 | review | AI处理高风险发现 |
-| 3 | 当前人工验收/发布 fail或blocked | human_feedback | AI处理退回/核验条件 |
-| 4 | 当前AI验收或发布失败/受阻 | delegated_feedback 或 ai_feedback | AI调查复核；接受授权不影响失败事实保留 |
-| 5 | 缺少 summary 或 behaviors | understand | AI查清目标与具体行为 |
-| 6 | 有未confirmed的 decisions | decide | 人回答具体业务问题，保留推荐 |
-| 7 | 无 implementation | implement | AI实施最小切片 |
-| 8 | 行为缺少当前无矛盾通过证据 | verify | AI验证未覆盖行为 |
-| 9 | 当前选择acceptance，且其全部条目人工或明确受托AI当前pass | delegated_reviewed 或 human_reviewed | none，当前无需重复核验 |
-| 10 | 所选阶段全部人工当前pass | human_reviewed | none，保留结果，不新增发布批准 |
-| 11 | acceptance有有效委托但缺当前结果 | delegated_accept | AI按委托标准实际验收 |
-| 12 | acceptance有旧委托待核对适用范围 | delegation_review | AI核对，同范围重绑后实际重验，不能复用旧通过 |
-| 13 | 其他情况 | accept | 人核验未接受条目；无结构化条目时回退旧字符串 |
-
-covered_behavior_ids 根据当前passed关联行为计算，并减去当前未通过记录涉及的行为。P0/P1解决还要求status=done且所有 evidence_ids 有当前无矛盾passed；P2/P3保留为 warning。当前失败优先于待决，现有实现尚不能按动作拆分全部阻塞，也无通用豁免机制。
-
-focus_stage 是阅读偏好。无当前证据/审查/反馈阻塞时允许显式覆盖部分派生focus；完成受托/人工验收及待AI验收/委托核对等结果不允许被任意focus掩盖。stage_label 还会按step覆盖，不能只读取自由文本stage判断完成。
-
-## 11. 跨项目子流程
-
-```text
-候选项目 → inspect识别清单/Git线索 → Agent读真实代码
+→ 核对生成成功，返回 report.html</code></pre><p>verify 的链：校验项目和行为引用 → 保存开始版本 → 执行显式命令 → 保存结束版本与原始日志 → 解析 unittest/JUnit → 生成 receipt → 稳定时追加独立 evidence。零测试、跳过、未知/缺摘要、非零退出、超时和版本变化都不能算有效 passed。parsed_result 是解析证明，不是业务覆盖证明；有本地写权限者仍可能伪造整套记录。</p><h2 id="s10">10. 当前行动的完整条件分支</h2><p>以下对应 workflow.summarize 的优先级，自上而下命中一条 primary_action。它派生建议，不自动调用动作文件或执行下一阶段。</p><div class="table-wrap"><table><thead><tr><th>顺序</th><th>条件</th><th>step</th><th>默认负责人 / 行动</th></tr></thead><tbody><tr><td>1</td><td>当前 evidence 有 failed/blocked/not_run</td><td>verify</td><td>AI解决并重验，其他passed不能掩盖</td></tr><tr><td>2</td><td>未解决或无有效复查的 P0/P1</td><td>review</td><td>AI处理高风险发现</td></tr><tr><td>3</td><td>当前人工验收/发布 fail或blocked</td><td>human_feedback</td><td>AI处理退回/核验条件</td></tr><tr><td>4</td><td>当前AI验收或发布失败/受阻</td><td>delegated_feedback 或 ai_feedback</td><td>AI调查复核；接受授权不影响失败事实保留</td></tr><tr><td>5</td><td>缺少 summary 或 behaviors</td><td>understand</td><td>AI查清目标与具体行为</td></tr><tr><td>6</td><td>有未confirmed的 decisions</td><td>decide</td><td>人回答具体业务问题，保留推荐</td></tr><tr><td>7</td><td>无 implementation</td><td>implement</td><td>AI实施最小切片</td></tr><tr><td>8</td><td>行为缺少当前无矛盾通过证据</td><td>verify</td><td>AI验证未覆盖行为</td></tr><tr><td>9</td><td>当前选择acceptance，且其全部条目人工或明确受托AI当前pass</td><td>delegated_reviewed 或 human_reviewed</td><td>none，当前无需重复核验</td></tr><tr><td>10</td><td>所选阶段全部人工当前pass</td><td>human_reviewed</td><td>none，保留结果，不新增发布批准</td></tr><tr><td>11</td><td>acceptance有有效委托但缺当前结果</td><td>delegated_accept</td><td>AI按委托标准实际验收</td></tr><tr><td>12</td><td>acceptance有旧委托待核对适用范围</td><td>delegation_review</td><td>AI核对，同范围重绑后实际重验，不能复用旧通过</td></tr><tr><td>13</td><td>其他情况</td><td>accept</td><td>人核验未接受条目；无结构化条目时回退旧字符串</td></tr></tbody></table></div><p>covered_behavior_ids 根据当前passed关联行为计算，并减去当前未通过记录涉及的行为。P0/P1解决还要求status=done且所有 evidence_ids 有当前无矛盾passed；P2/P3保留为 warning。当前失败优先于待决，现有实现尚不能按动作拆分全部阻塞，也无通用豁免机制。</p><p>focus_stage 是阅读偏好。无当前证据/审查/反馈阻塞时允许显式覆盖部分派生focus；完成受托/人工验收及待AI验收/委托核对等结果不允许被任意focus掩盖。stage_label 还会按step覆盖，不能只读取自由文本stage判断完成。</p><h2 id="s11">11. 跨项目子流程</h2><pre class="flow"><code>候选项目 → inspect识别清单/Git线索 → Agent读真实代码
 → feature.design整体方案 → contracts共同约定与版本
 → allocations切片/依赖/owner → 建各项目task并绑定基线
 → preflight只读检查 → 各项目实施/验证
 → sync读取显式关联子任务 → render整体feature.html
-→ 真实跨项目路径检查与适用的接受结论
-```
-
-feature.json 的主要字段是 workspace_path、design(goal/flow/boundaries/decisions)、projects(path/task_path/responsibility/contract_version)、contracts、allocations(depends_on/owner)、integration(环境/版本/结果/证据)。项目数量不等于人数；sync不会分配人员或自动调度Agent。
-
-preflight核对契约确认/版本、项目存在、子任务绑定与切片依赖基线；不检查任意编辑，也不证明依赖已实现。sync保存当前子任务派生快照；render/status重新评估，指出未同步或版本变化。ready_for_integration只是准备度，不是联调完成或发布许可。
-
-整体方案变更必须先更新契约版本，再更新受影响子任务和验证。实际落盘是 feature update CAS → 更新受影响项目和子任务的契约基线 → preflight → 实施与 verify → sync → render。当前feature update不支持增删/重新绑定项目集合，不能承诺随意动态扩仓。
-
-## 12. 报告如何选模板及完成反馈闭环
-
-| 判断 | 实际渲染 |
-| --- | --- |
-| focus为acceptance/release且有结构化stage材料 | 优先 assets/stages.js 直接呈现检查项、结果与反馈 |
-| kind=incident | assets/views/incident.js |
-| kind=bugfix | assets/views/bugfix.js |
-| kind=operations | assets/views/operations.js |
-| kind属于refactor/performance/migration/upgrade | assets/views/engineering.js，内部按kind分不同结构 |
-| 其他feature/change | assets/views/feature.js，按阶段组织 |
-
-templates/layouts.json是描述性映射；实际选择逻辑在report.html，Python渲染当前不读取layouts.json来调度。templates/stages.json由Python实际读取，约束stage_details并嵌入页面目录。workflow.PHASE_SECTIONS控制补充材料可见范围；事项专用JS自身也负责如何组织主内容。
-
-render将task快照JSON、共享样式、阶段JS与五种事项JS内嵌到HTML；不依赖CDN。页面显示快照、展开、筛选、填写草稿和复制文本；不会实时查业务数据或自动写回JSON。实际报告不能自行知道文件已变化，需Agent用locate/status核对。
-
-反馈携带任务身份、代码/行为指纹、task_revision与assessment_revision。用户明确回传 → Agent核对当前版本 → 仅按实际选择更新 → 失败先处理 → 再生成报告。页面点击或复制不产生接受/发布授权。
-
-受托验收条目需要 acceptance_delegation={kind:acceptance,revision,source,criteria}，只限acceptance；reviewer_kind保持ai，实际结果绑定reviewed_revision。human_verification仍只算人工来源，acceptance_verification另外汇总符合委托的AI来源。报告可显示无需人处理，但不会决定或执行新的生产动作。
-
-## 13. 文件产物与结束条件
-
-```text
-业务仓库/                         实际代码与原项目配置
-~/.claude/zl-dev/projects/<项目>-<路径哈希>/
-  tasks/<任务>/
+→ 真实跨项目路径检查与适用的接受结论</code></pre><p>feature.json 的主要字段是 workspace_path、design(goal/flow/boundaries/decisions)、projects(path/task_path/responsibility/contract_version)、contracts、allocations(depends_on/owner)、integration(环境/版本/结果/证据)。项目数量不等于人数；sync不会分配人员或自动调度Agent。</p><p>preflight核对契约确认/版本、项目存在、子任务绑定与切片依赖基线；不检查任意编辑，也不证明依赖已实现。sync保存当前子任务派生快照；render/status重新评估，指出未同步或版本变化。ready_for_integration只是准备度，不是联调完成或发布许可。</p><p>整体方案变更必须先更新契约版本，再更新受影响子任务和验证。实际落盘是 feature update CAS → 更新受影响项目和子任务的契约基线 → preflight → 实施与 verify → sync → render。当前feature update不支持增删/重新绑定项目集合，不能承诺随意动态扩仓。</p><h2 id="s12">12. 报告如何选模板及完成反馈闭环</h2><div class="table-wrap"><table><thead><tr><th>判断</th><th>实际渲染</th></tr></thead><tbody><tr><td>focus为acceptance/release且有结构化stage材料</td><td>优先 assets/stages.js 直接呈现检查项、结果与反馈</td></tr><tr><td>kind=incident</td><td>assets/views/incident.js</td></tr><tr><td>kind=bugfix</td><td>assets/views/bugfix.js</td></tr><tr><td>kind=operations</td><td>assets/views/operations.js</td></tr><tr><td>kind属于refactor/performance/migration/upgrade</td><td>assets/views/engineering.js，内部按kind分不同结构</td></tr><tr><td>其他feature/change</td><td>assets/views/feature.js，按阶段组织</td></tr></tbody></table></div><p>templates/layouts.json是描述性映射；实际选择逻辑在report.html，Python渲染当前不读取layouts.json来调度。templates/stages.json由Python实际读取，约束stage_details并嵌入页面目录。workflow.PHASE_SECTIONS控制补充材料可见范围；事项专用JS自身也负责如何组织主内容。</p><p>render将task快照JSON、共享样式、阶段JS与五种事项JS内嵌到HTML；不依赖CDN。页面显示快照、展开、筛选、填写草稿和复制文本；不会实时查业务数据或自动写回JSON。实际报告不能自行知道文件已变化，需Agent用locate/status核对。</p><p>反馈携带任务身份、代码/行为指纹、task_revision与assessment_revision。用户明确回传 → Agent核对当前版本 → 仅按实际选择更新 → 失败先处理 → 再生成报告。页面点击或复制不产生接受/发布授权。</p><p>受托验收条目需要 acceptance_delegation={kind:acceptance,revision,source,criteria}，只限acceptance；reviewer_kind保持ai，实际结果绑定reviewed_revision。human_verification仍只算人工来源，acceptance_verification另外汇总符合委托的AI来源。报告可显示无需人处理，但不会决定或执行新的生产动作。</p><h2 id="s13">13. 文件产物与结束条件</h2><pre class="flow"><code>业务仓库/                         实际代码与原项目配置
+~/.claude/zl-dev/projects/&lt;项目&gt;-&lt;路径哈希&gt;/
+  tasks/&lt;任务&gt;/
     task.json                     事实与协作记录
     report.html                   当前阶段离线快照
     HANDOFF.md                    按需生成的接手包
-    runs/verify-<id>/
+    runs/verify-&lt;id&gt;/
       stdout.log / stderr.log     原始输出
       receipt.json / result.xml   回执；XML仅JUnit时
-  features/<功能>/
+  features/&lt;功能&gt;/
     feature.json                  整体方案与项目关联
-    feature.html                  整体当前阶段报告
-```
-
-某轮结束应有本轮请求对应的实际成果、已保存记录、当前报告、真实验证与未完成项。需求阶段可结束于关键待决，开发可结束于已实现且已验证的切片，受托验收可结束于约定内接受；不要求每次完成全部生命周期。未知环境应如实blocked，不编造可访问服务。
-
-全局没有“业务真正完成”的统一可信标志。记录完成、解析测试通过、结果接受和发布授权是不同事实；实现与接受仍依赖用户目标、实际证据及Agent是否遵循流程。
-
-## 14. 贯穿例子：同一输入如何沿分支落盘
-
-输入：`/zl-dev:go 管理台增加取消订单。候选项目 /work/admin 与 /work/orders。先整体分析设计，暂不改代码。`
-
-1. 加载go → entry；Agent读取两个仓库约定与实际入口，识别现有取消能力和权限边界。
-2. 进入跨项目分支，读取cross-project；start也指向feature流程，需要时读feature/design/spec。不会因识别两个仓库就先分配开发。
-3. feature init/inspect；Agent填写整体目标、主流程、边界、关键假设和契约提案。按需初始化项目子任务，未实施不填实现成功。
-4. update保存方案，render输出feature.html，当前阶段设计；本轮因用户限制停于设计，返回真实待决问题。不能自动进入build。
-5. 用户确认未支付订单可取消并授权实施后，更新契约基线与分配，preflight检查，再按build/review/verify实施各切片。
-6. verify绑定实际覆盖行为并保留回执；sync/render整体进度。只测单项目不能当跨项目E2E完成。
-7. 用户委托按标准验收时，保存逐条委托并实际验证；失败回修，范围改变先核对委托；完成无需重复人工操作。生产发布另按已有明确授权范围处理。
-
-这里是源码约定允许的演示路径，不是声称已在本轮实际运行了该业务。
-
-## 15. 源码审计发现与当前缺口
-
-| 项 | 当前实际情况 | 影响 |
-| --- | --- | --- |
-| 事项路由不是程序状态机 | entry表与Markdown，由Agent判断；没有route.json或路由执行器 | 加载顺序、漏读与越界依赖模型遵循程度 |
-| 路由粒度不对齐 | 9 kinds、9 stages、12 actions，无一一对应关系 | 不能看见一个kind就认为有完整独立提示词流程 |
-| 分析场景缺失 | 无analysis kind、专用动作、字段和结束条件 | 单纯业务理解可能被通用implement/verify/accept派生误导 |
-| 受托验收未全链一致 | feature.md末尾和feature.assessed.delivery仍要求人工核验 | 单项目可受托完成，整体文案仍可能机械要求人工 |
-| 阶段文档落后 | stage-templates.md验收段仍说亲自操作 | 与0.16模板/入口受托规则冲突 |
-| 审查读取旧协议 | reviewer读workflow.md，含窄屏检查/强制加载/旧九栏目措辞 | 与仅桌面、按需读取和当前单阶段原则可能冲突 |
-| 额外schema旧描述 | schema-reference前文夸大指纹字段，后文与源码才缩小 | 理解指纹应以semantic_contract实际算法为准 |
-| 模板与类型部分靠展示 | layouts.json未用于运行时分派，工程专项共享通用动作 | “不同页面”不等于“不同执行流程” |
-| 授权与偏差模型不完整 | 无通用行动授权、按动作阻塞和偏差豁免引擎 | 不能声称插件自动处理所有授权/放行决策 |
-| 全流程执行可追踪性不足 | 未统一落盘每次路由、加载文件和分支原因 | task记录不等于完整Agent执行trace |
-
-本文保留并揭示这些问题，没有在本次说明中顺带修改运行流程。若后续改进，应先统一事项/动作/阶段与完成条件，再收敛加载清单和源文档；不靠继续叠加通用提示词解决所有分支。
-
-## 16. 官方宿主机制参考与源码原文
-
-Claude Code官方skills文档说明技能正文加载、参数替换、显式调用和context:fork；插件manifest文档说明注册与路径。这里只用其解释宿主层机制，插件业务流程结论均来自本仓库源码。
-
-- 官方Skills：https://code.claude.com/docs/en/skills
-- 官方Plugin manifest：https://code.claude.com/docs/en/plugins-reference
-
-下方附录包含go入口、入口工作流、全部12动作、审查代理、共享协议及模板的完整原文快照。可查看文件当时究竟要求了什么；原文中的旧约束保留，不把审计修正悄悄改写成实现事实。
-
-<!-- SOURCE-APPENDIX -->
-
-## 附录：实际文件完整原文快照
-
-以下原文按快照保留；旧文档与当前实现的冲突见第15节。完整原文不是每轮全部加载的材料。
-
-
-### A1. skills/go/SKILL.md
-
-行数：22；SHA256：`46ab27757d500c66b1d47ea6ef70471c6e22c8375da018d325f6ac0b8751d0d0`
-
-<details><summary>展开完整原文</summary>
-
-``````text
----
+    feature.html                  整体当前阶段报告</code></pre><p>某轮结束应有本轮请求对应的实际成果、已保存记录、当前报告、真实验证与未完成项。需求阶段可结束于关键待决，开发可结束于已实现且已验证的切片，受托验收可结束于约定内接受；不要求每次完成全部生命周期。未知环境应如实blocked，不编造可访问服务。</p><p>全局没有“业务真正完成”的统一可信标志。记录完成、解析测试通过、结果接受和发布授权是不同事实；实现与接受仍依赖用户目标、实际证据及Agent是否遵循流程。</p><h2 id="s14">14. 贯穿例子：同一输入如何沿分支落盘</h2><p>输入：<code>/zl-dev:go 管理台增加取消订单。候选项目 /work/admin 与 /work/orders。先整体分析设计，暂不改代码。</code></p><ol><li>加载go → entry；Agent读取两个仓库约定与实际入口，识别现有取消能力和权限边界。</li><li>进入跨项目分支，读取cross-project；start也指向feature流程，需要时读feature/design/spec。不会因识别两个仓库就先分配开发。</li><li>feature init/inspect；Agent填写整体目标、主流程、边界、关键假设和契约提案。按需初始化项目子任务，未实施不填实现成功。</li><li>update保存方案，render输出feature.html，当前阶段设计；本轮因用户限制停于设计，返回真实待决问题。不能自动进入build。</li><li>用户确认未支付订单可取消并授权实施后，更新契约基线与分配，preflight检查，再按build/review/verify实施各切片。</li><li>verify绑定实际覆盖行为并保留回执；sync/render整体进度。只测单项目不能当跨项目E2E完成。</li><li>用户委托按标准验收时，保存逐条委托并实际验证；失败回修，范围改变先核对委托；完成无需重复人工操作。生产发布另按已有明确授权范围处理。</li></ol><p>这里是源码约定允许的演示路径，不是声称已在本轮实际运行了该业务。</p><h2 id="s15">15. 源码审计发现与当前缺口</h2><div class="table-wrap"><table><thead><tr><th>项</th><th>当前实际情况</th><th>影响</th></tr></thead><tbody><tr><td>事项路由不是程序状态机</td><td>entry表与Markdown，由Agent判断；没有route.json或路由执行器</td><td>加载顺序、漏读与越界依赖模型遵循程度</td></tr><tr><td>路由粒度不对齐</td><td>9 kinds、9 stages、12 actions，无一一对应关系</td><td>不能看见一个kind就认为有完整独立提示词流程</td></tr><tr><td>分析场景缺失</td><td>无analysis kind、专用动作、字段和结束条件</td><td>单纯业务理解可能被通用implement/verify/accept派生误导</td></tr><tr><td>受托验收未全链一致</td><td>feature.md末尾和feature.assessed.delivery仍要求人工核验</td><td>单项目可受托完成，整体文案仍可能机械要求人工</td></tr><tr><td>阶段文档落后</td><td>stage-templates.md验收段仍说亲自操作</td><td>与0.16模板/入口受托规则冲突</td></tr><tr><td>审查读取旧协议</td><td>reviewer读workflow.md，含窄屏检查/强制加载/旧九栏目措辞</td><td>与仅桌面、按需读取和当前单阶段原则可能冲突</td></tr><tr><td>额外schema旧描述</td><td>schema-reference前文夸大指纹字段，后文与源码才缩小</td><td>理解指纹应以semantic_contract实际算法为准</td></tr><tr><td>模板与类型部分靠展示</td><td>layouts.json未用于运行时分派，工程专项共享通用动作</td><td>“不同页面”不等于“不同执行流程”</td></tr><tr><td>授权与偏差模型不完整</td><td>无通用行动授权、按动作阻塞和偏差豁免引擎</td><td>不能声称插件自动处理所有授权/放行决策</td></tr><tr><td>全流程执行可追踪性不足</td><td>未统一落盘每次路由、加载文件和分支原因</td><td>task记录不等于完整Agent执行trace</td></tr></tbody></table></div><p>本文保留并揭示这些问题，没有在本次说明中顺带修改运行流程。若后续改进，应先统一事项/动作/阶段与完成条件，再收敛加载清单和源文档；不靠继续叠加通用提示词解决所有分支。</p><h2 id="s16">16. 官方宿主机制参考与源码原文</h2><p>Claude Code官方skills文档说明技能正文加载、参数替换、显式调用和context:fork；插件manifest文档说明注册与路径。这里只用其解释宿主层机制，插件业务流程结论均来自本仓库源码。</p><ul><li>官方Skills：https://code.claude.com/docs/en/skills</li><li>官方Plugin manifest：https://code.claude.com/docs/en/plugins-reference</li></ul><p>下方附录包含go入口、入口工作流、全部12动作、审查代理、共享协议及模板的完整原文快照。可查看文件当时究竟要求了什么；原文中的旧约束保留，不把审计修正悄悄改写成实现事实。</p></article><section class="sources" id="sources"><h2>附录 · 实际加载资料与模板的完整原文</h2><p>按需查看，不要求从头读完。可按文件名或内容搜索；点击文件名展开完整内容。原文保留旧约束，冲突解释见第15节。</p><div class="toolbar"><input id="source-filter" type="search" aria-label="搜索文件原文" placeholder="搜索，例如 verify、验收、停止条件…"><button id="expand-sources">展开匹配原文</button><button id="collapse-sources">收起原文</button></div><p class="count" id="source-count"></p><details class="source" id="source-1"><summary><span>A01</span> skills/go/SKILL.md <small>22 行</small></summary><p class="source-meta">SHA256 46ab27757d500c66b1d47ea6ef70471c6e22c8375da018d325f6ac0b8751d0d0 · <a href="../skills/go/SKILL.md">打开源文件</a></p><pre><code>---
 name: go
 description: 描述需求、问题或反馈，理解现状后推进开发和运维，并生成固定交互式说明页。
-argument-hint: "[需求、反馈、任务名，或留空继续]"
+argument-hint: &quot;[需求、反馈、任务名，或留空继续]&quot;
 disable-model-invocation: true
 user-invocable: true
 ---
@@ -334,30 +44,17 @@ user-invocable: true
 
 先读取 `${CLAUDE_PLUGIN_ROOT}/docs/entry-workflow.md`。你负责定位、推进和记录，用户无需选择阶段或填表。
 
-1. 定位当前真实项目。新需求先检查相关代码和现有任务，不能因只有一个历史任务就将新需求接入其中；只有明确延续同一目标才复用。空输入或“继续”调用 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" continue --project "<项目绝对路径>"`；多个候选用标题简短询问，不自动选最近任务。
+1. 定位当前真实项目。新需求先检查相关代码和现有任务，不能因只有一个历史任务就将新需求接入其中；只有明确延续同一目标才复用。空输入或“继续”调用 `python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; continue --project &quot;&lt;项目绝对路径&gt;&quot;`；多个候选用标题简短询问，不自动选最近任务。
 2. 探索 → 计划 → 实现 → 验证。先读取项目约定和必要源码，用具体输入/操作/输出说明你理解的目标；按风险决定是否需要计划，小改动直接推进。仅集中询问影响结果的关键未知；其余明确授权工作继续。不要每阶段等待“继续”。
 3. 已识别多个仓库时按需读取 `docs/cross-project.md`，先读各项目实际能力并整体设计，再拆实施任务；单人和多人共用同一方案。共享规则变化先保存新版总方案与各项目绑定，再运行 feature.py preflight；失败时不得开始依赖这些约定的实施。preflight 是只读检查，不能代替人工决定，也不能技术上拦截任意代码编辑。
-4. 只读取当前需要的 `docs/internal-actions/<动作>.md`，不预加载所有阶段。发现缺陷先复现；生产问题先只读诊断，写操作必须具备具体授权、范围、停止条件和恢复方法。只做本轮相关改动。
+4. 只读取当前需要的 `docs/internal-actions/&lt;动作&gt;.md`，不预加载所有阶段。发现缺陷先复现；生产问题先只读诊断，写操作必须具备具体授权、范围、停止条件和恢复方法。只做本轮相关改动。
 5. 先确定环境准备与结构化验收预期，再实际验证。优先按 docs/internal-actions/verify.md 用内部 verify 执行项目已有 unittest/JUnit 并绑定相关行为，不能为获得通过摘要而造空测试。其他检查保留真实来源，区分模型声明与解析回执。界面变更操作真实控件；独立审查可用时调用 reviewer，否则标明自审。当前失败与未解决 P0/P1 先修复重验，不因展示阶段或布局待决转给人兜底。人工观察和本次草稿分开，AI 测试角色标 ai，不代人勾选通过。接收反馈时核对 task_revision 与 assessment_revision，不只比较代码/行为指纹；人明确反馈后按其原意记录 result_status 和 reviewed_revision，旧页反馈先说明变化并重新核对。当前人工或 AI 的明确失败先调查复核。仅“跑测试”不等于委托接受结果；用户明确委托按标准代验时，按 entry-workflow.md 记录本条 acceptance_delegation 并由 AI 执行，不冒充人工。全部本版验收已记录后不要求重复核验或新增放行问题，后续沿用已有授权；报告本身不自动发布。
 6. 先 locate 取得 task_revision，将完整新数据写入临时 JSON，再用 reviewable.py update --from-file 和 --expect-revision 校验、原子更新，之后 render 同一 HTML。写入被权限拒绝时如实报告，不能改用 Write/cp 或换路径绕过。同步更新标题、概述与实际实现说明，避免修复后仍描述为待修；不要据此改写目标或把旧证据改绑为当前。明确 focus_stage，只呈现当前阶段；其他阶段记录留在数据中。实际交付直接链接当前任务 report.html，不能用 examples/index.html 或所有阶段合集代替。最终返回前核对 update 实际成功且 render 实际成功；未保存或未生成就明确未完成及原因，不能只用将来时计划结束或把旧报告当新交付。用任务类型和阶段说明“是什么、为什么、目前发生了什么、下一步谁做什么”，不要求填满所有阶段。返回报告绝对链接、实际验证和一条下一步。人未核验不能宣称人工验收通过。
 
 例：`/zl-dev:go 给订单列表增加客户筛选，翻页保持条件。先看现有实现，完成后验证筛选与翻页。`
 例：`/zl-dev:go 生产订单查询超时，先只读排查，给出影响、证据和建议；不要修改生产。`
 例：`/zl-dev:go 管理台支持取消订单，相关仓库 /workspace/admin 和 /workspace/orders。先整体理解和设计，再确定各项目改动。`
-
-``````
-
-</details>
-
-
-### A2. docs/entry-workflow.md
-
-行数：103；SHA256：`2c82db2ba8df7fbeb985b452c3d09703e345c211325146e4bfec957a5224e053`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 两个入口与按需工作流程
+</code></pre></details><details class="source" id="source-2"><summary><span>A02</span> docs/entry-workflow.md <small>103 行</small></summary><p class="source-meta">SHA256 2c82db2ba8df7fbeb985b452c3d09703e345c211325146e4bfec957a5224e053 · <a href="../docs/entry-workflow.md">打开源文件</a></p><pre><code># 两个入口与按需工作流程
 
 用户只需 `/zl-dev:go`（做事/继续）和 `/zl-dev:status`（看状态）。其余动作是插件内部资料，不注册斜杠命令。旧版阶段命令已撤下；旧任务数据和 CLI 仍可继续使用。
 
@@ -366,8 +63,8 @@ user-invocable: true
 - 新描述先判断是否延续当前明确任务。只有一个历史任务也不能据此自动接入新需求。
 - 无参数或明确说“继续”：运行 reviewable.py continue --project，单个任务可继续，多个任务按标题简短询问。
 - 使用返回的真实任务路径，不手算项目路径哈希。不确定是否延续时只问一个简短问题。
-- 新建：reviewable.py init <slug> --project <真实项目绝对路径> --title <标题> --kind <类型>。读取生成 task.json 后按下述安全更新流程维护，render 更新。
-- 所有工具位于 `${CLAUDE_PLUGIN_ROOT}/scripts/`，默认输出 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`。源码仍在业务仓库。脚本参数用独立参数和正确引号，不能将需求拼成可执行代码。
+- 新建：reviewable.py init &lt;slug&gt; --project &lt;真实项目绝对路径&gt; --title &lt;标题&gt; --kind &lt;类型&gt;。读取生成 task.json 后按下述安全更新流程维护，render 更新。
+- 所有工具位于 `${CLAUDE_PLUGIN_ROOT}/scripts/`，默认输出 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`。源码仍在业务仓库。脚本参数用独立参数和正确引号，不能将需求拼成可执行代码。
 
 ## 按需读取内部资料
 
@@ -420,16 +117,16 @@ primary_action 与 blockers 由脚本派生，focus_stage 仅决定阅读材料�
 
 ## 只读定位与安全更新
 
-`/zl-dev:status` 只使用 `reviewable.py locate [任务目录] --project <真实项目>` 和 `status`。locate 返回标题、当前阶段、task_revision、指纹和已有报告路径；报告不存在时 report 为 null，不补建。它不会调用 continue/render/index，也不创建任务目录。continue 是推进入口，会重新渲染报告，不能用于只读查询。
+`/zl-dev:status` 只使用 `reviewable.py locate [任务目录] --project &lt;真实项目&gt;` 和 `status`。locate 返回标题、当前阶段、task_revision、指纹和已有报告路径；报告不存在时 report 为 null，不补建。它不会调用 continue/render/index，也不创建任务目录。continue 是推进入口，会重新渲染报告，不能用于只读查询。
 
 修改记录时先运行 locate，读取完整 task.json，将合并后的完整 JSON 保存到系统临时目录，然后执行：
 
 ```sh
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" update "<真实任务目录>" --project "<绑定项目绝对路径>" --from-file "<临时JSON路径>" --expect-revision "<locate返回的task_revision>"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render "<真实任务目录>"
+python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; update &quot;&lt;真实任务目录&gt;&quot; --project &quot;&lt;绑定项目绝对路径&gt;&quot; --from-file &quot;&lt;临时JSON路径&gt;&quot; --expect-revision &quot;&lt;locate返回的task_revision&gt;&quot;
+python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; render &quot;&lt;真实任务目录&gt;&quot;
 ```
 
-update 使用既有 schema 校验，只允许更新已有、绑定到指定项目的任务，不能改变 id 或 project_path；版本冲突时拒绝覆盖，必须重新读取并合并。可增加 `--expect-fingerprint "<locate返回的fingerprint>"` 检查当前代码及行为契约；它不同于 task_revision，证据和说明变化也会改变 task_revision。fingerprint 为 null 时不能声称已核对代码版本。update 本身不 render；更新失败不执行 render。
+update 使用既有 schema 校验，只允许更新已有、绑定到指定项目的任务，不能改变 id 或 project_path；版本冲突时拒绝覆盖，必须重新读取并合并。可增加 `--expect-fingerprint &quot;&lt;locate返回的fingerprint&gt;&quot;` 检查当前代码及行为契约；它不同于 task_revision，证据和说明变化也会改变 task_revision。fingerprint 为 null 时不能声称已核对代码版本。update 本身不 render；更新失败不执行 render。
 
 在 macOS/Linux 上，同目录临时文件和原子替换保护旧数据，协作 CLI 写入使用文件锁；外部编辑器不遵守锁，不能并发直接编辑 task.json。旧任务缺少绑定时需先人工核对，不能猜测补绑。CLI 不绕过系统权限或 agent 权限：项目外的 ~/.claude/zl-dev 产出访问可能需要对具体任务目录授权；非交互 Claude CLI 的 acceptEdits 不保证自动允许项目外读写或 Bash。拒绝时保留原记录，如实返回失败及待保存内容位置，等待该范围的权限解决，不建议全局 bypass。禁止改用 Write、cp、其他命令或工作区副本规避明确的权限拒绝，也不能声称未保存内容已落盘。
 
@@ -454,26 +151,13 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 “帮我跑验收测试”只委托检查，不能推断接受结果。“按这些标准替我验收”才允许在约定范围内由 AI 判断结果是否满足标准。先核对原始用户表述与具体条目；AI 将明确委托保存到 `stage_details.acceptance.items` 对应条目的 `acceptance_delegation`，用户无需填 JSON：
 
 ```json
-{"kind":"acceptance","revision":"<本版代码/行为指纹>","source":"用户原话：按这些标准替我验收","criteria":"本条标准及委托范围"}
+{&quot;kind&quot;:&quot;acceptance&quot;,&quot;revision&quot;:&quot;&lt;本版代码/行为指纹&gt;&quot;,&quot;source&quot;:&quot;用户原话：按这些标准替我验收&quot;,&quot;criteria&quot;:&quot;本条标准及委托范围&quot;}
 ```
 
 只绑定明确被委托的条目，实际执行后保留 `reviewer_kind=ai`、实际观察、`result_status` 和 `reviewed_revision`。不把 source 当身份认证，也不从 AI 自述或模糊授权推断委托。该对象仅适用于本条验收，不允许填入 release 条目，不授予发布或对外操作权限。`human_verification` 保留人工来源语义，`acceptance_verification` 分别投影人工与受托 AI 结果。
 
 本版委托有效而结果缺失或过期时由 AI 继续执行；代码/行为指纹变化时先由 AI 核对原委托是否仍覆盖本版范围和标准。同范围可保留原始来源、更新委托绑定并实际重验；实质变化仅澄清缺失的范围，不能一律要求人工重做，也不能将旧通过记录改绑为新结果。现有检查失败、证据缺口和未解决 P0/P1 不被委托覆盖。
-
-``````
-
-</details>
-
-
-### A3. docs/internal-actions/build.md
-
-行数：11；SHA256：`45a1418eeae0c3b47c633c786f05d821e6c761f663fd81ab56c7f6d8f4819116`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：build
+</code></pre></details><details class="source" id="source-3"><summary><span>A03</span> docs/internal-actions/build.md <small>11 行</small></summary><p class="source-meta">SHA256 45a1418eeae0c3b47c633c786f05d821e6c761f663fd81ab56c7f6d8f4819116 · <a href="../docs/internal-actions/build.md">打开源文件</a></p><pre><code># 内部动作：build
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -483,21 +167,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 读取确认的规则和当前切片，实施范围内代码变更，遵守项目风格。不把关键业务未知当默认值。同步更新真实实现步骤、改动位置和实现偏差，旧证据过期后重新验证。实际执行相关测试，完成后渲染 HTML；遇到缺少环境就记录未验证，不伪造通过。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
-
-``````
-
-</details>
-
-
-### A4. docs/internal-actions/design.md
-
-行数：11；SHA256：`3d0e3f625ef230181f3fbbd4591a56d5a09f2a8dd0f72e877fb34896cc11fc4a`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：design
+工具入口：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render &lt;任务目录&gt;`，在回复中给出生成 report.html 的绝对路径。
+</code></pre></details><details class="source" id="source-4"><summary><span>A04</span> docs/internal-actions/design.md <small>11 行</small></summary><p class="source-meta">SHA256 3d0e3f625ef230181f3fbbd4591a56d5a09f2a8dd0f72e877fb34896cc11fc4a · <a href="../docs/internal-actions/design.md">打开源文件</a></p><pre><code># 内部动作：design
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -507,21 +178,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 读取原始需求与源码，生成事实/假设清单、方案选项、取舍和具体使用场景。补充 roles、assumptions、design。允许推荐合理方案，但关键业务假设必须由人确认。用模板生成 HTML，绝不把模拟当已实现。
 
-使用 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
-
-``````
-
-</details>
-
-
-### A5. docs/internal-actions/feature.md
-
-行数：19；SHA256：`a156f4b2e7b7a6a3588dd1c608830ef392178fd21c77fbd4cf6f18801d65028b`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：feature
+使用 `python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
+</code></pre></details><details class="source" id="source-5"><summary><span>A05</span> docs/internal-actions/feature.md <small>19 行</small></summary><p class="source-meta">SHA256 a156f4b2e7b7a6a3588dd1c608830ef392178fd21c77fbd4cf6f18801d65028b · <a href="../docs/internal-actions/feature.md">打开源文件</a></p><pre><code># 内部动作：feature
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -531,29 +189,16 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 总方案包括目标/非目标、完整用户路径、跨系统状态和数据流、接口契约、异常一致性、兼容性、整体验收。基于真实源码观察提出边界与分工，未知写假设，关键业务问题由人决定。同一负责人可实现所有项目，也可分配多人；人员与项目是独立维度。
 
-工具：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/feature.py" init <功能slug> --workspace <共同工作区绝对路径> --title <名称> --project <id>=<绝对路径>`，可重复 --project。然后 inspect，阅读被识别项目的真实源码（脚本仅识别项目线索，不负责理解架构）。更新 feature.json 的整体 design、contracts、allocations；对照 schema 协议。模板固定，不能自行设计 HTML。
+工具：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/feature.py&quot; init &lt;功能slug&gt; --workspace &lt;共同工作区绝对路径&gt; --title &lt;名称&gt; --project &lt;id&gt;=&lt;绝对路径&gt;`，可重复 --project。然后 inspect，阅读被识别项目的真实源码（脚本仅识别项目线索，不负责理解架构）。更新 feature.json 的整体 design、contracts、allocations；对照 schema 协议。模板固定，不能自行设计 HTML。
 
 在整体方案明确后，才为各项目建立独立 task.json，把整体方案位置与 contract_version 写入各子任务。每个子任务沿用现有阶段模板，但引用同一总方案。实现顺序按依赖，独立切片可并行；仅在用户和环境授权允许时启动代理。换人/换 agent 时复述上下文；同人同会话不强制交接。
 
 开发中若发现跨项目约定变更，回到总方案修改版本，列出受影响项目并重新验证，不允许单项目静默修改共同契约。只实现已明确授权的切片，关键未知不猜测。
 
-`sync <功能目录>` 汇总显式 task_path；`render <功能目录>` 生成固定 feature.html；`status <功能目录>` 显示快照新鲜度和缺口。总功能完成必须有指定环境、所有项目实际版本、真实跨项目 E2E 和人工核验；各子项目测试通过不能直接宣布整体通过。结束返回 feature.html 及各项目下一步。
+`sync &lt;功能目录&gt;` 汇总显式 task_path；`render &lt;功能目录&gt;` 生成固定 feature.html；`status &lt;功能目录&gt;` 显示快照新鲜度和缺口。总功能完成必须有指定环境、所有项目实际版本、真实跨项目 E2E 和人工核验；各子项目测试通过不能直接宣布整体通过。结束返回 feature.html 及各项目下一步。
 
-默认产出必须使用用户 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。后续使用返回的绝对功能目录，或同一个 slug + --workspace。子任务由 reviewable.py init <slug> --project <项目绝对路径> 创建；projects[].task_path 记录其返回的绝对目录，task.json.project_path 必须与关联项目路径一致。
-
-``````
-
-</details>
-
-
-### A6. docs/internal-actions/handoff.md
-
-行数：15；SHA256：`c15c06428eb7e00f4449310a214d8cc8363c3e582d31f38d4ea0774d175ff094`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：handoff
+默认产出必须使用用户 `~/.claude/zl-dev/projects/&lt;工作区名&gt;-&lt;路径哈希&gt;/features/&lt;slug&gt;/`。后续使用返回的绝对功能目录，或同一个 slug + --workspace。子任务由 reviewable.py init &lt;slug&gt; --project &lt;项目绝对路径&gt; 创建；projects[].task_path 记录其返回的绝对目录，task.json.project_path 必须与关联项目路径一致。
+</code></pre></details><details class="source" id="source-6"><summary><span>A06</span> docs/internal-actions/handoff.md <small>15 行</small></summary><p class="source-meta">SHA256 c15c06428eb7e00f4449310a214d8cc8363c3e582d31f38d4ea0774d175ff094 · <a href="../docs/internal-actions/handoff.md">打开源文件</a></p><pre><code># 内部动作：handoff
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -565,23 +210,10 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 核对目标、场景演示、行为变化、实际实现、待决项和验证证据是否一致。区分历史操作结果、当前已核实事实与未确认结果，不能把历史成功记录当作当前状态。渲染 HTML，优先提供一分钟概览、人工验收步骤、关键代码位置及剩余风险。明确模拟不是真实运行。HTML 反馈是本地草稿，复制并由人明确发回后才可记录为决定。不得从本地勾选推断批准、发布或上线授权。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
+工具入口：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render &lt;任务目录&gt;`，在回复中给出生成 report.html 的绝对路径。
 
-读取 `${CLAUDE_PLUGIN_ROOT}/docs/team-workflow.md`。填写 roles 与 handoffs（交出人、接收人、版本、未决问题），执行 `handoff <任务目录>` 生成跨工具 HANDOFF.md。不要只交聊天摘要；不得把尚未确认的假设改成硬性需求。接手者通过 `/zl-dev:go` 继续，按 HANDOFF.md 复述并核对实际状态。
-
-``````
-
-</details>
-
-
-### A7. docs/internal-actions/incident.md
-
-行数：11；SHA256：`a7d0889a76def2f9561ed6b984e13d4e12365290326f074581b8378d71654a97`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：incident
+读取 `${CLAUDE_PLUGIN_ROOT}/docs/team-workflow.md`。填写 roles 与 handoffs（交出人、接收人、版本、未决问题），执行 `handoff &lt;任务目录&gt;` 生成跨工具 HANDOFF.md。不要只交聊天摘要；不得把尚未确认的假设改成硬性需求。接手者通过 `/zl-dev:go` 继续，按 HANDOFF.md 复述并核对实际状态。
+</code></pre></details><details class="source" id="source-7"><summary><span>A07</span> docs/internal-actions/incident.md <small>11 行</small></summary><p class="source-meta">SHA256 a7d0889a76def2f9561ed6b984e13d4e12365290326f074581b8378d71654a97 · <a href="../docs/internal-actions/incident.md">打开源文件</a></p><pre><code># 内部动作：incident
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -591,21 +223,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 按 docs/team-workflow.md 生产事件协议处理。创建 incident 任务，记录影响、时间线、事实、假设、负责人。默认只读诊断，脱敏资料。写操作必须具备明确授权和范围、停止条件、回退办法；已有具体授权不重复询问。恢复要有实际用户路径或指标证据，不能用重启成功代替恢复。
 
-使用 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
-
-``````
-
-</details>
-
-
-### A8. docs/internal-actions/intake.md
-
-行数：11；SHA256：`c515093559785a53082d4e4d915d704d49112628ce5934e27480ff190546e140`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：intake
+使用 `python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
+</code></pre></details><details class="source" id="source-8"><summary><span>A08</span> docs/internal-actions/intake.md <small>11 行</small></summary><p class="source-meta">SHA256 c515093559785a53082d4e4d915d704d49112628ce5934e27480ff190546e140 · <a href="../docs/internal-actions/intake.md">打开源文件</a></p><pre><code># 内部动作：intake
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -615,21 +234,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 读取 HANDOFF.md、task.json 与当前项目约定，核对代码和资料版本。填写 handoffs 的接收者复述、范围、疑问和第一步。不同工具/模型不影响字段结构。接收人未明确确认前不得标 accepted。发现矛盾先记录并找对应负责人，不静默重设计。
 
-使用 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
-
-``````
-
-</details>
-
-
-### A9. docs/internal-actions/ops.md
-
-行数：11；SHA256：`be631f76d2a9cdec12b9fc9ec265367fe5a7a1af991281922940f51689118212`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：ops
+使用 `python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
+</code></pre></details><details class="source" id="source-9"><summary><span>A09</span> docs/internal-actions/ops.md <small>11 行</small></summary><p class="source-meta">SHA256 be631f76d2a9cdec12b9fc9ec265367fe5a7a1af991281922940f51689118212 · <a href="../docs/internal-actions/ops.md">打开源文件</a></p><pre><code># 内部动作：ops
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -639,21 +245,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 创建 operations 任务，记录环境/目标、操作卡、授权范围、观察指标、停止条件、恢复办法。区分计划、已执行与验证完成。未经授权不做生产写操作。按固定 HTML 展示检查、结果和待决事项。
 
-使用 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
-
-``````
-
-</details>
-
-
-### A10. docs/internal-actions/plan.md
-
-行数：11；SHA256：`a493724adc5d8f91f1f1222e5273b089b6ff6561cc1a5181a3e83d7797f55402`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：plan
+使用 `python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;` 初始化/渲染任务。默认 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，按 schema 编辑 task.json。结束时 render 并 index 任务根目录，返回固定模板 HTML 绝对路径。
+</code></pre></details><details class="source" id="source-10"><summary><span>A10</span> docs/internal-actions/plan.md <small>11 行</small></summary><p class="source-meta">SHA256 a493724adc5d8f91f1f1222e5273b089b6ff6561cc1a5181a3e83d7797f55402 · <a href="../docs/internal-actions/plan.md">打开源文件</a></p><pre><code># 内部动作：plan
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -663,21 +256,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 基于行为约定制定小切片计划，说明每片的可观察行为、涉及模块、风险和验证。给出可理解的主流程及少量关键取舍，保留范围边界。不默认引入新架构或依赖。只对重大或未授权决定请求确认，更新 HTML。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
-
-``````
-
-</details>
-
-
-### A11. docs/internal-actions/review.md
-
-行数：11；SHA256：`14d85e8cf5a17e768e2ecaf8db342a2de87ae5a07270049b8eaa2faf11b3c7e4`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：review
+工具入口：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render &lt;任务目录&gt;`，在回复中给出生成 report.html 的绝对路径。
+</code></pre></details><details class="source" id="source-11"><summary><span>A11</span> docs/internal-actions/review.md <small>11 行</small></summary><p class="source-meta">SHA256 14d85e8cf5a17e768e2ecaf8db342a2de87ae5a07270049b8eaa2faf11b3c7e4 · <a href="../docs/internal-actions/review.md">打开源文件</a></p><pre><code># 内部动作：review
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -687,21 +267,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 按工作协议使用独立 reviewer（可用时）；否则明确同一代理自审。检查确认规则、代码差异、异常路径、权限、并发、兼容性和测试盲区。每项发现包含位置、成立条件、影响和复现方法；区分确认问题与怀疑。将发现写入风险或待决事项并更新 HTML，不仅输出口头总结。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
-
-``````
-
-</details>
-
-
-### A12. docs/internal-actions/spec.md
-
-行数：11；SHA256：`ba66441e728b5a1d36d4ffda3083eaaeb2725afb6f28ca05ee04ceb8628d5c71`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：spec
+工具入口：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render &lt;任务目录&gt;`，在回复中给出生成 report.html 的绝对路径。
+</code></pre></details><details class="source" id="source-12"><summary><span>A12</span> docs/internal-actions/spec.md <small>11 行</small></summary><p class="source-meta">SHA256 ba66441e728b5a1d36d4ffda3083eaaeb2725afb6f28ca05ee04ceb8628d5c71 · <a href="../docs/internal-actions/spec.md">打开源文件</a></p><pre><code># 内部动作：spec
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -711,21 +278,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 读取相关实现和测试，将当前行为与目标行为分开。为规则和场景建立稳定 ID，提供正常、异常、边界例子，记录依据。识别历史数据、权限、重复请求和并发影响。只将用户已确认的业务决定标为确认；其余保留待决。生成 HTML，让人通过场景理解规则。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
-
-``````
-
-</details>
-
-
-### A13. docs/internal-actions/start.md
-
-行数：13；SHA256：`ddf08c6c5ed862b5b9b260a15dbdab6d00b4f54fed4303370c8c868ac6ccbeda`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：start
+工具入口：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render &lt;任务目录&gt;`，在回复中给出生成 report.html 的绝对路径。
+</code></pre></details><details class="source" id="source-13"><summary><span>A13</span> docs/internal-actions/start.md <small>13 行</small></summary><p class="source-meta">SHA256 ddf08c6c5ed862b5b9b260a15dbdab6d00b4f54fed4303370c8c868ac6ccbeda · <a href="../docs/internal-actions/start.md">打开源文件</a></p><pre><code># 内部动作：start
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -735,23 +289,10 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 
 读取用户目标与项目约定，识别任务类型和风险。创建或复用任务目录，填写目标、范围、现状、具体场景和关键未知项。对低风险且授权明确的任务可继续实施并验证；关键业务未知先展示可比较的选项并询问。不要要求每次手工执行全部八个阶段。生成首版 HTML，说明下一步。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
+工具入口：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render &lt;任务目录&gt;`，在回复中给出生成 report.html 的绝对路径。
 
 若一个功能涉及多个项目，先读取 `${CLAUDE_PLUGIN_ROOT}/docs/cross-project.md` 并按 feature 流程执行：识别项目后整体设计，再拆项目任务。不得让各项目从模糊需求独立设计，也不要求先指定多人角色。
-
-``````
-
-</details>
-
-
-### A14. docs/internal-actions/verify.md
-
-行数：32；SHA256：`8988c21260c673dfc922c1b5993962d20b027fe8f84fa0c544cf434814670cd8`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 内部动作：verify
+</code></pre></details><details class="source" id="source-14"><summary><span>A14</span> docs/internal-actions/verify.md <small>32 行</small></summary><p class="source-meta">SHA256 8988c21260c673dfc922c1b5993962d20b027fe8f84fa0c544cf434814670cd8 · <a href="../docs/internal-actions/verify.md">打开源文件</a></p><pre><code># 内部动作：verify
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
@@ -764,8 +305,8 @@ HANDOFF.md 的生成区由明确标记管理，人工补充写在标记之外并
 优先使用内部执行器运行项目已有测试。以下任务目录、项目、行为 ID 与测试路径需替换为实际值；`--` 后是原样 argv，在绑定项目中执行，不经 shell 拼接：
 
 ```sh
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" verify "<任务目录>" --project "<源码项目绝对路径>" --format unittest --behavior B1 -- python3 -m unittest discover -s tests -v
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" verify "<任务目录>" --project "<源码项目绝对路径>" --format junit --behavior B1 --behavior B2 --result-file "/tmp/zl-dev-<本次唯一ID>.xml" -- pytest --junitxml="/tmp/zl-dev-<本次唯一ID>.xml"
+python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; verify &quot;&lt;任务目录&gt;&quot; --project &quot;&lt;源码项目绝对路径&gt;&quot; --format unittest --behavior B1 -- python3 -m unittest discover -s tests -v
+python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; verify &quot;&lt;任务目录&gt;&quot; --project &quot;&lt;源码项目绝对路径&gt;&quot; --format junit --behavior B1 --behavior B2 --result-file &quot;/tmp/zl-dev-&lt;本次唯一ID&gt;.xml&quot; -- pytest --junitxml=&quot;/tmp/zl-dev-&lt;本次唯一ID&gt;.xml&quot;
 ```
 
 JUnit 示例仅适用于项目已使用 pytest；其他工具使用其真实 JUnit 参数。两处结果路径须相同、每次新建且运行前不存在；优先写项目外，或确认是 Git 忽略路径，否则测试产物本身会改变源码指纹而不能绑定本次结果。不要删旧结果冒充新运行。执行器保存日志、结果摘要与前后指纹，稳定时追加关联行为的证据；检查未启动、超时、摘要无法解析、任务或指纹变化都不能当作有效通过。`render` 是独立动作。
@@ -778,25 +319,12 @@ JUnit 示例仅适用于项目已使用 pytest；其他工具使用其真实 JUn
 
 同时核对持久化状态、页面文案和用户实际可执行的动作。通过真实控件操作确认可编辑、可提交或应被阻止；脚本直接赋值不能证明控件可操作。响应或重放记录可能只说明历史操作结果，不能直接当作当前事实；刷新失败或结果未确认时，验证页面是否明确表达未知状态，并阻止依赖已确认当前状态的后续修改。保留每一步的版本、请求结果与存储核对依据。
 
-工具入口：`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render <任务目录>`，在回复中给出生成 report.html 的绝对路径。
+工具入口：`python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot;`。以生成的 task.json、插件 schema 和示例为字段依据。默认目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，使用任务 slug 和 `--project &lt;项目绝对路径&gt;` 解析，不能在仓库中另建产出目录。完成阶段后执行 `render &lt;任务目录&gt;`，在回复中给出生成 report.html 的绝对路径。
 
 已绑定版本的证据不能改绑 revision 或改 id 替换旧记录；重跑须保留旧证据并新增本次独立 id，也可清空 revision 显式失效。CLI 仅阻止有限误操作，不能证明执行真实性或防止伪造新记录。
 
 界面验证按需求指定的终端范围执行；未要求移动端时不默认增加手机尺寸测试。本项目默认验证桌面网页。可运行夹具可用于贴近真实业务的场景评测，但需求/角色输入、实际执行者、原始结果与真实人工接受要分别标注。
-
-``````
-
-</details>
-
-
-### A15. agents/reviewer.md
-
-行数：12；SHA256：`cd9c5989c94bd1fc9536dc5976dd48b6e4d41b33c741acd6fc04d532ef819251`
-
-<details><summary>展开完整原文</summary>
-
-``````text
----
+</code></pre></details><details class="source" id="source-15"><summary><span>A15</span> agents/reviewer.md <small>12 行</small></summary><p class="source-meta">SHA256 cd9c5989c94bd1fc9536dc5976dd48b6e4d41b33c741acd6fc04d532ef819251 · <a href="../agents/reviewer.md">打开源文件</a></p><pre><code>---
 name: reviewer
 description: 独立审查行为约定、代码变化和验证证据，寻找可复现反例及高风险遗漏。
 ---
@@ -808,32 +336,19 @@ description: 独立审查行为约定、代码变化和验证证据，寻找可�
 优先找需求遗漏、越权、重复副作用、并发不一致、历史数据或接口兼容性破坏、测试假阳性。给每个发现提供：严重程度、具体代码位置、成立条件、影响、最小验证方式。区分已复现与推测；没有发现时列出实际审查范围与盲区，不声称无缺陷。
 
 输出简短业务解释，再给技术依据。明确指出哪些待决业务事项需要人判断，哪些可由实现者直接修复。不要执行生产操作，不通过伪造运行证据来提高结论置信度。
-
-``````
-
-</details>
-
-
-### A16. docs/workflow.md
-
-行数：75；SHA256：`442dcc80aaa17f466965dfce671867d572fc836bf0fd2b064f003a52139b247e`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# ZL Dev 工作协议
+</code></pre></details><details class="source" id="source-16"><summary><span>A16</span> docs/workflow.md <small>75 行</small></summary><p class="source-meta">SHA256 442dcc80aaa17f466965dfce671867d572fc836bf0fd2b064f003a52139b247e · <a href="../docs/workflow.md">打开源文件</a></p><pre><code># ZL Dev 工作协议
 
 HTML 是首要交付，`task.json` 是事实来源。页面不能代替代码、测试或人的判断。默认中文交流和页面内容，跟随用户明确语言偏好。
 
 ## 项目和任务
 
 1. 读取项目自己的 CLAUDE.md、AGENTS.md 和相关开发说明。先查现状，不臆造构建命令、框架或目录。
-2. 先确定当前业务项目的真实根路径（不要把产出目录当项目）。任务目录默认为用户目录 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，以项目真实绝对路径区分同名项目，slug 用简短英文字母、数字、连字符。传入已有目录时继续原任务；多个候选且无法判定时请用户指定，不覆盖别的任务。
+2. 先确定当前业务项目的真实根路径（不要把产出目录当项目）。任务目录默认为用户目录 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`，以项目真实绝对路径区分同名项目，slug 用简短英文字母、数字、连字符。传入已有目录时继续原任务；多个候选且无法判定时请用户指定，不覆盖别的任务。
 3. 工具仅依赖 Python 3.9+ 标准库：
    ```sh
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" init "<slug>" --project "<项目绝对路径>" --title "任务名称" --kind feature
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" render "<slug>" --project "<项目绝对路径>"
-   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" status "<slug>" --project "<项目绝对路径>"
+   python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; init &quot;&lt;slug&gt;&quot; --project &quot;&lt;项目绝对路径&gt;&quot; --title &quot;任务名称&quot; --kind feature
+   python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; render &quot;&lt;slug&gt;&quot; --project &quot;&lt;项目绝对路径&gt;&quot;
+   python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; status &quot;&lt;slug&gt;&quot; --project &quot;&lt;项目绝对路径&gt;&quot;
    ```
    这是模板：替换占位符，用独立参数和正确 shell 引号，不把用户描述拼接成可执行脚本。
 4. 先阅读 init 生成的 task.json，保持字段类型和结构，按实际数据编辑。不要创造与渲染器不兼容的新格式；参照插件示例和 `docs/schema-reference.md`。一次阶段结束后渲染，返回 report.html 绝对路径。
@@ -896,25 +411,12 @@ HTML 中的勾选和反馈属于本地草稿，不能直接成为仓库审批或
 
 ## 页内阅读（0.8.1）
 主内容连续展示，补充材料使用原生 details/summary 一次点击展开。不使用材料下拉框加查看按钮，不隐藏主页面进行导航。需要证据或反馈时直接展开并滚动到对应位置。
-
-``````
-
-</details>
-
-
-### A17. docs/team-workflow.md
-
-行数：42；SHA256：`70507634fe9124c50d7088763a6adbbc2784e31d53706f9801bb690080b1ad4a`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 多人、多工具协作协议
+</code></pre></details><details class="source" id="source-17"><summary><span>A17</span> docs/team-workflow.md <small>42 行</small></summary><p class="source-meta">SHA256 70507634fe9124c50d7088763a6adbbc2784e31d53706f9801bb690080b1ad4a · <a href="../docs/team-workflow.md">打开源文件</a></p><pre><code># 多人、多工具协作协议
 
 ## 目标与边界
 需求不明确时允许提出自洽方案，但“自洽”不等于“业务正确”。先记录事实、假设、待决问题和可操作例子。不同工具与模型共用 task.json、HTML 和 HANDOFF.md；统一材料结构不能保证模型能力一致，必须靠可复现证据和适用的结果判断收敛。
 
-协作原则见[人与 AI 的协作模型](collaboration-model.md)。脚本支持条目级受托验收及来源区分；通用行动授权、按动作判断阻塞和偏差豁免尚未完整支持，不得仅靠改写报告文案声称已实现。
+协作原则见[人与 AI 的协作模型](../../zl-dev/docs/collaboration-model.md)。脚本支持条目级受托验收及来源区分；通用行动授权、按动作判断阻塞和偏差豁免尚未完整支持，不得仅靠改写报告文案声称已实现。
 
 ## 人的职责与固定页面
 
@@ -951,20 +453,7 @@ HTML 中的勾选和反馈属于本地草稿，不能直接成为仓库审批或
 运行 handoff 生成 HANDOFF.md，连同任务 JSON、报告和必要设计/证据通过团队既有渠道交接。Codex、Cursor 等读取该文件并执行 Python CLI，不假设支持 Claude 命令。接收者先独立阅读真实代码并复述，再继续。交接包不是远程同步系统，不自动推送给他人。
 
 交接包只替换生成标记之间的内容，人工笔记放在标记之外。旧格式迁移会保存唯一备份，新包指向旧材料；不要把旧材料中的状态当当前结论。接手先核对当前行动、report_state 和 task_revision/assessment_revision，HTML 过期时先读当前数据。人工退回使用明确 result_status 并保留原话与对应行为版本；不能将 AI 观察登记为人确认。
-
-``````
-
-</details>
-
-
-### A18. docs/collaboration-model.md
-
-行数：78；SHA256：`cdbbdfc77d0661a3218b1873756405983ff730155bd7bf5fb5b90569a73d6f73`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 人与 AI 的协作模型
+</code></pre></details><details class="source" id="source-18"><summary><span>A18</span> docs/collaboration-model.md <small>78 行</small></summary><p class="source-meta">SHA256 cdbbdfc77d0661a3218b1873756405983ff730155bd7bf5fb5b90569a73d6f73 · <a href="../docs/collaboration-model.md">打开源文件</a></p><pre><code># 人与 AI 的协作模型
 
 本页定义产品责任与判断原则，不表示所有规则已由脚本实现。本轮运行时先支持条目级受托验收、来源与版本区分，以及完成后不重复要求人工核验；通用行动授权、按动作划分阻塞和偏差豁免仍是后续设计边界，不是已实现能力。
 
@@ -1042,20 +531,7 @@ HTML 是面向人的阶段协作报告：呈现目标、差异、当前结论、
 6. 报告离线打开，不依赖业务接口。人能从主内容理解结论，技术明细按需要查看。
 
 这些检查可以验证状态一致性与必要信息是否可见，不能据此声称已经测量真人理解速度或保证不同模型具有相同能力。
-
-``````
-
-</details>
-
-
-### A19. docs/cross-project.md
-
-行数：90；SHA256：`768b400e997f1cdd019f4c57256867066dc4d1cf866ac15f7dcd0b908ede3b96`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 跨项目功能：整体设计，分项目实施
+</code></pre></details><details class="source" id="source-19"><summary><span>A19</span> docs/cross-project.md <small>90 行</small></summary><p class="source-meta">SHA256 768b400e997f1cdd019f4c57256867066dc4d1cf866ac15f7dcd0b908ede3b96 · <a href="../docs/cross-project.md">打开源文件</a></p><pre><code># 跨项目功能：整体设计，分项目实施
 
 ## 核心顺序
 
@@ -1092,9 +568,9 @@ integration 条目 {id, scenario, environment, status, versions: {project_id: de
 ## CLI 和持久化
 
 ```sh
-python3 /插件路径/scripts/feature.py init order-cancel --workspace /工作区 --title "订单取消" --project admin=/工作区/admin --project api=/工作区/api
+python3 /插件路径/scripts/feature.py init order-cancel --workspace /工作区 --title &quot;订单取消&quot; --project admin=/工作区/admin --project api=/工作区/api
 python3 /插件路径/scripts/feature.py locate /功能目录
-python3 /插件路径/scripts/feature.py update /功能目录 --workspace /工作区 --from-file /临时目录/feature-next.json --expect-revision <locate返回的feature_revision>
+python3 /插件路径/scripts/feature.py update /功能目录 --workspace /工作区 --from-file /临时目录/feature-next.json --expect-revision &lt;locate返回的feature_revision&gt;
 python3 /插件路径/scripts/feature.py inspect /功能目录
 python3 /插件路径/scripts/feature.py preflight /功能目录
 python3 /插件路径/scripts/feature.py sync /功能目录
@@ -1108,7 +584,7 @@ python3 /插件路径/scripts/feature.py status /功能目录
 
 `update`、`inspect` 和 `sync` 共用协作锁并原子替换文件，inspect/sync 还检查读取以来的版本变化。外部编辑器不遵守该锁，不要同时直接编辑 feature.json；这些保护也不提供超越系统权限的写入能力。当前写锁依赖 fcntl，Windows 等缺少它的平台仍可运行 locate/status/preflight 等只读命令，但写入命令会明确报不支持，不进行写入。
 
-总任务默认保存在 `~/.claude/zl-dev/projects/<工作区名>-<路径哈希>/features/<slug>/`。用 `--workspace <共同工作区绝对路径>` 固定归属；各项目子任务仍按各自项目区分。inspect 写观察，sync 写快照，render 生成 feature.html；这不是后台监听。未同步、不可访问和版本变化都应保留为缺口。不要仅传总目录给原来的 task CLI，它使用另一份 task.json 数据格式。
+总任务默认保存在 `~/.claude/zl-dev/projects/&lt;工作区名&gt;-&lt;路径哈希&gt;/features/&lt;slug&gt;/`。用 `--workspace &lt;共同工作区绝对路径&gt;` 固定归属；各项目子任务仍按各自项目区分。inspect 写观察，sync 写快照，render 生成 feature.html；这不是后台监听。未同步、不可访问和版本变化都应保留为缺口。不要仅传总目录给原来的 task CLI，它使用另一份 task.json 数据格式。
 
 ## 完整示例：一个人或多人都一样
 
@@ -1145,20 +621,7 @@ AI 应先查清：页面在哪里、API 由谁提供、订单/库存数据归谁
 ## 功能报告版本
 
 feature 的 render、locate/status 输出 feature_revision（精确记录）及 assessment_revision（实时派生评估），report_state 只读区分 current/stale/unknown/missing；旧报告路径仍保留供追溯。复制反馈带两种版本及契约版本，只比较 contract_version 不足以确认材料最新。子任务记录、代码或日志变化可使整体报告过期；status 不自动 sync/render。新字段是派生信息，不手填到 feature.json，也不据本地哈希推断身份认证。
-
-``````
-
-</details>
-
-
-### A20. docs/schema-reference.md
-
-行数：100；SHA256：`f198e7000ee7fb12f523a71dbd8c5d5241693103e991dec3f8e3401e2e0f2eda`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# task.json v1 数据约定
+</code></pre></details><details class="source" id="source-20"><summary><span>A20</span> docs/schema-reference.md <small>100 行</small></summary><p class="source-meta">SHA256 f198e7000ee7fb12f523a71dbd8c5d5241693103e991dec3f8e3401e2e0f2eda · <a href="../docs/schema-reference.md">打开源文件</a></p><pre><code># task.json v1 数据约定
 
 Python 3.9+，UTF-8 JSON 对象。以 scripts/reviewable.py 的 validate 为基础结构校验，以下语义仍需人工与 AI 核对。
 
@@ -1180,7 +643,7 @@ summary/why/scope/stage/rollback 为字符串。changes/risks/acceptance 为字�
 
 ## CLI
 ```
-python3 scripts/reviewable.py init /任务目录 --title "任务标题" --kind feature
+python3 scripts/reviewable.py init /任务目录 --title &quot;任务标题&quot; --kind feature
 python3 scripts/reviewable.py render /任务目录
 python3 scripts/reviewable.py status /任务目录
 python3 scripts/reviewable.py fingerprint /任务目录
@@ -1197,14 +660,14 @@ fingerprint 绑定 Git 工作区内容与行为约定（含场景、验收、假
 HTML 生成可读的反馈文本，填写后点“复制给 AI”并粘贴到会话，不直接改 task.json，不代表审批或接收。人把草稿交回会话后核对任务与版本，再记录明确授权。跨工具接手包不包含凭据，不自动执行任何命令。
 
 ## stage_details 扩展
-可选对象，键只能取 templates/stages.json 中的九个阶段。新任务默认有骨架。字段、枚举、步骤与证据引用由 validate 强制校验；具体见 [阶段模板协议](stage-templates.md)。stage_details 内容变化会使旧证据需要重新核对；HTML 中的草稿修改不写回文件。
+可选对象，键只能取 templates/stages.json 中的九个阶段。新任务默认有骨架。字段、枚举、步骤与证据引用由 validate 强制校验；具体见 [阶段模板协议](../../zl-dev/docs/stage-templates.md)。stage_details 内容变化会使旧证据需要重新核对；HTML 中的草稿修改不写回文件。
 
 ## 用户级项目存储（0.5.0）
 
-新任务的 `project_path` 保存原项目真实绝对路径。产出目录在用户 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`；代码指纹读取 project_path 的源码，不能对 `.claude` 目录计算代码指纹。项目不存在时返回未知，不回退到其他仓库。旧任务缺少绑定时仍按原任务所在 Git 仓库定位。
+新任务的 `project_path` 保存原项目真实绝对路径。产出目录在用户 `~/.claude/zl-dev/projects/&lt;项目名&gt;-&lt;路径哈希&gt;/tasks/&lt;slug&gt;/`；代码指纹读取 project_path 的源码，不能对 `.claude` 目录计算代码指纹。项目不存在时返回未知，不回退到其他仓库。旧任务缺少绑定时仍按原任务所在 Git 仓库定位。
 
 ```sh
-python3 scripts/reviewable.py init cancel-order --project /workspace/orders --title "取消订单" --kind feature
+python3 scripts/reviewable.py init cancel-order --project /workspace/orders --title &quot;取消订单&quot; --kind feature
 python3 scripts/reviewable.py render cancel-order --project /workspace/orders
 python3 scripts/reviewable.py status cancel-order --project /workspace/orders
 ```
@@ -1233,11 +696,11 @@ python3 scripts/reviewable.py verify /任务目录 --project /源码项目 --for
 
 只执行调用者显式提供的 argv，以绑定项目为 cwd、shell=False；不会从 task.json、HTML 或 prepare_command 读取并运行命令。调用者仍须检查实际测试的环境和外部连接。JUnit 结果必须为本轮新文件；建议放在源码外或 Git 忽略的测试输出目录，避免结果文件本身改变源码指纹。执行不保证测试真正覆盖所引用行为。
 
-每次运行在任务 `runs/verify-<唯一ID>/` 保留 stdout.log、stderr.log、receipt.json；JUnit 额外保存 result.xml。超时结束本次进程组并保留记录。回执记录 argv/cwd、开始结束时间、进程退出码、运行前后任务 revision 与代码/行为指纹、task 身份、行为引用、日志 SHA256 和解析统计。只在指纹和任务 revision 稳定时，以 CAS 追加独立 evidence，不修改已有证据，不渲染 HTML；冲突时只保留回执。返回 0 必须已追加证据、非零测试实际通过、没有跳过且版本稳定。
+每次运行在任务 `runs/verify-&lt;唯一ID&gt;/` 保留 stdout.log、stderr.log、receipt.json；JUnit 额外保存 result.xml。超时结束本次进程组并保留记录。回执记录 argv/cwd、开始结束时间、进程退出码、运行前后任务 revision 与代码/行为指纹、task 身份、行为引用、日志 SHA256 和解析统计。只在指纹和任务 revision 稳定时，以 CAS 追加独立 evidence，不修改已有证据，不渲染 HTML；冲突时只保留回执。返回 0 必须已追加证据、非零测试实际通过、没有跳过且版本稳定。
 
 支持 unittest 的唯一 Ran N + OK/FAILED 摘要及 JUnit 的实际 testcase；0 项、跳过项、未知格式、缺摘要、非零退出、超时均不能成为 passed。单个输入文件只解析前述 16 MiB 上限以内的完整内容，超出则不解析，不记通过；这个限制不限制子进程写盘量，执行期间的原始 stdout/stderr 可能很大。部分 skip 也采用保守策略，不记 passed；如需单独证明未跳过的相关行为，应显式选择并重跑独立检查，不能隐藏跳过项。输出中的测试名或日志可以被程序伪造；**日志解析不等价业务覆盖或身份认证，不抵抗有本地写权限者同时伪造日志与回执**。
 
-新增 evidence 可引用 `verification_receipt: {path: "runs/verify-.../receipt.json", sha256: "..."}`。报告/status 的 assessed 会重新检查回执哈希、任务与行为身份、原始日志哈希并重新解析；派生 `verification_source` 为 `parsed_result`、`claim`（旧记录/仅模型声明）或 `invalid`。合法解析派生 `parsed_result={format,counts:{total,passed,failed,errors,skipped},status}`；模型手填这两项会被覆盖。无效回执保留 `claimed_status`，有效 status 降为 not_run，不能使任务就绪。读取不会执行测试或改写文件。
+新增 evidence 可引用 `verification_receipt: {path: &quot;runs/verify-.../receipt.json&quot;, sha256: &quot;...&quot;}`。报告/status 的 assessed 会重新检查回执哈希、任务与行为身份、原始日志哈希并重新解析；派生 `verification_source` 为 `parsed_result`、`claim`（旧记录/仅模型声明）或 `invalid`。合法解析派生 `parsed_result={format,counts:{total,passed,failed,errors,skipped},status}`；模型手填这两项会被覆盖。无效回执保留 `claimed_status`，有效 status 降为 not_run，不能使任务就绪。读取不会执行测试或改写文件。
 
 ## 可选人工核验上下文
 
@@ -1255,23 +718,10 @@ acceptance/release 条目可选 result_status: pass/fail/blocked/not_checked，�
 
 ## 受托 AI 验收（仅 acceptance）
 
-条目可选 `acceptance_delegation`，只允许四个必填字段：`kind="acceptance"`、非空字符串 `revision`、`source`（用户明确委托原话）与 `criteria`（本条标准与委托范围）。仅委托检查不填写。它是来源记录，不是身份认证，不授予发布权限，release 条目不接受此字段。委托元数据不改变代码/行为指纹，但改变精确记录及评估版本。
+条目可选 `acceptance_delegation`，只允许四个必填字段：`kind=&quot;acceptance&quot;`、非空字符串 `revision`、`source`（用户明确委托原话）与 `criteria`（本条标准与委托范围）。仅委托检查不填写。它是来源记录，不是身份认证，不授予发布权限，release 条目不接受此字段。委托元数据不改变代码/行为指纹，但改变精确记录及评估版本。
 
 派生 `acceptance_verification` 将当前人工结果与本版明确受托 AI 结果分开保留；普通 AI pass 不会算接受，`human_verification` 不变。当前 AI fail/blocked 无论是否被委托都形成待 AI 调查的阻塞。有效委托但结果未执行/过期由 AI 继续；委托绑定旧指纹时仅派 AI 核对适用范围，不直接接受旧结果。全部项目当前验收通过后无真实待决问题则 `action_owner=none`，不要求人重复验收，不生成新发布批准；后续沿用已有授权。
-
-``````
-
-</details>
-
-
-### A21. docs/stage-templates.md
-
-行数：73；SHA256：`112c303ea737e5d9b30355cc70dcd7c79abb9faa0688cb0bb7807b00a08159cf`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 阶段专用展示协议
+</code></pre></details><details class="source" id="source-21"><summary><span>A21</span> docs/stage-templates.md <small>73 行</small></summary><p class="source-meta">SHA256 112c303ea737e5d9b30355cc70dcd7c79abb9faa0688cb0bb7807b00a08159cf · <a href="../docs/stage-templates.md">打开源文件</a></p><pre><code># 阶段专用展示协议
 
 必须使用 templates/stages.json 定义字段，以及 assets/stages.js 与 stages.css 的固定渲染。AI 只填写 task.json.stage_details；不得为任务另写 HTML、CSS、脚本或自定义字段。所有页面随 report.html 离线内嵌，不依赖 CDN。
 
@@ -1344,20 +794,7 @@ start/spec → requirements；design/plan → solution；handoff/intake → hand
 每个阶段完成后 render；任务总览用 index。模板不足时修改插件版本并增加校验/测试，不在某个任务里偷偷修改渲染风格。
 
 旧任务不含 stage_details 仍可打开，工作台显示待补齐。新 init 自动生成全部阶段骨架。已有任务按以下字段添加，不覆盖旧内容。
-
-``````
-
-</details>
-
-
-### A22. docs/scenario-layouts.md
-
-行数：26；SHA256：`793d50773e2b34dd1e342d8c7d8a97a2021d09c9017e93ec6004676fafa77b5b`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-# 按场景组织页面（0.8.0）
+</code></pre></details><details class="source" id="source-22"><summary><span>A22</span> docs/scenario-layouts.md <small>26 行</small></summary><p class="source-meta">SHA256 793d50773e2b34dd1e342d8c7d8a97a2021d09c9017e93ec6004676fafa77b5b · <a href="../docs/scenario-layouts.md">打开源文件</a></p><pre><code># 按场景组织页面（0.8.0）
 
 统一视觉、组件和反馈协议；不同事项使用独立的页面结构，不用同一张表换标题。assets/views/ 存放真实渲染模块，templates/layouts.json 是路由说明。
 
@@ -1383,325 +820,286 @@ examples/index.html 是模拟场景入口，按读者要解决的问题分类并
 ## 单阶段工作页（0.11.0）
 
 实际使用直接打开当前任务 report.html，由 focus_stage 决定本次呈现的阶段。阶段推进后更新同一页面，不把需求、方案、实施、验收同时铺开。examples/index.html 仅是模拟示例目录，按阶段选择独立页面，不作为真实任务入口。报告采用连续文档与集中反馈栏，流程直接可读，反馈预览按需展开。
-
-``````
-
-</details>
-
-
-### A23. templates/stages.json
-
-行数：256；SHA256：`ae5d40a317cf764494f0b4ccf4ee9c7333973269892a1d480de620f4be46a5a1`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-{
-  "requirements": {
-    "title": "需求理解",
-    "focus": "核对原始描述与解释，明确边界和验收例子。",
-    "fields": [
+</code></pre></details><details class="source" id="source-23"><summary><span>A23</span> templates/stages.json <small>256 行</small></summary><p class="source-meta">SHA256 ae5d40a317cf764494f0b4ccf4ee9c7333973269892a1d480de620f4be46a5a1 · <a href="../templates/stages.json">打开源文件</a></p><pre><code>{
+  &quot;requirements&quot;: {
+    &quot;title&quot;: &quot;需求理解&quot;,
+    &quot;focus&quot;: &quot;核对原始描述与解释，明确边界和验收例子。&quot;,
+    &quot;fields&quot;: [
       [
-        "original",
-        "原始描述"
+        &quot;original&quot;,
+        &quot;原始描述&quot;
       ],
       [
-        "interpretation",
-        "理解结果"
+        &quot;interpretation&quot;,
+        &quot;理解结果&quot;
       ],
       [
-        "boundary",
-        "范围与非目标"
+        &quot;boundary&quot;,
+        &quot;范围与非目标&quot;
       ],
       [
-        "example",
-        "验收例子"
+        &quot;example&quot;,
+        &quot;验收例子&quot;
       ]
     ]
   },
-  "solution": {
-    "title": "方案设计",
-    "focus": "并排比较候选方案、交互路径和取舍。",
-    "fields": [
+  &quot;solution&quot;: {
+    &quot;title&quot;: &quot;方案设计&quot;,
+    &quot;focus&quot;: &quot;并排比较候选方案、交互路径和取舍。&quot;,
+    &quot;fields&quot;: [
       [
-        "name",
-        "方案名称"
+        &quot;name&quot;,
+        &quot;方案名称&quot;
       ],
       [
-        "approach",
-        "如何工作"
+        &quot;approach&quot;,
+        &quot;如何工作&quot;
       ],
       [
-        "benefit",
-        "收益"
+        &quot;benefit&quot;,
+        &quot;收益&quot;
       ],
       [
-        "cost",
-        "成本与代价"
+        &quot;cost&quot;,
+        &quot;成本与代价&quot;
       ],
       [
-        "risk",
-        "风险"
+        &quot;risk&quot;,
+        &quot;风险&quot;
       ],
       [
-        "flow",
-        "交互或架构流程"
+        &quot;flow&quot;,
+        &quot;交互或架构流程&quot;
       ]
     ]
   },
-  "handoff": {
-    "title": "下发与接手",
-    "focus": "对照交出内容与接收者复述，暴露理解差异。",
-    "fields": [
+  &quot;handoff&quot;: {
+    &quot;title&quot;: &quot;下发与接手&quot;,
+    &quot;focus&quot;: &quot;对照交出内容与接收者复述，暴露理解差异。&quot;,
+    &quot;fields&quot;: [
       [
-        "deliverable",
-        "交出范围与版本"
+        &quot;deliverable&quot;,
+        &quot;交出范围与版本&quot;
       ],
       [
-        "receiver",
-        "接收人"
+        &quot;receiver&quot;,
+        &quot;接收人&quot;
       ],
       [
-        "readback",
-        "接收者理解"
+        &quot;readback&quot;,
+        &quot;接收者理解&quot;
       ],
       [
-        "gap",
-        "差异与疑问"
+        &quot;gap&quot;,
+        &quot;差异与疑问&quot;
       ],
       [
-        "next_action",
-        "第一步"
+        &quot;next_action&quot;,
+        &quot;第一步&quot;
       ]
     ]
   },
-  "implementation": {
-    "title": "实施过程",
-    "focus": "对照计划与实际，解释变更和影响。",
-    "fields": [
+  &quot;implementation&quot;: {
+    &quot;title&quot;: &quot;实施过程&quot;,
+    &quot;focus&quot;: &quot;对照计划与实际，解释变更和影响。&quot;,
+    &quot;fields&quot;: [
       [
-        "planned",
-        "计划切片"
+        &quot;planned&quot;,
+        &quot;计划切片&quot;
       ],
       [
-        "actual",
-        "实际实现"
+        &quot;actual&quot;,
+        &quot;实际实现&quot;
       ],
       [
-        "deviation",
-        "偏差与原因"
+        &quot;deviation&quot;,
+        &quot;偏差与原因&quot;
       ],
       [
-        "impact",
-        "影响范围"
+        &quot;impact&quot;,
+        &quot;影响范围&quot;
       ],
       [
-        "source",
-        "代码位置"
+        &quot;source&quot;,
+        &quot;代码位置&quot;
       ]
     ]
   },
-  "review": {
-    "title": "代码审查",
-    "focus": "按严重程度查看发现、修复和复查证据。",
-    "fields": [
+  &quot;review&quot;: {
+    &quot;title&quot;: &quot;代码审查&quot;,
+    &quot;focus&quot;: &quot;按严重程度查看发现、修复和复查证据。&quot;,
+    &quot;fields&quot;: [
       [
-        "severity",
-        "严重程度"
+        &quot;severity&quot;,
+        &quot;严重程度&quot;
       ],
       [
-        "finding",
-        "发现与成立条件"
+        &quot;finding&quot;,
+        &quot;发现与成立条件&quot;
       ],
       [
-        "source",
-        "代码位置"
+        &quot;source&quot;,
+        &quot;代码位置&quot;
       ],
       [
-        "fix",
-        "修复说明"
+        &quot;fix&quot;,
+        &quot;修复说明&quot;
       ],
       [
-        "recheck",
-        "复查结果"
+        &quot;recheck&quot;,
+        &quot;复查结果&quot;
       ]
     ]
   },
-  "testing": {
-    "title": "自动测试与 E2E",
-    "focus": "逐步查看预期、实际与证据；模拟不代表执行。",
-    "fields": [
+  &quot;testing&quot;: {
+    &quot;title&quot;: &quot;自动测试与 E2E&quot;,
+    &quot;focus&quot;: &quot;逐步查看预期、实际与证据；模拟不代表执行。&quot;,
+    &quot;fields&quot;: [
       [
-        "case",
-        "测试场景"
+        &quot;case&quot;,
+        &quot;测试场景&quot;
       ],
       [
-        "mode",
-        "simulation / recorded"
+        &quot;mode&quot;,
+        &quot;simulation / recorded&quot;
       ],
       [
-        "environment",
-        "环境与前置条件"
+        &quot;environment&quot;,
+        &quot;环境与前置条件&quot;
       ],
       [
-        "expected",
-        "预期结果"
+        &quot;expected&quot;,
+        &quot;预期结果&quot;
       ],
       [
-        "actual",
-        "实际结果"
+        &quot;actual&quot;,
+        &quot;实际结果&quot;
       ],
       [
-        "source",
-        "日志或截图位置"
+        &quot;source&quot;,
+        &quot;日志或截图位置&quot;
       ]
     ]
   },
-  "acceptance": {
-    "title": "结果验收",
-    "focus": "对照标准与来源核对结果；明确委托 AI 验收时不要求人重复操作。",
-    "fields": [
+  &quot;acceptance&quot;: {
+    &quot;title&quot;: &quot;结果验收&quot;,
+    &quot;focus&quot;: &quot;对照标准与来源核对结果；明确委托 AI 验收时不要求人重复操作。&quot;,
+    &quot;fields&quot;: [
       [
-        "scenario",
-        "验收场景"
+        &quot;scenario&quot;,
+        &quot;验收场景&quot;
       ],
       [
-        "instruction",
-        "操作步骤"
+        &quot;instruction&quot;,
+        &quot;操作步骤&quot;
       ],
       [
-        "expected",
-        "预期"
+        &quot;expected&quot;,
+        &quot;预期&quot;
       ],
       [
-        "actual",
-        "实际观察（保留执行者来源）"
+        &quot;actual&quot;,
+        &quot;实际观察（保留执行者来源）&quot;
       ],
       [
-        "reviewer",
-        "核验人"
+        &quot;reviewer&quot;,
+        &quot;核验人&quot;
       ],
       [
-        "result",
-        "接受 / 退回 / 未核验"
+        &quot;result&quot;,
+        &quot;接受 / 退回 / 未核验&quot;
       ]
     ]
   },
-  "release": {
-    "title": "发布与回滚",
-    "focus": "核对放行条件、观察指标、停止条件及恢复办法。",
-    "fields": [
+  &quot;release&quot;: {
+    &quot;title&quot;: &quot;发布与回滚&quot;,
+    &quot;focus&quot;: &quot;核对放行条件、观察指标、停止条件及恢复办法。&quot;,
+    &quot;fields&quot;: [
       [
-        "check",
-        "发布检查项"
+        &quot;check&quot;,
+        &quot;发布检查项&quot;
       ],
       [
-        "environment",
-        "目标环境"
+        &quot;environment&quot;,
+        &quot;目标环境&quot;
       ],
       [
-        "authorization",
-        "授权记录"
+        &quot;authorization&quot;,
+        &quot;授权记录&quot;
       ],
       [
-        "metric",
-        "观察指标及阈值"
+        &quot;metric&quot;,
+        &quot;观察指标及阈值&quot;
       ],
       [
-        "stop",
-        "停止条件"
+        &quot;stop&quot;,
+        &quot;停止条件&quot;
       ],
       [
-        "rollback",
-        "回退步骤"
+        &quot;rollback&quot;,
+        &quot;回退步骤&quot;
       ],
       [
-        "actual",
-        "执行结果"
+        &quot;actual&quot;,
+        &quot;执行结果&quot;
       ]
     ]
   },
-  "operations": {
-    "title": "运维与复盘",
-    "focus": "沿事件时间线区分事实、假设、动作与恢复证据。",
-    "fields": [
+  &quot;operations&quot;: {
+    &quot;title&quot;: &quot;运维与复盘&quot;,
+    &quot;focus&quot;: &quot;沿事件时间线区分事实、假设、动作与恢复证据。&quot;,
+    &quot;fields&quot;: [
       [
-        "at",
-        "时间"
+        &quot;at&quot;,
+        &quot;时间&quot;
       ],
       [
-        "observation",
-        "事实与影响"
+        &quot;observation&quot;,
+        &quot;事实与影响&quot;
       ],
       [
-        "hypothesis",
-        "诊断假设"
+        &quot;hypothesis&quot;,
+        &quot;诊断假设&quot;
       ],
       [
-        "action",
-        "动作及授权"
+        &quot;action&quot;,
+        &quot;动作及授权&quot;
       ],
       [
-        "verification",
-        "恢复指标 / 用户路径"
+        &quot;verification&quot;,
+        &quot;恢复指标 / 用户路径&quot;
       ],
       [
-        "followup",
-        "防复发行动及负责人"
+        &quot;followup&quot;,
+        &quot;防复发行动及负责人&quot;
       ]
     ]
   }
 }
-
-``````
-
-</details>
-
-
-### A24. templates/layouts.json
-
-行数：11；SHA256：`621970ae4f3c80cc1ee3041c71c96b7a939bb01138788d50dc0be13040764501`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-{
-  "feature": "user-story / solution-comparison / delivery / acceptance",
-  "change": "rule-difference / solution / implementation / acceptance",
-  "bugfix": "symptom → reproduce → cause/evidence → fix → regression",
-  "incident": "impact → timeline → hypotheses/actions → recovery",
-  "operations": "scope → runbook → stop/rollback → verification",
-  "refactor": "invariants → structure → regression",
-  "performance": "baseline/target/actual → bottleneck → tradeoffs",
-  "migration": "transform → dry-run → reconcile → restore",
-  "upgrade": "compatibility → unit-sequence → comparison → rollout"
+</code></pre></details><details class="source" id="source-24"><summary><span>A24</span> templates/layouts.json <small>11 行</small></summary><p class="source-meta">SHA256 621970ae4f3c80cc1ee3041c71c96b7a939bb01138788d50dc0be13040764501 · <a href="../templates/layouts.json">打开源文件</a></p><pre><code>{
+  &quot;feature&quot;: &quot;user-story / solution-comparison / delivery / acceptance&quot;,
+  &quot;change&quot;: &quot;rule-difference / solution / implementation / acceptance&quot;,
+  &quot;bugfix&quot;: &quot;symptom → reproduce → cause/evidence → fix → regression&quot;,
+  &quot;incident&quot;: &quot;impact → timeline → hypotheses/actions → recovery&quot;,
+  &quot;operations&quot;: &quot;scope → runbook → stop/rollback → verification&quot;,
+  &quot;refactor&quot;: &quot;invariants → structure → regression&quot;,
+  &quot;performance&quot;: &quot;baseline/target/actual → bottleneck → tradeoffs&quot;,
+  &quot;migration&quot;: &quot;transform → dry-run → reconcile → restore&quot;,
+  &quot;upgrade&quot;: &quot;compatibility → unit-sequence → comparison → rollout&quot;
 }
-
-``````
-
-</details>
-
-
-### A25. skills/status/SKILL.md
-
-行数：27；SHA256：`2e0334e163e865ee3c8a012b074bc37ad5d851a59a3c29e189edd79ad8894bab`
-
-<details><summary>展开完整原文</summary>
-
-``````text
----
+</code></pre></details><details class="source" id="source-25"><summary><span>A25</span> skills/status/SKILL.md <small>27 行</small></summary><p class="source-meta">SHA256 2e0334e163e865ee3c8a012b074bc37ad5d851a59a3c29e189edd79ad8894bab · <a href="../skills/status/SKILL.md">打开源文件</a></p><pre><code>---
 name: status
 description: 查看任务或跨项目功能当前结果、阻塞和下一步，不开始开发。
-argument-hint: "[任务名、任务目录，或留空查看当前任务]"
+argument-hint: &quot;[任务名、任务目录，或留空查看当前任务]&quot;
 disable-model-invocation: true
 user-invocable: true
 ---
 
 用户输入：$ARGUMENTS
 
-先定位当前会话任务及真实项目；优先使用紧凑的 locate，一次查询通常足够；仅需具体证据明细才追加 status。需要候选时执行 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py" locate --project "<项目绝对路径>"`。多个候选只列标题请用户选，不默选最近任务。明确功能目录则使用 `scripts/feature.py status`。
+先定位当前会话任务及真实项目；优先使用紧凑的 locate，一次查询通常足够；仅需具体证据明细才追加 status。需要候选时执行 `python3 &quot;${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py&quot; locate --project &quot;&lt;项目绝对路径&gt;&quot;`。多个候选只列标题请用户选，不默选最近任务。明确功能目录则使用 `scripts/feature.py status`。
 
-已有明确任务目录时使用 `reviewable.py locate "<任务目录>"` 或 `status "<任务目录>"`；`--project` 只能传业务源码项目路径，不能传 `~/.claude/zl-dev/.../tasks/...` 产出目录。
+已有明确任务目录时使用 `reviewable.py locate &quot;&lt;任务目录&gt;&quot;` 或 `status &quot;&lt;任务目录&gt;&quot;`；`--project` 只能传业务源码项目路径，不能传 `~/.claude/zl-dev/.../tasks/...` 产出目录。
 
 读取选中任务的事实和脚本 status 输出，检查已实现与已验证是否混用、证据是否过期。locate/status 仅只读；禁止调用会生成报告的 continue/render/index。report 为 null 时说明报告尚未生成，不自动补建。只读查看，不开始实现，不填满阶段、不加载所有工作协议。
 
@@ -1716,37 +1114,21 @@ user-invocable: true
 检查 report_state；stale/unknown 时将旧链接明确称为历史快照，不声称页面为当前状态，也不自动生成。说明用 go 核对后更新。人工反馈依据 workflow_summary.human_verification；本版退回交 AI，已记录全部人工通过不重复催第一项、不推断发布授权。
 
 locate 的 primary_action/blockers/verification/human_verification 是顶层字段，status 则位于 workflow_summary 下；两个命令顶层均直接提供 task_revision/assessment_revision。使用脚本绝对路径直接调用，不 cd 到插件目录、不用相对路径或 head 截断 JSON。现成字段足以判断时不要扫描 runs 或阅读脚本源码自行重算版本。
-
-``````
-
-</details>
-
-
-### A26. .claude-plugin/plugin.json
-
-行数：17；SHA256：`934de7ffa5ade42b9d69346546b76dfe2bf1ec779439da86e6522a3591431f18`
-
-<details><summary>展开完整原文</summary>
-
-``````text
-{
-  "name": "zl-dev",
-  "version": "0.16.0",
-  "description": "面向多人和多 AI 工具协作的开发与运维插件：将模糊需求、方案设计、交接复述、实施审查、端到端验证和生产问题处置整理为统一的交互式 HTML，帮助人理解并核验结果。",
-  "author": {
-    "name": "ZL Dev contributors"
+</code></pre></details><details class="source" id="source-26"><summary><span>A26</span> .claude-plugin/plugin.json <small>17 行</small></summary><p class="source-meta">SHA256 934de7ffa5ade42b9d69346546b76dfe2bf1ec779439da86e6522a3591431f18 · <a href="../.claude-plugin/plugin.json">打开源文件</a></p><pre><code>{
+  &quot;name&quot;: &quot;zl-dev&quot;,
+  &quot;version&quot;: &quot;0.16.0&quot;,
+  &quot;description&quot;: &quot;面向多人和多 AI 工具协作的开发与运维插件：将模糊需求、方案设计、交接复述、实施审查、端到端验证和生产问题处置整理为统一的交互式 HTML，帮助人理解并核验结果。&quot;,
+  &quot;author&quot;: {
+    &quot;name&quot;: &quot;ZL Dev contributors&quot;
   },
-  "repository": "https://github.com/zhangliang0115/demo-claude-config",
-  "keywords": [
-    "development",
-    "review",
-    "handoff",
-    "verification",
-    "operations",
-    "html"
+  &quot;repository&quot;: &quot;https://github.com/zhangliang0115/demo-claude-config&quot;,
+  &quot;keywords&quot;: [
+    &quot;development&quot;,
+    &quot;review&quot;,
+    &quot;handoff&quot;,
+    &quot;verification&quot;,
+    &quot;operations&quot;,
+    &quot;html&quot;
   ]
 }
-
-``````
-
-</details>
+</code></pre></details></section><footer>此页是插件设计说明的离线快照，不是业务系统或实际任务报告。<br>宿主机制参考：<a href="https://code.claude.com/docs/en/skills">Claude Code Skills</a> · <a href="https://code.claude.com/docs/en/plugins-reference">Plugin manifest</a>。源码内容与规范解释分别标注，不代表本轮执行过完整业务。</footer></main><script>const filter=document.getElementById('source-filter');const files=[...document.querySelectorAll('.source')];function applyFilter(){const q=filter.value.trim().toLowerCase();let shown=0;for(const file of files){file.hidden=!file.textContent.toLowerCase().includes(q);if(!file.hidden)shown++;}document.getElementById('source-count').textContent=shown+' / '+files.length+' 份原文';}filter.addEventListener('input',applyFilter);document.getElementById('expand-sources').onclick=()=>files.filter(x=>!x.hidden).forEach(x=>x.open=true);document.getElementById('collapse-sources').onclick=()=>files.forEach(x=>x.open=false);applyFilter();</script></body></html>

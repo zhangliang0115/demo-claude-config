@@ -55,4 +55,4 @@
 
 当前事项页位于 `~/.claude/zl-dev/projects/project-ec40ada9c29f/tasks/customer-export-permissions/report.html`。示例目录另外提供“审查阻塞”和“验收准备”两张独立阶段页；示例均明确标注模拟，不冒充本次真实项目。
 
-设计与官方资料对照见 [深度优化说明](../deep-optimization.md)，代码审查记录见 [结构化审计](2026-10-24-architecture-audit.json)。
+设计与官方资料对照见 [深度优化说明](../../../zl-dev/docs/deep-optimization.md)，代码审查记录见 [结构化审计](2026-10-24-architecture-audit.json)。

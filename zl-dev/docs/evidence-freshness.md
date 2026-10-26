@@ -57,4 +57,4 @@ locate.evidence_freshness 只返回非 current 诊断，优先无效回执，最
 
 ## 验证范围
 
-见[实测记录](evaluations/2026-10-26-evidence-freshness.md)：包含兼容与反例测试、真实0.22.0旧回执、新回执、真实 Claude Code 查询失败与修正后回放，以及桌面离线 HTML 检查。单次模型回放成功不保证所有模型都遵循短路径。
+见[实测记录](../../docs/zl-dev/evaluations/2026-10-26-evidence-freshness.md)：包含兼容与反例测试、真实0.22.0旧回执、新回执、真实 Claude Code 查询失败与修正后回放，以及桌面离线 HTML 检查。单次模型回放成功不保证所有模型都遵循短路径。

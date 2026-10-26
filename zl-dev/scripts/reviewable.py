@@ -540,6 +540,10 @@ def main():
             args.task_dir = Path(args.task_dir).expanduser().resolve() if args.task_dir else project_root(args.project) / 'tasks'
             args.task_dir.mkdir(parents=True, exist_ok=True)
         else:
+            if args.task_dir is not None and not args.task_dir.strip():
+                # 显式传入空字符串多为 shell 变量未展开；不回退到候选列表，避免看似成功的空结果
+                raise ValueError(f'{args.command} 收到空的任务目录参数。请把绝对路径直接写在命令中，不要依赖 shell 变量展开；'
+                                 '需要按标题选择时用 continue --project <项目>')
             if not args.task_dir:
                 candidates = sorted((project_root(args.project) / 'tasks').glob('*/task.json'))
                 if len(candidates) != 1:

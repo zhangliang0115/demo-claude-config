@@ -1,0 +1,60 @@
+"""Model evaluation runner: fixtures, explicit run count and per-scenario checks without a real model."""
+import json
+from pathlib import Path
+import shutil
+import stat
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
+import evaluate_models as runner
+
+FAKE_CLAUDE = '''#!/bin/sh
+if [ "$1" = "--version" ]; then echo "fake 0"; exit 0; fi
+echo '{"type":"system","subtype":"init","plugins":[]}'
+echo '{"type":"result","subtype":"success","num_turns":2,"total_cost_usd":0.01,"usage":{}}'
+'''
+
+
+class ModelRunnerTests(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.fake = self.root / 'claude'
+        self.fake.write_text(FAKE_CLAUDE)
+        self.fake.chmod(self.fake.stat().st_mode | stat.S_IEXEC)
+
+    def test_prepare_builds_one_isolated_case_per_model_scenario_repeat_without_model_calls(self):
+        result = runner.prepare(self.root / 'out', ['m1'], 2)
+        manifest = json.loads((self.root / 'out/prepared.json').read_text())
+        self.assertEqual(result['model_calls'], 0)
+        self.assertEqual(len(manifest['cases']), len(runner.SCENARIOS) * 2)
+        self.assertEqual(len({c['repo'] for c in manifest['cases']}), len(manifest['cases']))
+        analysis = [c for c in manifest['cases'] if c['scenario'] == 'analysis']
+        self.assertTrue(all(c['before']['task'] is None for c in analysis))
+        self.assertTrue(all(Path(c['task'], 'report.html').is_file() for c in manifest['cases'] if c['scenario'] != 'analysis'))
+
+    def test_run_requires_exact_confirmation_and_bounded_limits(self):
+        runner.prepare(self.root / 'out', ['m1'], 1)
+        for count, timeout, turns in [(4, 150, 12), (5, 181, 12), (5, 150, 16)]:
+            with self.assertRaises(ValueError):
+                runner.run(self.root / 'out', count, timeout, turns, str(self.fake))
+        self.assertFalse((self.root / 'out/run-started.json').exists())
+
+    def test_run_records_outcomes_and_refuses_second_run(self):
+        runner.prepare(self.root / 'out', ['m1'], 1)
+        summary = runner.run(self.root / 'out', 5, 30, 5, str(self.fake))
+        self.assertEqual(summary['total_runs'], 5)
+        rows = {r['scenario']: r for r in json.loads((self.root / 'out/outcomes.json').read_text())['cases']}
+        self.assertTrue(rows['progress']['passed'])
+        self.assertTrue(rows['analysis']['passed'])
+        self.assertFalse(rows['summary']['checks']['summary_appended'])  # 假 CLI 不写入，必须如实失败
+        self.assertFalse(rows['handoff']['checks']['handoff_exported'])
+        with self.assertRaises(ValueError):
+            runner.run(self.root / 'out', 5, 30, 5, str(self.fake))
+
+
+if __name__ == '__main__':
+    unittest.main()
