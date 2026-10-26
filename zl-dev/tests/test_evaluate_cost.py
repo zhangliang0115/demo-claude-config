@@ -42,6 +42,8 @@ class CostRunnerTests(unittest.TestCase):
         return output,cases,plugin
 
     def test_prepare_uses_pinned_archives_and_six_independent_sessions_without_model(self):
+        missing=[c for c in runner.VARIANTS.values() if subprocess.run(['git','cat-file','-e',c+'^{commit}'],cwd=runner.REPOSITORY,capture_output=True).returncode]
+        if missing:self.skipTest('固定回放提交不在当前克隆中（浅克隆或非 Git 副本）：'+', '.join(missing))
         result=runner.prepare(self.root/'actual')
         manifest=json.loads((Path(result['output'])/'prepared.json').read_text())
         self.assertEqual(result['model_calls'],0)
