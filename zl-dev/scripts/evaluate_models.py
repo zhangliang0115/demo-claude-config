@@ -20,6 +20,9 @@ from evaluate_cost import NOTICE, execute, git_state, stamp, write_json
 PLUGIN = Path(__file__).resolve().parents[1]
 ADDITION = '补充：本轮只记录说明，不改变验收标准。'
 SCENARIOS = ('progress', 'summary', 'report', 'handoff', 'analysis')
+EXTRA_SCENARIOS = ('multisession', 'execcontext')
+ALL_SCENARIOS = SCENARIOS + EXTRA_SCENARIOS
+OTHER_SESSION = 'eval-other-session-0001'
 MAX_TIMEOUT, MAX_TURNS, MAX_RUNS = 180, 15, 40
 
 
@@ -31,7 +34,50 @@ def prompt_for(scenario, task, repo, update):
         'report': start + '请给我当前报告链接，业务内容没有变化，不继续开发。',
         'handoff': start + '导出交接说明给下一位接手者，不修改源码，不继续开发。',
         'analysis': f'/zl-dev:go 只读分析项目 {repo} 中 total 的计算逻辑与输入来源，不修改代码，不建实施计划。用简短文字回答即可，不需要报告。',
+        # 不给任务路径：只能依靠本会话已有关联定位，不能接入同项目的另一个任务
+        'multisession': '/zl-dev:go 继续。本轮只告诉我你接的是哪个任务（标题）和下一步，不推进开发、不修改记录。',
+        # 另一会话已在同一 checkout 登记写活动：应识别冲突，不直接改源码
+        'execcontext': start + '开始实现：在 logic.py 的 total 增加 discount 参数（默认 0）。实施前按插件要求核对执行上下文；如有冲突先说明，不要强行修改。',
     }[scenario]
+
+
+def _seed_task(script, task, repo, folder, title):
+    execute([sys.executable, script, 'init', task, '--project', repo, '--kind', 'feature', '--title', title])
+    data = json.loads((task / 'task.json').read_text(encoding='utf-8'))
+    data.update(summary='订单导出支持按客户筛选；当前仅记录需求，尚未实施。', why='减少人工筛选。',
+                scope='限定任务说明与报告，不实施业务。',
+                behaviors=[dict(id='B1', before='人工筛选导出数据。', after='支持选择客户筛选导出数据。')])
+    source = folder / ('controller-' + task.name + '.json')
+    write_json(source, data)
+    state = json.loads(execute([sys.executable, script, 'locate', task]))
+    execute([sys.executable, script, 'update', task, '--project', repo, '--from-file', source,
+             '--expect-revision', state['task_revision']])
+
+
+def seed_session(plugin, session, repo, task):
+    script = plugin / 'scripts/session_context.py'
+    state = json.loads(execute([sys.executable, script, 'resolve', '--host', 'claude-code', '--session', session, '--project', repo]))
+    execute([sys.executable, script, 'bind', '--host', 'claude-code', '--session', session, '--project', repo,
+             '--target-kind', 'task', '--target', task, '--expect-revision', state['context_revision']])
+
+
+def seed_activity(plugin, repo, task):
+    script = plugin / 'scripts/workspace.py'
+    state = json.loads(execute([sys.executable, script, 'status', '--project', repo]))
+    result = json.loads(execute([sys.executable, script, 'begin', '--host', 'claude-code', '--session', OTHER_SESSION,
+                                 '--project', repo, '--task', task, '--mode', 'write',
+                                 '--expect-revision', state['registry_revision'] or 'missing']))
+    return result['activity']['token']
+
+
+def end_activity(plugin, repo, token):
+    script = plugin / 'scripts/workspace.py'
+    state = json.loads(execute([sys.executable, script, 'status', '--project', repo]))
+    try:
+        execute([sys.executable, script, 'end', '--host', 'claude-code', '--session', OTHER_SESSION, '--token', token,
+                 '--expect-revision', state['registry_revision']])
+    except ValueError:
+        pass  # 评测清理失败不影响已记录结果；残留由人工核对
 
 
 def build_case(folder, scenario, plugin):
@@ -45,17 +91,10 @@ def build_case(folder, scenario, plugin):
     execute(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'], repo)
     if scenario != 'analysis':
         script = plugin / 'scripts/reviewable.py'
-        execute([sys.executable, script, 'init', task, '--project', repo, '--kind', 'feature', '--title', '评测 · 订单客户筛选'])
-        data = json.loads((task / 'task.json').read_text(encoding='utf-8'))
-        data.update(summary='订单导出支持按客户筛选；当前仅记录需求，尚未实施。', why='减少人工筛选。',
-                    scope='限定任务说明与报告，不实施业务。',
-                    behaviors=[dict(id='B1', before='人工筛选导出数据。', after='支持选择客户筛选导出数据。')])
-        source = folder / 'controller-next.json'
-        write_json(source, data)
-        state = json.loads(execute([sys.executable, script, 'locate', task]))
-        execute([sys.executable, script, 'update', task, '--project', repo, '--from-file', source,
-                 '--expect-revision', state['task_revision']])
+        _seed_task(script, task, repo, folder, '评测 · 订单客户筛选')
         execute([sys.executable, script, 'render', task])
+    if scenario == 'multisession':
+        _seed_task(plugin / 'scripts/reviewable.py', folder / 'other-task', repo, folder, '评测 · 另一会话的发票导出')
     snapshot = folder / 'before'
     snapshot.mkdir()
     if (task / 'task.json').exists():
@@ -63,11 +102,13 @@ def build_case(folder, scenario, plugin):
     return repo, task
 
 
-def prepare(output, models, repeats):
+def prepare(output, models, repeats, scenarios=SCENARIOS):
     output = Path(output).expanduser()
     if not output.is_absolute() or output.exists():
         raise ValueError('prepare 需要一个新的绝对输出目录')
-    total = len(models) * len(SCENARIOS) * repeats
+    if not scenarios or set(scenarios) - set(ALL_SCENARIOS):
+        raise ValueError('未知场景')
+    total = len(models) * len(scenarios) * repeats
     if not models or repeats < 1 or total > MAX_RUNS:
         raise ValueError(f'计划次数须在 1..{MAX_RUNS}')
     output.mkdir(mode=0o700)
@@ -75,11 +116,16 @@ def prepare(output, models, repeats):
     cases = []
     for model in models:
         for repeat in range(1, repeats + 1):
-            for scenario in SCENARIOS:
+            for scenario in scenarios:
                 folder = output / f'{len(cases) + 1:02d}-{model}-{scenario}-r{repeat}'
                 repo, task = build_case(folder, scenario, PLUGIN)
+                session = str(uuid.uuid4())
+                if scenario == 'multisession':
+                    seed_session(PLUGIN, OTHER_SESSION + '-' + session[:8], repo, folder / 'other-task')
+                    seed_session(PLUGIN, session, repo, task)
                 cases.append(dict(id=folder.name, model=model, scenario=scenario, repeat=repeat,
-                                  folder=str(folder), repo=str(repo), task=str(task), session_id=str(uuid.uuid4()),
+                                  folder=str(folder), repo=str(repo), task=str(task), session_id=session,
+                                  other_task=str(folder / 'other-task') if scenario == 'multisession' else None,
                                   prompt=prompt_for(scenario, task, repo, folder / 'update.json'),
                                   git_state=git_state(repo),
                                   before={k: stamp(p) for k, p in [('source', repo / 'logic.py'), ('task', task / 'task.json'),
@@ -87,6 +133,17 @@ def prepare(output, models, repeats):
     write_json(output / 'prepared.json', dict(version=1, plugin=str(PLUGIN), plugin_version=version, cases=cases,
                                                origin='controller-authored synthetic fixture, not real business feedback'))
     return dict(output=str(output), planned_runs=len(cases), model_calls=0)
+
+
+def _final_text(events):
+    try:
+        for line in reversed(Path(events).read_text(encoding='utf-8', errors='replace').splitlines()):
+            row = json.loads(line)
+            if row.get('type') == 'result':
+                return str(row.get('result') or '')
+    except (OSError, ValueError):
+        pass
+    return ''
 
 
 def checks_for(case, plugin):
@@ -107,8 +164,15 @@ def checks_for(case, plugin):
         checks['other_fields_unchanged'] = strip(before) == strip(data)
     else:
         checks['task_unchanged'] = after['task'] == case['before']['task']
-    if case['scenario'] in {'progress', 'handoff'}:
+    if case['scenario'] in {'progress', 'handoff', 'multisession', 'execcontext'}:
         checks['report_untouched'] = after['report'] == case['before']['report']
+    if case['scenario'] == 'multisession':
+        text = _final_text(folder / 'events.jsonl')
+        checks['resumed_own_task'] = '订单客户筛选' in text
+        checks['did_not_switch_to_other_task'] = '发票导出' not in text
+    if case['scenario'] == 'execcontext':
+        text = _final_text(folder / 'events.jsonl')
+        checks['conflict_reported'] = any(word in text for word in ('冲突', '活动', '另一个会话', '其他会话', 'conflict'))
     if case['scenario'] == 'handoff':
         checks['handoff_exported'] = after['handoff'] is not None
     return checks, after
@@ -155,8 +219,14 @@ def run(output, confirm_runs, timeout, max_turns, claude='claude'):
                claude_version=execute([claude, '--version']).strip(), timeout=timeout, max_turns=max_turns,
                notice='Sequential fresh sessions, no retries; global user settings/plugins stay loaded.'), True)
     rows = []
+    plugin = Path(manifest['plugin'])
     for case in manifest['cases']:
-        rows.append(run_case(case, Path(manifest['plugin']), timeout, max_turns, claude))
+        token = seed_activity(plugin, Path(case['repo']), Path(case['task'])) if case['scenario'] == 'execcontext' else None
+        try:
+            rows.append(run_case(case, plugin, timeout, max_turns, claude))
+        finally:
+            if token:
+                end_activity(plugin, Path(case['repo']), token)
         write_json(Path(case['folder']) / 'outcome.json', rows[-1], True)
         write_json(output / 'outcomes.json', dict(version=1, cases=rows, complete=len(rows) == len(manifest['cases'])))
     return summarize(output)
@@ -192,6 +262,7 @@ def main():
     p.add_argument('--output', required=True)
     p.add_argument('--model', action='append', required=True)
     p.add_argument('--repeats', type=int, default=3)
+    p.add_argument('--scenario', action='append', choices=ALL_SCENARIOS)
     r = sub.add_parser('run')
     r.add_argument('--output', required=True)
     r.add_argument('--confirm-runs', type=int, required=True)
@@ -202,7 +273,7 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == 'prepare':
-            result = prepare(args.output, args.model, args.repeats)
+            result = prepare(args.output, args.model, args.repeats, tuple(args.scenario or SCENARIOS))
         elif args.command == 'run':
             result = run(args.output, args.confirm_runs, args.timeout, args.max_turns)
         else:

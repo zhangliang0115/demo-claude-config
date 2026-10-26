@@ -39,3 +39,26 @@
 ## 0.26.0 抽查
 
 同一评测工具对 0.26.0 跑五场景各 1 次（Sonnet 5.5）：5/5 成功，检查全部通过，轮数 progress 3、summary 6、report 3、handoff 6、analysis 4，合计 $1.73，与 0.25.0 一致，未见回归。单次样本，只用于回归检查。
+
+## M2 补齐：Opus 5.5 与多会话、执行上下文场景（2026-10-27，0.26.0）
+
+新增两个场景：
+
+- multisession：同项目两个任务，本会话关联任务 A，另一会话关联任务 B；只说“继续”，不给路径。检查是否接回 A、不提 B、不改记录与报告。
+- execcontext：另一会话已在同一 checkout 登记写活动；请求开始实现。检查是否报告冲突、不改源码、不改任务。活动在每次运行前由控制器登记、运行后由控制器结束，最终活动表为空。
+
+| 模型 | 场景 | 通过 | 轮数 | 费用 |
+| --- | --- | --- | --- | --- |
+| Sonnet 5.5 | multisession | 3/3 | 4,4,4 | $0.98 |
+| Sonnet 5.5 | execcontext | 3/3 | 5,8,5 | $1.51 |
+| Opus 5.5 | progress | 3/3 | 3,3,3 | $1.42 |
+| Opus 5.5 | summary | 3/3 | 6,6,6 | $3.31 |
+| Opus 5.5 | report | 3/3 | 3,3,3 | $1.41 |
+| Opus 5.5 | handoff | 3/3 | 5,7,7 | $3.49 |
+| Opus 5.5 | analysis | 3/3 | 3,3,3 | $1.44 |
+| Opus 5.5 | multisession | 3/3 | 5,4,4 | $2.14 |
+| Opus 5.5 | execcontext | 3/3 | 5,6,5 | $2.98 |
+
+27/27 通过，无超时、无 max_turns。抽查 execcontext 轨迹：模型读取 execution-context 后识别出他人写活动，未登记、未清理他人记录、未改源码，并给出等待/独立 worktree/补授权三种选择。
+
+Opus 轮数与 Sonnet 相近，单次费用约为 Sonnet 的 2 倍。multisession 与 execcontext 的检查依赖最终答复文本中的关键词（任务标题、“冲突/活动”），属于启发式判定；已人工抽查一份 execcontext 轨迹确认非假阳性。

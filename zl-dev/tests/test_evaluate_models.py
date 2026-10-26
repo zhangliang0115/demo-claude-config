@@ -7,6 +7,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -50,6 +51,22 @@ class ModelRunnerTests(unittest.TestCase):
         analysis = [c for c in manifest['cases'] if c['scenario'] == 'analysis']
         self.assertTrue(all(c['before']['task'] is None for c in analysis))
         self.assertTrue(all(Path(c['task'], 'report.html').is_file() for c in manifest['cases'] if c['scenario'] != 'analysis'))
+
+    def test_extra_scenarios_seed_session_and_clean_up_activity(self):
+        home = self.root / 'home'; home.mkdir()
+        with patch.dict(os.environ, HOME=str(home)), patch.object(Path, 'home', return_value=home):
+            runner.prepare(self.root / 'x', ['m1'], 1, ('multisession', 'execcontext'))
+            manifest = json.loads((self.root / 'x/prepared.json').read_text(encoding='utf-8'))
+            multi = next(c for c in manifest['cases'] if c['scenario'] == 'multisession')
+            self.assertTrue(Path(multi['other_task'], 'task.json').is_file())
+            self.assertNotIn(multi['task'], multi['prompt'])
+            runner.run(self.root / 'x', 2, 30, 5, str(self.fake))
+            rows = {r['scenario']: r for r in json.loads((self.root / 'x/outcomes.json').read_text(encoding='utf-8'))['cases']}
+            self.assertFalse(rows['multisession']['checks']['resumed_own_task'])  # 假 CLI 无答复，必须如实失败
+            self.assertFalse(rows['execcontext']['checks']['conflict_reported'])
+            registry = json.loads((home / '.claude/zl-dev/executions/activities.json').read_text(encoding='utf-8'))
+            self.assertEqual(registry['active'], [])
+            self.assertEqual(len(registry['history']), 1)
 
     def test_run_requires_exact_confirmation_and_bounded_limits(self):
         runner.prepare(self.root / 'out', ['m1'], 1)
