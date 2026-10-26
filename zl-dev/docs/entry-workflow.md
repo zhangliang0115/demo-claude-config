@@ -43,9 +43,9 @@ resolve 返回 state、action、context_revision 及 target；只有 state=bound
 | 理解现有业务逻辑、数据来源/流转，只分析不改变行为 | analyze.md；需要字段时读 analysis-workflow.md | 目标是解释现状时优先，短问题不强建任务 |
 | 模糊需求、行为边界 | start.md、spec.md | 需要明确开发目标行为时 |
 | 方案和取舍 | design.md、plan.md | 有实质设计决策时 |
-| 实施 | build.md | 行为已明确后 |
+| 实施 | build.md；execution-context.md | 行为已明确且将编辑代码时核对实际 checkout / 活动 |
 | 查遗漏与反例 | review.md | 交付前或高风险切片后 |
-| 实际验证 | verify.md | 有可运行实现后 |
+| 实际验证 | verify.md；execution-context.md | 有可运行实现后；已持有 write 活动时复用，不重复登记 |
 | 换人或换工具 | handoff.md、intake.md | 确有交接时；单人不自我交接 |
 | 生产事件 | incident.md | 故障诊断和恢复 |
 | 日常运维 | ops.md | 检查、变更、维护 |

@@ -21,6 +21,15 @@ const isAnalysis=task.kind==='analysis';
 const $=id=>document.getElementById(id);
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=formatTimes(typeof text==='string'?text:JSON.stringify(text));if(cls)n.className=cls;return n;}
 function text(value){return value===undefined||value===null||value===''?'尚未记录':typeof value==='string'?formatTimes(value):JSON.stringify(value);}
+function renderCheckoutLocation(footer,task){
+  const detail=el('details',undefined,'checkout-location');
+  detail.append(el('summary','代码位置与版本'));
+  const rows=el('dl');
+  rows.append(el('dt','实际绑定代码位置'),el('dd',task.project_path||'未记录，需核对实际代码位置'));
+  rows.append(el('dt','代码 / 行为指纹'),el('dd',task.current_fingerprint||'未知，不能据此认定版本一致'));
+  detail.append(rows,el('p','这是本页生成时的快照。代码 / 行为指纹不是 Git 提交 ID，不证明业务已运行，也不证明代码、端口或数据已隔离；页面不会实时监控文件或其他会话。','muted'));
+  footer.append(detail);
+}
 function feedbackComposer(parent,task,stage,buildBody){
   const box=el('article',undefined,'feedback-composer');
   box.append(el('p',task.kind==='analysis'?'复制补充线索给 AI；页面不会自动保存分析记录。':'复制给 AI 后继续处理；页面不会自动批准或保存。','feedback-hint'));
@@ -46,7 +55,7 @@ function renderRoundChanges(parent, changes){
   parent.append(heading,content);
 }
 renderRoundChanges($('round-changes'),task.changes);
-$('title').textContent=task.title;$('task-id').textContent=text(task.id);$('generated-time').textContent=formatTimes(task.generated_at||'');$('summary').textContent=text(isAnalysis?((task.analysis||{}).conclusion||task.summary):task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage);$('phase-heading').textContent='当前阶段 · '+$('stage').textContent;if(isAnalysis)document.querySelector('footer').textContent='本页是只读源码分析快照；源码依据、推断和未知分别记录。它不证明业务链路实际运行，不会连接业务接口或修改项目。';document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));
+$('title').textContent=task.title;$('task-id').textContent=text(task.id);$('generated-time').textContent=formatTimes(task.generated_at||'');$('summary').textContent=text(isAnalysis?((task.analysis||{}).conclusion||task.summary):task.summary);$('stage').textContent=text((task.workflow_summary||{}).stage_label||task.stage);$('phase-heading').textContent='当前阶段 · '+$('stage').textContent;if(isAnalysis)document.querySelector('footer').textContent='本页是只读源码分析快照；源码依据、推断和未知分别记录。它不证明业务链路实际运行，不会连接业务接口或修改项目。';document.querySelector('footer').append(el('p','生成时间：'+task.generated_at));renderCheckoutLocation(document.querySelector('footer'),task);
 const tabs=[['overview','任务概览'],['stage-views','当前阶段材料'],['scenarios','场景演示'],['behavior','业务变化'],['implementation','实现解释'],['decisions','需要你决定'],['evidence','验证证据'],['design','方案与职责'],['handoffs','交接记录'],['operations','生产与运维']];
 const has=key=>Array.isArray(task[key])&&task[key].length>0;
 const populated={overview:true,'stage-views':(()=>{const x=(task.stage_details||{})[(task.workflow_summary||{}).focus_stage];return !!(x&&((x.items||[]).length||x.summary));})(),scenarios:has('scenarios'),behavior:has('behaviors'),implementation:has('implementation'),decisions:has('decisions'),evidence:has('evidence'),design:has('design')||has('roles')||has('assumptions'),handoffs:has('handoffs')||has('timeline'),operations:has('operations')};
