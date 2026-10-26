@@ -54,7 +54,7 @@ class ModelRunnerTests(unittest.TestCase):
 
     def test_extra_scenarios_seed_session_and_clean_up_activity(self):
         home = self.root / 'home'; home.mkdir()
-        with patch.dict(os.environ, HOME=str(home)), patch.object(Path, 'home', return_value=home):
+        with patch.dict(os.environ, HOME=str(home), USERPROFILE=str(home)), patch.object(Path, 'home', return_value=home):
             runner.prepare(self.root / 'x', ['m1'], 1, ('multisession', 'execcontext'))
             manifest = json.loads((self.root / 'x/prepared.json').read_text(encoding='utf-8'))
             multi = next(c for c in manifest['cases'] if c['scenario'] == 'multisession')
