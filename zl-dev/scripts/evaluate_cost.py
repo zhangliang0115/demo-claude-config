@@ -42,7 +42,7 @@ def stamp(path):
 
 
 def execute(args, cwd=None):
-    result = subprocess.run([str(x) for x in args], cwd=cwd, capture_output=True, text=True,
+    result = subprocess.run([str(x) for x in args], cwd=cwd, capture_output=True, text=True, encoding='utf-8',
                             timeout=30)
     if result.returncode:
         raise ValueError('Fixture command failed: ' + result.stderr[-1200:])
@@ -66,7 +66,7 @@ def archive_plugin(repository, commit, target):
                 raise ValueError('Archive contains unsafe path or non-regular member')
         archive.extractall(target)
     plugin = target / 'zl-dev'
-    version = json.loads((plugin/'.claude-plugin/plugin.json').read_text())['version']
+    version = json.loads((plugin/'.claude-plugin/plugin.json').read_text(encoding='utf-8'))['version']
     return dict(commit=revision, version=version, plugin=str(plugin), archive_sha256=digest(raw))
 
 
@@ -106,7 +106,7 @@ def prepare(output, repository=REPOSITORY):
             commands.append(dict(argv=[str(x) for x in args], cwd=str(cwd) if cwd else None))
             return execute(args, cwd)
         command(['git','init','-q',str(repo)])
-        (repo/'logic.py').write_text('def total(price, quantity):\n    return price * quantity\n')
+        (repo/'logic.py').write_text('def total(price, quantity):\n    return price * quantity\n', encoding='utf-8')
         (repo/'CLAUDE.md').write_text(NOTICE, encoding='utf-8')
         command(['git','add','.'], repo)
         command(['git','-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
@@ -114,7 +114,7 @@ def prepare(output, repository=REPOSITORY):
         script = Path(variants[variant]['plugin'])/'scripts/reviewable.py'
         command([sys.executable,script,'init',task,'--project',repo,'--kind','feature',
                  '--title','成本基线 · 订单客户筛选'])
-        data = json.loads((task/'task.json').read_text())
+        data = json.loads((task/'task.json').read_text(encoding='utf-8'))
         data.update(summary='订单导出支持按客户筛选；当前仅记录需求，尚未实施。',
                     why='减少人工筛选。', scope='限定任务说明与报告，不实施业务。',
                     behaviors=[dict(id='B1',before='人工筛选导出数据。',after='支持选择客户筛选导出数据。')])
@@ -154,7 +154,7 @@ def validate_prepared(output):
     output = Path(output).expanduser().resolve()
     if not output.is_dir() or output.is_symlink():
         raise ValueError('Prepared directory missing')
-    integrity = json.loads((output/'integrity.json').read_text())
+    integrity = json.loads((output/'integrity.json').read_text(encoding='utf-8'))
     if integrity.get('version') != 1 or not isinstance(integrity.get('files'),dict):
         raise ValueError('Invalid integrity manifest')
     for name, sha in integrity['files'].items():
@@ -164,7 +164,7 @@ def validate_prepared(output):
         path = output/relative
         if path.is_symlink() or not path.is_file() or digest(path.read_bytes()) != sha:
             raise ValueError('Prepared fixture changed: '+name)
-    manifest = json.loads((output/'prepared.json').read_text())
+    manifest = json.loads((output/'prepared.json').read_text(encoding='utf-8'))
     if manifest.get('version') != 1 or manifest.get('root') != str(output) or len(manifest.get('cases',[])) != 6:
         raise ValueError('Invalid or moved fixture manifest')
     expected_files = set(integrity['files'])
@@ -183,7 +183,7 @@ def plugin_integrity(output, manifest, expected_files=None):
     """Observe frozen plugin trees without trusting a model-modified manifest."""
     output=Path(output)
     if expected_files is None:
-        expected_files=json.loads((output/'integrity.json').read_text())['files']
+        expected_files=json.loads((output/'integrity.json').read_text(encoding='utf-8'))['files']
     result={}
     for name,variant in manifest['variants'].items():
         row=dict(state='unknown',expected_files=None,changed_files=[],unexpected_files=[])
@@ -229,8 +229,8 @@ def read_events(path):
 
 def outcome(case, plugin, events, expected_version=None):
     folder,repo,task = Path(case['folder']),Path(case['repo']),Path(case['task'])
-    before=json.loads((folder/'before/task.json').read_text())
-    try:after=json.loads((task/'task.json').read_text())
+    before=json.loads((folder/'before/task.json').read_text(encoding='utf-8'))
+    try:after=json.loads((task/'task.json').read_text(encoding='utf-8'))
     except (ValueError,OSError):after=None
     checks=dict(source_unchanged=stamp(repo/'logic.py') == case['before']['source'],
                 task_json_readable=isinstance(after,dict), summary_expectation_met=None,
@@ -267,7 +267,7 @@ def run(output, confirm_runs, timeout=150, max_turns=12, claude='claude'):
     if confirm_runs != 6 or not 1 <= timeout <= 150 or not 1 <= max_turns <= 12:
         raise ValueError('Explicit --confirm-runs 6 required; timeout<=150 and max-turns<=12')
     output,manifest=validate_prepared(output)
-    expected_plugin_files=json.loads((output/'integrity.json').read_text())['files']
+    expected_plugin_files=json.loads((output/'integrity.json').read_text(encoding='utf-8'))['files']
     initial_plugin_integrity=plugin_integrity(output,manifest,expected_plugin_files)
     if any(row['state']!='current' for row in initial_plugin_integrity.values()):
         raise ValueError('Prepared plugin integrity unavailable or changed')

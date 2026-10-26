@@ -21,11 +21,11 @@ process.stdout.write(JSON.stringify({text:root.textContent,nodes}));
 @unittest.skipUnless(shutil.which('node'), 'Node required for actual view execution')
 class EvidenceExplanationReportTests(unittest.TestCase):
     def display(self, details=None, **extra):
-        template=(ROOT/'assets/report.html').read_text()
+        template=(ROOT/'assets/report.html').read_text(encoding='utf-8')
         source='function renderEvidenceFreshnessDetails('+template.split('function renderEvidenceFreshnessDetails(',1)[1].split('function renderRoundChanges(',1)[0]
         evidence=dict(behavior_ids=['B1'],**extra)
         if details is not None:evidence['freshness_details']=details
-        out=subprocess.run(['node','-e',DOM],input=json.dumps(dict(source=source,evidence=evidence)),capture_output=True,text=True)
+        out=subprocess.run(['node','-e',DOM],input=json.dumps(dict(source=source,evidence=evidence)),capture_output=True,text=True, encoding='utf-8')
         self.assertEqual(out.returncode,0,out.stderr)
         return json.loads(out.stdout)
 
@@ -52,9 +52,9 @@ class EvidenceExplanationReportTests(unittest.TestCase):
         view=self.display(dict(state='unknown',baseline='invalid',reasons=[value],changed_paths=[value],changed_path_count=1))
         self.assertIn(value,view['text'])
         self.assertFalse(any(n['tag'] in ['img','script','iframe'] for n in view['nodes']))
-        feature=(ROOT/'assets/views/feature.js').read_text()
+        feature=(ROOT/'assets/views/feature.js').read_text(encoding='utf-8')
         self.assertIn("renderEvidenceFreshnessDetails(r,e)",feature)
         for name in ['bugfix','incident','operations','engineering']:
-            self.assertIn("typeof renderEvidenceFreshnessDetails==='function'", (ROOT/('assets/views/'+name+'.js')).read_text())
+            self.assertIn("typeof renderEvidenceFreshnessDetails==='function'", (ROOT/('assets/views/'+name+'.js')).read_text(encoding='utf-8'))
 
 if __name__=='__main__':unittest.main()

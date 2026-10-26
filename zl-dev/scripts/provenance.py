@@ -1,4 +1,5 @@
 """Deterministic derived-state provenance; reads local snapshots without executing HTML."""
+from filelock import copy_mode
 import hashlib
 import json
 import html
@@ -70,7 +71,7 @@ def atomic_write(target, raw, before_replace=None):
         with tempfile.NamedTemporaryFile(dir=target.parent, prefix='.zl-dev-', suffix='.tmp', delete=False) as stream:
             temporary = Path(stream.name)
             if target.exists():
-                os.fchmod(stream.fileno(), target.stat().st_mode & 0o777)
+                copy_mode(stream, target)
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())

@@ -38,15 +38,15 @@ def build_case(folder, scenario, plugin):
     repo, task = folder / 'repo', folder / 'task'
     repo.mkdir(parents=True)
     execute(['git', 'init', '-q', str(repo)])
-    (repo / 'logic.py').write_text('def total(price, quantity):\n    return price * quantity\n')
-    (repo / 'api.py').write_text('from logic import total\n\n\ndef handle(req):\n    return {"total": total(req["price"], req["qty"])}\n')
+    (repo / 'logic.py').write_text('def total(price, quantity):\n    return price * quantity\n', encoding='utf-8')
+    (repo / 'api.py').write_text('from logic import total\n\n\ndef handle(req):\n    return {"total": total(req["price"], req["qty"])}\n', encoding='utf-8')
     (repo / 'CLAUDE.md').write_text(NOTICE, encoding='utf-8')
     execute(['git', 'add', '.'], repo)
     execute(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'], repo)
     if scenario != 'analysis':
         script = plugin / 'scripts/reviewable.py'
         execute([sys.executable, script, 'init', task, '--project', repo, '--kind', 'feature', '--title', '评测 · 订单客户筛选'])
-        data = json.loads((task / 'task.json').read_text())
+        data = json.loads((task / 'task.json').read_text(encoding='utf-8'))
         data.update(summary='订单导出支持按客户筛选；当前仅记录需求，尚未实施。', why='减少人工筛选。',
                     scope='限定任务说明与报告，不实施业务。',
                     behaviors=[dict(id='B1', before='人工筛选导出数据。', after='支持选择客户筛选导出数据。')])
@@ -71,7 +71,7 @@ def prepare(output, models, repeats):
     if not models or repeats < 1 or total > MAX_RUNS:
         raise ValueError(f'计划次数须在 1..{MAX_RUNS}')
     output.mkdir(mode=0o700)
-    version = json.loads((PLUGIN / '.claude-plugin/plugin.json').read_text())['version']
+    version = json.loads((PLUGIN / '.claude-plugin/plugin.json').read_text(encoding='utf-8'))['version']
     cases = []
     for model in models:
         for repeat in range(1, repeats + 1):
@@ -98,8 +98,8 @@ def checks_for(case, plugin):
     if case['scenario'] == 'analysis':
         checks['no_task_created'] = after['task'] is None
         return checks, after
-    before = json.loads((folder / 'before/task.json').read_text())
-    data = json.loads((task / 'task.json').read_text())
+    before = json.loads((folder / 'before/task.json').read_text(encoding='utf-8'))
+    data = json.loads((task / 'task.json').read_text(encoding='utf-8'))
     strip = lambda d: {k: v for k, v in d.items() if k not in {'summary'}}
     if case['scenario'] == 'summary':
         checks['summary_appended'] = data.get('summary', '').startswith(before['summary']) and \
@@ -144,7 +144,7 @@ def run_case(case, plugin, timeout, max_turns, claude):
 
 def run(output, confirm_runs, timeout, max_turns, claude='claude'):
     output = Path(output).resolve()
-    manifest = json.loads((output / 'prepared.json').read_text())
+    manifest = json.loads((output / 'prepared.json').read_text(encoding='utf-8'))
     if confirm_runs != len(manifest['cases']):
         raise ValueError(f'须显式 --confirm-runs {len(manifest["cases"])}')
     if not 1 <= timeout <= MAX_TIMEOUT or not 1 <= max_turns <= MAX_TURNS:
@@ -163,7 +163,7 @@ def run(output, confirm_runs, timeout, max_turns, claude='claude'):
 
 
 def summarize(output):
-    rows = json.loads((Path(output) / 'outcomes.json').read_text())['cases']
+    rows = json.loads((Path(output) / 'outcomes.json').read_text(encoding='utf-8'))['cases']
     groups = {}
     for row in rows:
         groups.setdefault((row['model'], row['scenario']), []).append(row)

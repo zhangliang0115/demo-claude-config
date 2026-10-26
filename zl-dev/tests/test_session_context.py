@@ -118,7 +118,7 @@ class SessionContextTests(unittest.TestCase):
         folder.mkdir()
         data = dict(version=1, id='feature-a', title='Overall feature', workspace_path=str(self.root),
                     projects=[], contracts=[], allocations=[], integration=[])
-        (folder / 'feature.json').write_text(json.dumps(data))
+        (folder / 'feature.json').write_text(json.dumps(data), encoding='utf-8')
         result = self.bind(folder, project=self.root, kind='feature')
         self.assertEqual(result['target']['kind'], 'feature')
         self.assertEqual(self.resolve(project=self.root)['target']['id'], 'feature-a')
@@ -147,7 +147,7 @@ class SessionContextTests(unittest.TestCase):
         source = self.a / 'task.json'
         data = json.loads(source.read_bytes())
         data['id'] = 'replacement'
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         result = self.resolve()
         self.assertEqual((result['state'], result['action']), ('invalid_target', 'repair_binding'))
         self.assertIsNone(result['target'])
@@ -159,7 +159,7 @@ class SessionContextTests(unittest.TestCase):
         self.bind(self.a)
         source = self.a / 'task.json'
         data = json.loads(source.read_bytes()); data['project_path'] = str(self.root)
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         self.assertEqual(self.resolve()['state'], 'invalid_target')
         before = self.bytes_tree(self.home)
         with self.assertRaisesRegex(ValueError, '不匹配'):
@@ -183,7 +183,7 @@ class SessionContextTests(unittest.TestCase):
     def test_wrong_record_identity_is_invalid_not_another_sessions_focus(self):
         result = self.bind(self.a)
         path = Path(result['context_path']);data=json.loads(path.read_bytes());data['session_id']='S-B'
-        path.write_text(json.dumps(data))
+        path.write_text(json.dumps(data), encoding='utf-8')
         self.assertEqual(self.resolve()['state'], 'invalid_index')
         self.assertEqual(self.resolve('S-B')['state'], 'unbound')
 
@@ -213,7 +213,7 @@ class SessionContextTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '不匹配'):
             self.bind(self.a, project=self.root)
         self.assertEqual(before, self.bytes_tree(self.home))
-        (self.a / 'feature.json').write_text('{}')
+        (self.a / 'feature.json').write_text('{}', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, '同时包含'):
             self.bind(self.a)
         self.assertFalse((self.home / '.claude/zl-dev/contexts').exists())

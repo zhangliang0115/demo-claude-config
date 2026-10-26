@@ -22,14 +22,14 @@ class RelateTests(unittest.TestCase):
         subprocess.run(['git', 'init', '-q', '--bare', str(self.origin)], check=True)
         self.main = self.root / 'main'
         subprocess.run(['git', 'clone', '-q', str(self.origin), str(self.main)], check=True, capture_output=True)
-        (self.main / 'a.py').write_text('x = 1\n')
+        (self.main / 'a.py').write_text('x = 1\n', encoding='utf-8')
         subprocess.run(GIT + ['-C', str(self.main), 'add', '.'], check=True)
         subprocess.run(GIT + ['-C', str(self.main), 'commit', '-qm', 'init'], check=True)
         subprocess.run(['git', '-C', str(self.main), 'push', '-q', 'origin', 'HEAD'], check=True, capture_output=True)
         self.task = self.root / 'task'; self.task.mkdir()
         self.data = dict(version=1, id='t1', title='t', kind='feature', project_path=str(self.main),
                          evidence=[dict(id='E1', status='passed', revision='abc', behavior_ids=[])])
-        (self.task / 'task.json').write_text(json.dumps(self.data))
+        (self.task / 'task.json').write_text(json.dumps(self.data), encoding='utf-8')
 
     def snapshot(self):
         return (self.task / 'task.json').read_bytes()
@@ -59,7 +59,7 @@ class RelateTests(unittest.TestCase):
         subprocess.run(GIT + ['-C', str(other), 'commit', '--allow-empty', '-qm', 'x'], check=True)
         self.assertEqual(workspace.relate(self.task, other)['state'], 'unrelated_or_unknown')
         self.assertEqual(workspace.relate(self.task, self.main)['state'], 'same_checkout')
-        (self.task / 'task.json').write_text(json.dumps(dict(self.data, project_path=None)))
+        (self.task / 'task.json').write_text(json.dumps(dict(self.data, project_path=None)), encoding='utf-8')
         with self.assertRaises(ValueError):
             workspace.relate(self.task, other)
 
@@ -68,23 +68,23 @@ class RelateTests(unittest.TestCase):
         self.assertEqual(workspace.relate(self.task, sub)['state'], 'same_checkout')
         self.assertEqual(workspace._redact('https://user:tok@example.com/r.git'), 'https://example.com/r.git')
         self.assertEqual(workspace._redact('git@github.com:o/r.git'), 'git@github.com:o/r.git')
-        (self.task / 'task.json').write_text(json.dumps(dict(self.data, evidence=['bad', 3])))
+        (self.task / 'task.json').write_text(json.dumps(dict(self.data, evidence=['bad', 3])), encoding='utf-8')
         self.assertEqual(workspace.relate(self.task, self.main)['evidence_bound_revisions'], 0)
-        (self.task / 'task.json').write_text('[]')
+        (self.task / 'task.json').write_text('[]', encoding='utf-8')
         with self.assertRaises(ValueError):
             workspace.relate(self.task, self.main)
 
     def test_cli_rejects_write_arguments(self):
         script = Path(workspace.__file__)
         result = subprocess.run([sys.executable, str(script), 'relate', '--task', str(self.task), '--other', str(self.main),
-                                 '--mode', 'write'], capture_output=True, text=True)
+                                 '--mode', 'write'], capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(result.returncode, 1)
         for extra in (['--resource', 'db'], ['--project', str(self.main)]):
             bad = subprocess.run([sys.executable, str(script), 'relate', '--task', str(self.task), '--other', str(self.main), *extra],
-                                 capture_output=True, text=True)
+                                 capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(bad.returncode, 1)
         ok = subprocess.run([sys.executable, str(script), 'relate', '--task', str(self.task), '--other', str(self.main)],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(json.loads(ok.stdout)['state'], 'same_checkout')
 
 

@@ -23,7 +23,7 @@ class RenderReuseTests(unittest.TestCase):
         shutil.copytree(ROOT / 'assets', self.plugin / 'assets')
         self.repo = self.root / 'repo'; self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'app.py').write_text('total = 1\n')
+        (self.repo / 'app.py').write_text('total = 1\n', encoding='utf-8')
         self.task = self.root / 'task'; self.task.mkdir()
         self.data = dict(version=1, id='task', title='Current work', kind='feature',
                          project_path=str(self.repo), summary='Current result',
@@ -39,7 +39,7 @@ class RenderReuseTests(unittest.TestCase):
             scope = patch.object(module, 'ROOT', self.plugin); scope.start(); self.addCleanup(scope.stop)
 
     def save(self):
-        (self.task / 'task.json').write_text(json.dumps(self.data))
+        (self.task / 'task.json').write_text(json.dumps(self.data), encoding='utf-8')
 
     def variants(self):
         return [(api, self.task, 'report.html', 'task-data'),
@@ -102,7 +102,7 @@ class RenderReuseTests(unittest.TestCase):
 
     def test_task_only_view_and_unrelated_files_do_not_invalidate_feature(self):
         feature.render(self.coord); path = self.coord / 'feature.html'; before = self.artifact(path)
-        self.change('views/feature.js'); (self.plugin / 'README.md').write_text('unrelated docs')
+        self.change('views/feature.js'); (self.plugin / 'README.md').write_text('unrelated docs', encoding='utf-8')
         self.assertEqual(feature.report_state(self.coord)['freshness'], 'current')
         feature.render(self.coord); self.assertEqual(before, self.artifact(path))
 
@@ -110,7 +110,7 @@ class RenderReuseTests(unittest.TestCase):
         for module, folder, name, payload_id in self.variants():
             module.render(folder); path = folder / name
             bundle = provenance.template_bundle(self.plugin, payload_id)
-            data = provenance.read_payload(path.read_text(), payload_id)
+            data = provenance.read_payload(path.read_text(encoding='utf-8'), payload_id)
             data['provenance'].pop('template_revision')
             path.write_bytes(provenance.render_report_bytes(data, bundle))
             self.assertEqual(module.report_state(folder)['freshness'], 'unknown')
@@ -202,7 +202,7 @@ class RenderReuseTests(unittest.TestCase):
     def test_cached_business_snapshot_cannot_choose_a_forged_template_version(self):
         data = api.snapshot(self.task); data['provenance']['template_revision'] = '0' * 64
         api.render(self.task, data)
-        actual = provenance.read_payload((self.task / 'report.html').read_text())
+        actual = provenance.read_payload((self.task / 'report.html').read_text(encoding='utf-8'))
         self.assertEqual(actual['provenance']['template_revision'], provenance.template_bundle(self.plugin, 'task-data')['revision'])
         self.assertEqual(api.report_state(self.task)['freshness'], 'current')
 
@@ -216,7 +216,7 @@ class RenderReuseTests(unittest.TestCase):
             module.render(folder)
             self.change('report-theme.css')
             module.render(folder, cached)
-            recorded = provenance.read_payload((folder / name).read_text(), payload_id)
+            recorded = provenance.read_payload((folder / name).read_text(encoding='utf-8'), payload_id)
             self.assertNotEqual(recorded['generated_at'], cached['generated_at'])
             self.assertEqual(recorded['assessment_revision'], before_revision)
             self.assertEqual(facts, (folder / filename).read_bytes())

@@ -25,9 +25,9 @@ class ReportTests(unittest.TestCase):
     def save(self): (self.task/'task.json').write_text(json.dumps(self.data),encoding='utf-8')
     def test_source_and_contract_invalidate(self):
         initial=m.fingerprint(self.task); self.assertIsNotNone(initial)
-        (self.root/'source.py').write_text('a=1')
+        (self.root/'source.py').write_text('a=1', encoding='utf-8')
         changed=m.fingerprint(self.task); self.assertNotEqual(initial,changed)
-        (self.root/'source.py').write_text('a=2')
+        (self.root/'source.py').write_text('a=2', encoding='utf-8')
         self.assertNotEqual(changed,m.fingerprint(self.task))
         before=m.fingerprint(self.task)
         self.data['behaviors'][0]['after']='changed';self.save()
@@ -42,7 +42,7 @@ class ReportTests(unittest.TestCase):
     def test_xss_escape_and_no_html_sink(self):
         attack='</script><img src=x onerror=alert(1)>'
         self.data['title']=attack;self.data['summary']=attack;self.save()
-        output=m.render(self.task).read_text()
+        output=m.render(self.task).read_text(encoding='utf-8')
         self.assertNotIn(attack,output)
         self.assertIn('\\u003c/script\\u003e',output)
         self.assertNotIn('innerHTML',output)
@@ -55,25 +55,25 @@ class ReportTests(unittest.TestCase):
         with self.assertRaises(ValueError):m.validate(self.data)
     def test_index_escape(self):
         self.data['title']='<script>evil</script>';self.save()
-        out=m.build_index(self.task.parent).read_text()
+        out=m.build_index(self.task.parent).read_text(encoding='utf-8')
         self.assertNotIn('<script>',out)
         self.assertIn('sample/report.html',out)
     def test_tracked_deletion_invalidates(self):
-        p=self.root/'tracked';p.write_text('tracked')
+        p=self.root/'tracked';p.write_text('tracked', encoding='utf-8')
         subprocess.run(['git','add','tracked'],cwd=self.root,check=True)
         before=m.fingerprint(self.task);p.unlink()
         self.assertNotEqual(before,m.fingerprint(self.task))
 
     def test_handoff_no_implicit_approval(self):
         target=m.export_handoff(self.task)
-        self.assertIn('只有接收人明确确认',target.read_text())
-        self.assertIn('不会原生加载',target.read_text())
+        self.assertIn('只有接收人明确确认',target.read_text(encoding='utf-8'))
+        self.assertIn('不会原生加载',target.read_text(encoding='utf-8'))
     def test_incident_and_operations_render(self):
         for kind in ['incident','operations']:
             self.data['kind']=kind
             self.data['operations']=[dict(id='O1',action='<script>bad</script>',status='planned')]
             self.save()
-            out=m.render(self.task).read_text()
+            out=m.render(self.task).read_text(encoding='utf-8')
             self.assertNotIn('<script>bad</script>',out)
             self.assertIn('生产与运维',out)
     def test_reporting_handoff_does_not_invalidate(self):
@@ -87,7 +87,7 @@ class ReportTests(unittest.TestCase):
     def test_template_tokens_in_user_data(self):
         self.data['title']='" __TASK_DATA__ __PAGE_TITLE__'
         self.save()
-        out=m.render(self.task).read_text()
+        out=m.render(self.task).read_text(encoding='utf-8')
         payload=out.split('<script id="task-data" type="application/json">')[1].split('</script>')[0]
         self.assertEqual(json.loads(payload)['title'],self.data['title'])
 
@@ -98,7 +98,7 @@ class ReportTests(unittest.TestCase):
                 continue  # Analysis has a dedicated kind/lifecycle, covered by test_analysis.
             self.data['focus_stage'] = stage
             self.save()
-            out = m.render(self.task).read_text()
+            out = m.render(self.task).read_text(encoding='utf-8')
             self.assertIn('<title>' + html.escape(self.data['title']) + ' · ' + label + '</title>', out)
             self.assertNotIn('__STAGE_LABEL__', out)
 
@@ -106,7 +106,7 @@ class ReportTests(unittest.TestCase):
         self.data['title'] = '取消 & <订单> "历史" __STAGE_LABEL__'
         self.data['focus_stage'] = 'operations'
         self.save()
-        out = m.render(self.task).read_text()
+        out = m.render(self.task).read_text(encoding='utf-8')
         self.assertIn('<title>' + html.escape(self.data['title']) + ' · 排查与运维</title>', out)
         self.assertNotIn('<title>取消 & <订单>', out)
         payload = out.split('<script id="task-data" type="application/json">')[1].split('</script>')[0]
@@ -131,7 +131,7 @@ class ReportTests(unittest.TestCase):
         self.data['stage_details']={'requirements': {'summary':'report','items':[dict(id='R1',status='pending',interpretation='</script><img onerror=alert(1)>')]}}
         self.save()
         self.assertNotEqual(before,m.fingerprint(self.task))
-        out=m.render(self.task).read_text()
+        out=m.render(self.task).read_text(encoding='utf-8')
         self.assertNotIn('</script><img',out)
         self.assertIn('stage-workspace',out)
         self.assertNotIn('// STAGE_SCRIPT',out)
@@ -181,7 +181,7 @@ class ReportTests(unittest.TestCase):
         for kind in m.KINDS:
             self.data['kind']=kind
             self.save()
-            output=m.render(self.task).read_text()
+            output=m.render(self.task).read_text(encoding='utf-8')
             self.assertNotIn('// VIEW_SCRIPT',output)
             for renderer in ['renderFeatureView','renderBugfixView','renderIncidentView','renderOperationsView','renderEngineeringView']:
                 self.assertIn('function '+renderer,output)

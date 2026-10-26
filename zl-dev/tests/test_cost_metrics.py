@@ -213,16 +213,16 @@ class CostMetricsTests(unittest.TestCase):
         self.analyze([result()])
         output = self.root / 'summary.json'
         command = [sys.executable, str(ROOT / 'scripts/cost_metrics.py'), 'summarize', str(self.path)]
-        run = subprocess.run(command, capture_output=True, text=True)
+        run = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertFalse(output.exists())
-        run = subprocess.run(command + ['--output', str(output)], capture_output=True, text=True)
+        run = subprocess.run(command + ['--output', str(output)], capture_output=True, text=True, encoding='utf-8')
         self.assertEqual(run.returncode, 0, run.stderr)
         before = output.read_bytes()
-        run = subprocess.run(command + ['--output', str(output)], capture_output=True, text=True)
+        run = subprocess.run(command + ['--output', str(output)], capture_output=True, text=True, encoding='utf-8')
         self.assertNotEqual(run.returncode, 0)
         self.assertEqual(output.read_bytes(), before)
-        run = subprocess.run(command + ['--output', str(self.path)], capture_output=True, text=True)
+        run = subprocess.run(command + ['--output', str(self.path)], capture_output=True, text=True, encoding='utf-8')
         self.assertNotEqual(run.returncode, 0)
 
 

@@ -21,7 +21,7 @@ class BriefTests(unittest.TestCase):
         self.root = Path(temp.name).resolve()
         self.repo = self.root / 'repo'; self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'logic.py').write_text('total = 1\n')
+        (self.repo / 'logic.py').write_text('total = 1\n', encoding='utf-8')
         self.task = self.root / 'task'; self.task.mkdir()
         self.data = dict(version=1, id='read-preview', title='订单客户筛选', kind='feature',
                          project_path=str(self.repo), summary='新增客户筛选；尚未实施。',
@@ -30,7 +30,7 @@ class BriefTests(unittest.TestCase):
         self.save()
 
     def save(self):
-        (self.task / 'task.json').write_text(json.dumps(self.data, ensure_ascii=False))
+        (self.task / 'task.json').write_text(json.dumps(self.data, ensure_ascii=False), encoding='utf-8')
 
     def tree(self):
         return {str(p): (p.read_bytes(), p.stat().st_mtime_ns)

@@ -22,7 +22,7 @@ class OptionalReportTests(unittest.TestCase):
         self.repo = self.root / 'project'
         self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'code.py').write_text('value = 1\n')
+        (self.repo / 'code.py').write_text('value = 1\n', encoding='utf-8')
         mocked_home = patch.object(Path, 'home', return_value=self.root / 'home')
         mocked_home.start()
         self.addCleanup(mocked_home.stop)
@@ -76,7 +76,7 @@ class OptionalReportTests(unittest.TestCase):
         data = reviewable.load(self.folder)
         data['summary'] = '已有新事实，但不需要立即出页面'
         source = self.root / 'next.json'
-        source.write_text(json.dumps(data, ensure_ascii=False))
+        source.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
         reviewable.update_task(self.folder, source, self.repo, reviewable.locate(self.folder)['task_revision'])
         before = self.tree()
         deferred = json.loads(self.call('continue', 'one', '--no-render'))

@@ -12,8 +12,8 @@ class GalleryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
             task=root/'example';task.mkdir()
-            (task/'task.json').write_text(json.dumps(dict(version=1,id='example',title='</script><img onerror=bad()>',kind='bugfix',demo=dict(category='排障',purpose='找原因',simulation=True,read_order=['现象','复现']))))
-            out=build_demo_gallery.build(root).read_text()
+            (task/'task.json').write_text(json.dumps(dict(version=1,id='example',title='</script><img onerror=bad()>',kind='bugfix',demo=dict(category='排障',purpose='找原因',simulation=True,read_order=['现象','复现']))), encoding='utf-8')
+            out=build_demo_gallery.build(root).read_text(encoding='utf-8')
             self.assertTrue((task/'report.html').exists())
             self.assertNotIn('</script><img',out)
             self.assertIn('example/report.html',out)
@@ -22,13 +22,13 @@ class GalleryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);task=root/'blocked';task.mkdir()
             data=dict(version=1,id='blocked',title='权限修复',kind='feature',summary='客户导出',focus_stage='acceptance',behaviors=[dict(id='B1',after='仅本人客户')],implementation=[dict(title='模拟记录')],stage_details={'review':{'items':[dict(id='R1',status='pending',severity='P1',finding='权限绕过')]}})
-            (task/'task.json').write_text(json.dumps(data))
-            out=build_demo_gallery.build(root).read_text()
+            (task/'task.json').write_text(json.dumps(data), encoding='utf-8')
+            out=build_demo_gallery.build(root).read_text(encoding='utf-8')
             payload=re.search(r'<script type="application/json" id="data">(.*?)</script>',out,re.S).group(1)
             entry=json.loads(payload)[0]
             self.assertEqual('review',entry['stage'])
             self.assertEqual('审查中',entry['phase'])
-            report=(task/'report.html').read_text()
+            report=(task/'report.html').read_text(encoding='utf-8')
             embedded=re.search(r'<script id="task-data" type="application/json">(.*?)</script>',report,re.S).group(1)
             self.assertEqual(entry['stage'],json.loads(embedded)['workflow_summary']['focus_stage'])
 
@@ -46,8 +46,8 @@ class GalleryTests(unittest.TestCase):
                 task=dict(version=1,id=name,title=name,kind=kind)
                 if stage:
                     task['focus_stage']=stage
-                (folder/'task.json').write_text(json.dumps(task))
-            out=build_demo_gallery.build(root).read_text()
+                (folder/'task.json').write_text(json.dumps(task), encoding='utf-8')
+            out=build_demo_gallery.build(root).read_text(encoding='utf-8')
             payload=re.search(r'<script type="application/json" id="data">(.*?)</script>',out,re.S).group(1)
             entries=json.loads(payload)
             self.assertEqual({entry['stage'] for entry in entries}, {'solution','implementation','operations'})

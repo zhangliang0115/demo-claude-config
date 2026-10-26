@@ -22,7 +22,7 @@ class StorageTests(unittest.TestCase):
         self.repo = self.root / 'source' / 'repo'
         self.repo.mkdir(parents=True)
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'code.txt').write_text('before')
+        (self.repo / 'code.txt').write_text('before', encoding='utf-8')
         self.home = self.root / 'home'
         self.home.mkdir()
         env = patch.object(Path, 'home', return_value=self.home)
@@ -33,7 +33,7 @@ class StorageTests(unittest.TestCase):
         folder = storage.resolve_output('task', 'tasks', self.repo)
         folder.mkdir(parents=True)
         data = dict(version=1, id='task', title='task', kind='feature', project_path=str(self.repo), contract_version='v1')
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         return folder, data
 
     def test_same_name_isolation_and_alias(self):
@@ -56,9 +56,9 @@ class StorageTests(unittest.TestCase):
         old = reviewable.fingerprint(folder)
         self.assertIsNotNone(old)
         data['evidence'] = [dict(id='e', status='passed', revision=old)]
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         self.assertEqual(reviewable.fingerprint(folder), old)
-        (self.repo / 'code.txt').write_text('after')
+        (self.repo / 'code.txt').write_text('after', encoding='utf-8')
         self.assertNotEqual(reviewable.fingerprint(folder), old)
         snap = feature.project_snapshot(dict(path=str(self.repo), task_path=str(folder), contract_version='v1'))
         self.assertEqual(snap['evidence_counts']['stale'], 1)
@@ -66,7 +66,7 @@ class StorageTests(unittest.TestCase):
     def test_binding_mismatch_rejected(self):
         folder, data = self.task()
         data['project_path'] = str(self.root)
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         snap = feature.project_snapshot(dict(path=str(self.repo), task_path=str(folder)))
         self.assertTrue(any('不匹配' in issue for issue in snap['issues']))
         self.assertEqual(snap['evidence_counts']['total'], 0)
@@ -75,7 +75,7 @@ class StorageTests(unittest.TestCase):
         folder, data = self.task()
         subprocess.run(['git', 'init', '-q', str(self.home)], check=True)
         data['project_path'] = str(self.root / 'missing')
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         self.assertIsNone(reviewable.fingerprint(folder))
 
     def cli(self, *args):
@@ -102,7 +102,7 @@ class StorageTests(unittest.TestCase):
         folder, data = self.task()
         for report_exists in (False, True):
             if report_exists:
-                (folder / 'report.html').write_text('existing report')
+                (folder / 'report.html').write_text('existing report', encoding='utf-8')
             for command in ('locate', 'status'):
                 before = self.tree()
                 code, out = self.cli(command, '--project', str(self.repo))
@@ -119,9 +119,9 @@ class StorageTests(unittest.TestCase):
                     behaviors=[dict(id='B1', after='增加名额后自动晋升候补')],
                     implementation=[dict(title='实现原子事务')],
                     stage_details={'review': {'items': [dict(id='R1', status='done', severity='P1', finding='重复晋升', evidence_ids=['recheck'])]}})
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         data['evidence'] = [dict(id='recheck', status='passed', revision=reviewable.fingerprint(folder), behavior_ids=['B1'])]
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         before = self.tree()
         code, output = self.cli('status', str(folder), '--project', str(self.repo))
         self.assertEqual(code, 0, output)
@@ -158,25 +158,25 @@ class StorageTests(unittest.TestCase):
             self.assertEqual(before, self.tree())
         check('missing')
         handoff = reviewable.export_handoff(folder)
-        self.assertIn('task_revision: ' + reviewable.locate(folder)['task_revision'], handoff.read_text())
+        self.assertIn('task_revision: ' + reviewable.locate(folder)['task_revision'], handoff.read_text(encoding='utf-8'))
         check('current')
         original = (folder / 'task.json').read_bytes()
         data['summary'] = 'metadata changed without code change'
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         check('stale')
         (folder / 'task.json').write_bytes(original)
         check('current')
-        (self.repo / 'code.txt').write_text('changed after export')
+        (self.repo / 'code.txt').write_text('changed after export', encoding='utf-8')
         check('stale')
-        handoff.write_text('# Legacy handoff with human notes\nKeep this text.\n')
+        handoff.write_text('# Legacy handoff with human notes\nKeep this text.\n', encoding='utf-8')
         check('unknown')
-        self.assertEqual(handoff.read_text(), '# Legacy handoff with human notes\nKeep this text.\n')
+        self.assertEqual(handoff.read_text(encoding='utf-8'), '# Legacy handoff with human notes\nKeep this text.\n')
 
     def test_update_validates_and_rejects_lost_updates(self):
         folder, data = self.task()
         revision = reviewable.locate(folder)['task_revision']
         source = self.root / 'replacement.json'
-        source.write_text(json.dumps(dict(data, summary='first update')))
+        source.write_text(json.dumps(dict(data, summary='first update')), encoding='utf-8')
         result = reviewable.update_task(folder, source, self.repo, revision)
         self.assertTrue(result['updated'])
         self.assertEqual(reviewable.load(folder)['summary'], 'first update')
@@ -192,15 +192,15 @@ class StorageTests(unittest.TestCase):
         revision = reviewable.task_revision(raw)
         source = self.root / 'replacement.json'
         for changes in ({'id':'other'}, {'project_path':str(self.root)}, {'kind':'unknown'}):
-            source.write_text(json.dumps(dict(data, **changes)))
+            source.write_text(json.dumps(dict(data, **changes)), encoding='utf-8')
             with self.assertRaises(ValueError):
                 reviewable.update_task(folder, source, self.repo, revision)
             self.assertEqual(raw, (folder / 'task.json').read_bytes())
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         with self.assertRaisesRegex(ValueError, '绑定项目'):
             reviewable.update_task(folder, source, self.root, revision)
         current = reviewable.fingerprint(folder)
-        (self.repo / 'code.txt').write_text('concurrent code change')
+        (self.repo / 'code.txt').write_text('concurrent code change', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, '指纹冲突'):
             reviewable.update_task(folder, source, self.repo, revision, current)
         with self.assertRaisesRegex(ValueError, 'expect-revision'):
@@ -210,12 +210,12 @@ class StorageTests(unittest.TestCase):
     def evidence_task(self, revision='run-one'):
         folder, data = self.task()
         data['evidence'] = [dict(id='E1', status='passed', revision=revision)]
-        (folder / 'task.json').write_text(json.dumps(data))
+        (folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         return folder, data
 
     def replace_data(self, folder, data):
         source = self.root / 'replacement.json'
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         return reviewable.update_task(folder, source, self.repo, reviewable.locate(folder)['task_revision'])
 
     def test_evidence_rebinding_or_renaming_rejected_without_touching_task(self):
@@ -261,7 +261,7 @@ class StorageTests(unittest.TestCase):
         folder, data = self.task()
         state = reviewable.locate(folder)
         source = self.root / 'replacement.json'
-        source.write_text(json.dumps(dict(data, summary='saved through CLI')))
+        source.write_text(json.dumps(dict(data, summary='saved through CLI')), encoding='utf-8')
         code, out = self.cli('update', str(folder), '--project', str(self.repo), '--from-file', str(source), '--expect-revision', state['task_revision'], '--expect-fingerprint', state['fingerprint'])
         self.assertEqual(code, 0)
         self.assertTrue(json.loads(out)['updated'])
@@ -271,7 +271,7 @@ class StorageTests(unittest.TestCase):
     def test_update_unsupported_lock_platform_never_writes(self):
         folder, data = self.task()
         source = self.root / 'replacement.json'
-        source.write_text(json.dumps(dict(data, summary='new')))
+        source.write_text(json.dumps(dict(data, summary='new')), encoding='utf-8')
         raw = (folder / 'task.json').read_bytes()
         before = self.tree()
         import builtins
@@ -291,7 +291,7 @@ class StorageTests(unittest.TestCase):
         folder, data = self.task()
         raw = (folder / 'task.json').read_bytes()
         source = self.root / 'replacement.json'
-        source.write_text(json.dumps(dict(data, summary='new')))
+        source.write_text(json.dumps(dict(data, summary='new')), encoding='utf-8')
         with patch.object(reviewable.os, 'replace', side_effect=PermissionError('denied')):
             code, _ = self.cli('update', str(folder), '--project', str(self.repo), '--from-file', str(source), '--expect-revision', reviewable.task_revision(raw))
         self.assertEqual(code, 1)

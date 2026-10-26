@@ -22,13 +22,13 @@ class WorkspaceTests(unittest.TestCase):
         mocked = patch.object(Path, 'home', return_value=self.home);mocked.start();self.addCleanup(mocked.stop)
         self.repo = self.root/'repo';self.repo.mkdir()
         self.git(self.repo, 'init', '-q')
-        (self.repo/'file.txt').write_text('one\n')
+        (self.repo/'file.txt').write_text('one\n', encoding='utf-8')
         self.git(self.repo, 'add', 'file.txt')
         self.git(self.repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'initial')
         self.a = self.task('a');self.b = self.task('b')
 
     def git(self, project, *args):
-        return subprocess.run(['git','-C',str(project),*args],check=True,capture_output=True,text=True).stdout.strip()
+        return subprocess.run(['git','-C',str(project),*args],check=True,capture_output=True,text=True, encoding='utf-8').stdout.strip()
 
     def task(self, name, project=None, kind='feature'):
         project = project or self.repo
@@ -131,11 +131,11 @@ class WorkspaceTests(unittest.TestCase):
         self.assertNotEqual(self.begin()['activity']['token'],token)
 
     def test_abandoned_record_never_auto_expires(self):
-        self.begin();path=workspace.registry_path();data=json.loads(path.read_bytes());data['active'][0]['started_at']='1900-01-01T00:00:00+00:00';path.write_text(json.dumps(data))
+        self.begin();path=workspace.registry_path();data=json.loads(path.read_bytes());data['active'][0]['started_at']='1900-01-01T00:00:00+00:00';path.write_text(json.dumps(data), encoding='utf-8')
         self.assertEqual(self.begin('B',self.b)['state'],'conflict')
 
     def test_invalid_registry_is_unknown_and_not_overwritten(self):
-        path=workspace.registry_path();path.parent.mkdir(parents=True);path.write_text('{broken')
+        path=workspace.registry_path();path.parent.mkdir(parents=True);path.write_text('{broken', encoding='utf-8')
         self.assertEqual(workspace.status(self.repo)['state'],'unknown');before=path.read_bytes()
         with self.assertRaises(ValueError):workspace.begin('claude-code','A',self.repo,self.a,'write','missing')
         self.assertEqual(path.read_bytes(),before)
@@ -158,7 +158,7 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_idempotent_activity_does_not_rebind_head_snapshot(self):
         first=self.begin();before=first['activity']['checkout']['head']
-        (self.repo/'file.txt').write_text('second\n');self.git(self.repo,'add','file.txt')
+        (self.repo/'file.txt').write_text('second\n', encoding='utf-8');self.git(self.repo,'add','file.txt')
         self.git(self.repo,'-c','user.name=Test','-c','user.email=test@example.invalid','commit','-qm','second')
         repeated=self.begin();self.assertFalse(repeated['changed']);self.assertTrue(repeated['warnings'])
         self.assertEqual(repeated['activity']['checkout']['head'],before)
@@ -187,8 +187,8 @@ except ValueError as e:print(json.dumps({'state':'rejected','reason':str(e)}))
 """
         env=dict(os.environ,PYTHONPATH=str(Path(workspace.__file__).parent))
         argv=[sys.executable,'-c',code,str(workspace.registry_path())]
-        a=subprocess.Popen(argv+['A',str(self.repo),str(self.a)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env)
-        b=subprocess.Popen(argv+['B',str(self.repo),str(self.b)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env)
+        a=subprocess.Popen(argv+['A',str(self.repo),str(self.a)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True, encoding='utf-8',env=env)
+        b=subprocess.Popen(argv+['B',str(self.repo),str(self.b)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True, encoding='utf-8',env=env)
         results=[]
         for process in (a,b):
             out,err=process.communicate(timeout=20);self.assertEqual(process.returncode,0,err);results.append(json.loads(out))
@@ -203,7 +203,7 @@ except ValueError as e:print(json.dumps({'state':'rejected','reason':str(e)}))
         def changed_lock():
             path=self.a/'task.json';data=json.loads(path.read_bytes())
             data['kind']='analysis';data['focus_stage']='analysis'
-            path.write_text(json.dumps(data))
+            path.write_text(json.dumps(data), encoding='utf-8')
             with original_lock():yield
         with patch.object(workspace,'_lock',changed_lock):
             with self.assertRaises(ValueError):self.begin()
@@ -219,7 +219,7 @@ except ValueError as e:print(json.dumps({'state':'rejected','reason':str(e)}))
         changed=dict(full);changed['target']=dict(changed['target'],id='another-task');variants.append(changed)
         for checkout in variants:
             with self.subTest(checkout=checkout):
-                data=json.loads(original);data['active'][0]['checkout']=checkout;path.write_text(json.dumps(data));before=path.read_bytes()
+                data=json.loads(original);data['active'][0]['checkout']=checkout;path.write_text(json.dumps(data), encoding='utf-8');before=path.read_bytes()
                 self.assertEqual(workspace.status(self.repo)['state'],'unknown')
                 with self.assertRaises(ValueError):self.begin('B',self.b)
                 self.assertEqual(path.read_bytes(),before)

@@ -20,7 +20,7 @@ class GuardTests(unittest.TestCase):
     def run_guard(self, tool, **params):
         env = dict(os.environ, HOME=str(self.home))
         payload = json.dumps(dict(tool_name=tool, tool_input=params))
-        return subprocess.run([sys.executable, str(GUARD)], input=payload, text=True, capture_output=True, env=env)
+        return subprocess.run([sys.executable, str(GUARD)], input=payload, text=True, encoding='utf-8', capture_output=True, env=env)
 
     def assertDenied(self, result):
         self.assertEqual(result.returncode, 2)
@@ -63,7 +63,7 @@ class GuardTests(unittest.TestCase):
                 self.assertEqual(self.run_guard('Bash', command=command).returncode, 0)
 
     def test_malformed_input_never_blocks_host(self):
-        result = subprocess.run([sys.executable, str(GUARD)], input='not json', text=True, capture_output=True)
+        result = subprocess.run([sys.executable, str(GUARD)], input='not json', text=True, encoding='utf-8', capture_output=True)
         self.assertEqual(result.returncode, 0)
 
 

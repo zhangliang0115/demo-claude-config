@@ -14,12 +14,12 @@ class VerificationTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name).resolve(); self.repo=self.root/'repo'; self.repo.mkdir()
         subprocess.run(['git','init','-q',str(self.repo)],check=True)
-        (self.repo/'code.txt').write_text('baseline')
+        (self.repo/'code.txt').write_text('baseline', encoding='utf-8')
         self.task=self.root/'task'; self.task.mkdir()
         self.data=dict(version=1,id='t',title='test',kind='feature',project_path=str(self.repo),behaviors=[dict(id='B1',before='a',after='b')],evidence=[])
         self.save()
     def save(self):
-        (self.task/'task.json').write_text(json.dumps(self.data))
+        (self.task/'task.json').write_text(json.dumps(self.data), encoding='utf-8')
     def run_code(self, code, **kwargs):
         return verification.execute(self.task,self.repo,'unittest',['B1'],[sys.executable,'-c',code],**kwargs)
     def make_code(self, assertion='self.assertEqual(1,1)', decorator=''):
@@ -38,7 +38,7 @@ class VerificationTests(unittest.TestCase):
         result,code=self.run_code(self.make_code()); self.assertEqual(code,0,result)
         data=reviewable.load(self.task); before={str(p):(p.stat().st_mtime_ns,p.read_bytes()) for p in self.task.rglob('*') if p.is_file()}
         evidence=data['evidence'][0]
-        receipt=json.loads(Path(result['receipt']).read_text())
+        receipt=json.loads(Path(result['receipt']).read_text(encoding='utf-8'))
         self.assertEqual(evidence['source'],result['receipt'])
         self.assertEqual(json.loads(evidence['command']),receipt['argv'])
         self.assertIn('非人工',evidence['actor'])
@@ -53,7 +53,7 @@ class VerificationTests(unittest.TestCase):
     def test_failure_preserved(self):
         result,code=self.run_code(self.make_code('self.fail("broken")')); self.assertEqual(code,1)
         self.assertEqual(result['parsed_result']['status'],'failed'); self.assertTrue(result['evidence_appended'])
-        self.assertIn('broken',(Path(result['receipt']).parent/'stderr.log').read_text())
+        self.assertIn('broken',(Path(result['receipt']).parent/'stderr.log').read_text(encoding='utf-8'))
     def test_zero_skipped_unknown(self):
         for code in ['import unittest; unittest.main()',self.make_code(decorator='@unittest.skip("skip")'),'print("all passed")']:
             with self.subTest(code=code):
@@ -62,11 +62,11 @@ class VerificationTests(unittest.TestCase):
                 if result['parsed_result'] is None:
                     self.assertIn('未能解析测试结果',reviewable.load(self.task)['evidence'][-1]['summary'])
     def test_fingerprint_change_never_appends(self):
-        result,status=self.run_code("from pathlib import Path; Path('code.txt').write_text('changed');\n"+self.make_code())
+        result,status=self.run_code("from pathlib import Path; Path('code.txt').write_text('changed', encoding='utf-8');\n"+self.make_code())
         self.assertEqual(status,1); self.assertFalse(result['evidence_appended']); self.assertTrue(Path(result['receipt']).exists())
         self.assertEqual(reviewable.load(self.task)['evidence'],[])
     def test_task_change_never_overwrites(self):
-        code="from pathlib import Path; import json; p=Path("+repr(str(self.task/'task.json'))+"); d=json.loads(p.read_text()); d['title']='new'; p.write_text(json.dumps(d));\n"+self.make_code()
+        code="from pathlib import Path; import json; p=Path("+repr(str(self.task/'task.json'))+"); d=json.loads(p.read_text(encoding='utf-8')); d['title']='new'; p.write_text(json.dumps(d), encoding='utf-8');\n"+self.make_code()
         result,status=self.run_code(code); self.assertEqual(status,1); self.assertEqual(reviewable.load(self.task)['title'],'new'); self.assertFalse(result['evidence_appended'])
     def test_cas_conflict_keeps_receipt(self):
         with patch.object(reviewable,'update_task',side_effect=ValueError('conflict')):
@@ -79,12 +79,12 @@ class VerificationTests(unittest.TestCase):
         self.assertFalse(marker.exists()); self.assertEqual(status,1) # unittest rejects the literal extra argument
     def test_tampered_log_and_model_field_cannot_green(self):
         result,status=self.run_code(self.make_code()); data=reviewable.load(self.task)
-        (Path(result['receipt']).parent/'stderr.log').write_text('forged')
+        (Path(result['receipt']).parent/'stderr.log').write_text('forged', encoding='utf-8')
         data['evidence'][0]['parsed_result']=dict(status='passed')
         assessed=reviewable.assessed(data,reviewable.fingerprint(self.task),self.task)['evidence'][0]
         self.assertEqual(assessed['verification_source'],'invalid'); self.assertEqual(assessed['status'],'not_run'); self.assertNotIn('parsed_result',assessed)
     def test_tampered_receipt_identity(self):
-        result,status=self.run_code(self.make_code()); data=reviewable.load(self.task); ref=data['evidence'][0]['verification_receipt']; p=Path(result['receipt']); r=json.loads(p.read_text()); r['task_id']='other'; raw=json.dumps(r).encode(); p.write_bytes(raw); ref['sha256']=verification.sha(raw)
+        result,status=self.run_code(self.make_code()); data=reviewable.load(self.task); ref=data['evidence'][0]['verification_receipt']; p=Path(result['receipt']); r=json.loads(p.read_text(encoding='utf-8')); r['task_id']='other'; raw=json.dumps(r).encode(); p.write_bytes(raw); ref['sha256']=verification.sha(raw)
         self.assertEqual(reviewable.assessed(data,reviewable.fingerprint(self.task),self.task)['evidence'][0]['verification_source'],'invalid')
     def test_deleted_task_preserves_receipt(self):
         code='from pathlib import Path; Path('+repr(str(self.task/'task.json'))+').unlink();\n'+self.make_code()
@@ -92,10 +92,10 @@ class VerificationTests(unittest.TestCase):
         self.assertEqual(status,1); self.assertFalse(result['evidence_appended']); self.assertTrue(Path(result['receipt']).exists())
     def test_timeout_retains_logs(self):
         result,status=self.run_code('import time; print("start",flush=True); time.sleep(10)',timeout=.1)
-        self.assertEqual(status,1); self.assertTrue(Path(result['receipt']).exists()); self.assertTrue(json.loads(Path(result['receipt']).read_text())['timed_out'])
+        self.assertEqual(status,1); self.assertTrue(Path(result['receipt']).exists()); self.assertTrue(json.loads(Path(result['receipt']).read_text(encoding='utf-8'))['timed_out'])
     def test_junit_subprocess_counts(self):
         result_path=self.root/'results.xml'
-        code="from pathlib import Path; Path("+repr(str(result_path))+").write_text('<testsuite tests=\"2\"><testcase name=\"a\"/><testcase name=\"b\"/></testsuite>')"
+        code="from pathlib import Path; Path("+repr(str(result_path))+").write_text('<testsuite tests=\"2\"><testcase name=\"a\"/><testcase name=\"b\"/></testsuite>', encoding='utf-8')"
         result,status=verification.execute(self.task,self.repo,'junit',['B1'],[sys.executable,'-c',code],result_path)
         self.assertEqual(status,0,result); self.assertEqual(result['parsed_result']['counts']['passed'],2)
         e=reviewable.assessed(reviewable.load(self.task),reviewable.fingerprint(self.task),self.task)['evidence'][0]
@@ -116,12 +116,12 @@ class VerificationTests(unittest.TestCase):
             result,status=self.run_code('print("x"*12000)\n'+self.make_code())
         self.assertEqual(status,1); self.assertIsNone(result['parsed_result'])
         self.assertGreater((Path(result['receipt']).parent/'stdout.log').stat().st_size,12000)
-        receipt=json.loads(Path(result['receipt']).read_text())
+        receipt=json.loads(Path(result['receipt']).read_text(encoding='utf-8'))
         self.assertIn('上限',receipt['parse_error'])
         self.assertEqual(receipt['logs']['stdout']['sha256'],verification.file_sha(Path(result['receipt']).parent/'stdout.log'))
     def test_cli_executes_without_render(self):
         script=Path(reviewable.__file__).resolve()
-        proc=subprocess.run([sys.executable,str(script),'verify',str(self.task),'--project',str(self.repo),'--format','unittest','--behavior','B1','--',sys.executable,'-c',self.make_code()],capture_output=True,text=True)
+        proc=subprocess.run([sys.executable,str(script),'verify',str(self.task),'--project',str(self.repo),'--format','unittest','--behavior','B1','--',sys.executable,'-c',self.make_code()],capture_output=True,text=True, encoding='utf-8')
         self.assertEqual(proc.returncode,0,proc.stderr+proc.stdout)
         self.assertTrue(json.loads(proc.stdout)['evidence_appended'])
         self.assertFalse((self.task/'report.html').exists())
@@ -140,7 +140,7 @@ class VerificationTests(unittest.TestCase):
         valid=b'<testsuites tests="2" failures="0"><testsuites tests="1"><testsuite tests="1"><testcase name="a"/></testsuite></testsuites><testsuite tests="1"><testcase name="b"/></testsuite></testsuites>'
         self.assertEqual(verification.parse_result('junit',valid,0)['status'],'passed')
     def test_malformed_receipts_are_invalid_not_crashes(self):
-        result,status=self.run_code(self.make_code()); data=reviewable.load(self.task); path=Path(result['receipt']); original=json.loads(path.read_text())
+        result,status=self.run_code(self.make_code()); data=reviewable.load(self.task); path=Path(result['receipt']); original=json.loads(path.read_text(encoding='utf-8'))
         variants=[[],None,True,42,'oops',{},dict(original,logs=[]),dict(original,logs={'stdout':[],'stderr':original['logs']['stderr']}),dict(original,logs={'stdout':{'path':[],'sha256':'x'},'stderr':original['logs']['stderr']}),dict(original,argv='python'),dict(original,started_at=[]),dict(original,exit_code=True),dict(original,fingerprint_before=[]),dict(original,format='junit',result_file=[]),dict(original,format='junit',result_file={'path':{},'sha256':None})]
         for variant in variants:
             with self.subTest(variant=variant):

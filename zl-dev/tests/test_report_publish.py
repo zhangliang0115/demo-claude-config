@@ -24,7 +24,7 @@ class ReportPublishTests(unittest.TestCase):
         self.repo = self.root / 'repo'
         self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'app.py').write_text('capacity = 1\n')
+        (self.repo / 'app.py').write_text('capacity = 1\n', encoding='utf-8')
         self.folder = self.root / 'task'
         self.folder.mkdir()
         self.data = dict(version=1, id='task', title='Capacity', kind='change',
@@ -39,7 +39,7 @@ class ReportPublishTests(unittest.TestCase):
         feature.save(self.coord, data)
 
     def save_task(self):
-        (self.folder / 'task.json').write_text(json.dumps(self.data))
+        (self.folder / 'task.json').write_text(json.dumps(self.data), encoding='utf-8')
 
     def artifact(self, folder, name):
         p = folder / name
@@ -50,7 +50,7 @@ class ReportPublishTests(unittest.TestCase):
         data = api.load(self.folder)
         data['summary'] = summary
         source = self.root / 'replacement.json'
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         api.update_task(self.folder, source, self.repo, state['task_revision'])
 
     def during_template(self, template, action):
@@ -103,7 +103,7 @@ class ReportPublishTests(unittest.TestCase):
     def test_feature_child_code_change_rejects_old_assessment(self):
         old = feature.snapshot(self.coord)
         parent_raw = (self.coord / 'feature.json').read_bytes()
-        (self.repo / 'app.py').write_text('capacity = 2\n')
+        (self.repo / 'app.py').write_text('capacity = 2\n', encoding='utf-8')
         feature.render(self.coord)
         current = self.artifact(self.coord, 'feature.html')
         with self.assertRaisesRegex(ValueError, '报告生成冲突'):
@@ -174,7 +174,7 @@ class ReportPublishTests(unittest.TestCase):
                 module.render(folder)
                 changed = []
                 def action():
-                    (folder / name).write_text('Other writer content')
+                    (folder / name).write_text('Other writer content', encoding='utf-8')
                     changed.append(self.artifact(folder, name))
                 with self.during_template(module.ROOT / 'assets' / name, action):
                     with self.assertRaisesRegex(ValueError, '报告生成冲突'):
@@ -211,7 +211,7 @@ class ReportPublishTests(unittest.TestCase):
         changed = []
         def writing(target, raw, before_replace=None):
             def before():
-                target.write_text('External final write')
+                target.write_text('External final write', encoding='utf-8')
                 changed.append(self.artifact(self.folder, 'report.html'))
                 before_replace()
             return original(target, raw, before_replace=before)
@@ -287,7 +287,7 @@ class ReportPublishTests(unittest.TestCase):
         unknown = self.root / 'not-a-git-repository'
         unknown.mkdir()
         data['project_path'] = str(unknown)
-        (self.folder / 'task.json').write_text(json.dumps(data))
+        (self.folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
         api.render(self.folder)
         self.assertTrue((self.folder / 'report.html').is_file())
         self.assertEqual(api.report_state(self.folder)['freshness'], 'unknown')

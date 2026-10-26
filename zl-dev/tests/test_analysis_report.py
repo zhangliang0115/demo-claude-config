@@ -40,7 +40,7 @@ class AnalysisReportTests(unittest.TestCase):
             gaps=[dict(id='G1',description='消息消费者仓库尚未提供。',next_action='补充消费者项目后继续追踪。')]),analysis_assessment=dict(sources=[dict(source,status='current',reason='内容与范围匹配')]))
 
     def run_ui(self, task, open_ref=None):
-        result=subprocess.run(['node','-e',DOM],input=json.dumps(dict(source=(ASSETS/'views/analysis.js').read_text(),task=task,openRef=open_ref)),text=True,capture_output=True)
+        result=subprocess.run(['node','-e',DOM],input=json.dumps(dict(source=(ASSETS/'views/analysis.js').read_text(encoding='utf-8'),task=task,openRef=open_ref)),text=True, encoding='utf-8',capture_output=True)
         self.assertEqual(result.returncode,0,result.stderr)
         return json.loads(result.stdout)
 
@@ -129,7 +129,7 @@ class AnalysisReportTests(unittest.TestCase):
         self.assertFalse(any(n['tag'] in {'img','script','iframe'} for n in view['nodes']))
 
     def test_report_shell_routes_analysis_and_suppresses_generic_stage_materials(self):
-        template=(ASSETS/'report.html').read_text()
+        template=(ASSETS/'report.html').read_text(encoding='utf-8')
         self.assertIn("const isAnalysis=task.kind==='analysis'",template)
         self.assertIn('const renderView=isAnalysis?renderAnalysisView:',template)
         self.assertIn("if(!stageInline&&!isAnalysis)renderStages",template)

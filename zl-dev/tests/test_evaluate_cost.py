@@ -21,15 +21,15 @@ class CostRunnerTests(unittest.TestCase):
     def synthetic_prepared(self):
         output=self.root/'prepared';output.mkdir()
         plugin=output/'plugin';(plugin/'scripts').mkdir(parents=True)
-        (plugin/'scripts/reviewable.py').write_text('# synthetic test file\n')
+        (plugin/'scripts/reviewable.py').write_text('# synthetic test file\n', encoding='utf-8')
         cases=[]
         for i,(scenario,variant) in enumerate(runner.ORDER):
             folder=output/str(i);repo=folder/'repo';task=folder/'task'
             repo.mkdir(parents=True);task.mkdir();before=folder/'before';before.mkdir()
-            (repo/'logic.py').write_text('total = 1\n')
+            (repo/'logic.py').write_text('total = 1\n', encoding='utf-8')
             data=dict(summary='original',id=str(i),project_path=str(repo))
-            (task/'task.json').write_text(json.dumps(data));(before/'task.json').write_text(json.dumps(data))
-            (task/'report.html').write_text('synthetic report')
+            (task/'task.json').write_text(json.dumps(data), encoding='utf-8');(before/'task.json').write_text(json.dumps(data), encoding='utf-8')
+            (task/'report.html').write_text('synthetic report', encoding='utf-8')
             cases.append(dict(id=str(i),scenario=scenario,variant=variant,folder=str(folder),repo=str(repo),
                               task=str(task),session_id='session-'+str(i),prompt='synthetic '+scenario,
                               git_state=dict(head='synthetic',status=''),
@@ -45,7 +45,7 @@ class CostRunnerTests(unittest.TestCase):
         missing=[c for c in runner.VARIANTS.values() if subprocess.run(['git','cat-file','-e',c+'^{commit}'],cwd=runner.REPOSITORY,capture_output=True).returncode]
         if missing:self.skipTest('固定回放提交不在当前克隆中（浅克隆或非 Git 副本）：'+', '.join(missing))
         result=runner.prepare(self.root/'actual')
-        manifest=json.loads((Path(result['output'])/'prepared.json').read_text())
+        manifest=json.loads((Path(result['output'])/'prepared.json').read_text(encoding='utf-8'))
         self.assertEqual(result['model_calls'],0)
         self.assertEqual([(c['scenario'],c['variant']) for c in manifest['cases']],runner.ORDER)
         self.assertEqual(len({c['session_id'] for c in manifest['cases']}),6)
@@ -56,7 +56,7 @@ class CostRunnerTests(unittest.TestCase):
             self.assertTrue((Path(c['task'])/'report.html').is_file())
             self.assertGreater(c['setup_wall_ms'],0)
             self.assertNotIn('--no-render',' '.join(' '.join(x['argv']) for x in c['controller_commands']))
-            self.assertEqual((Path(c['repo'])/'CLAUDE.md').read_text(),runner.NOTICE)
+            self.assertEqual((Path(c['repo'])/'CLAUDE.md').read_text(encoding='utf-8'),runner.NOTICE)
         self.assertEqual(os.stat(result['output']).st_mode & 0o777,0o700)
         runner.validate_prepared(result['output'])
         with self.assertRaises(ValueError):runner.prepare(self.root/'actual')
@@ -69,15 +69,15 @@ class CostRunnerTests(unittest.TestCase):
 
     def test_tampered_or_extra_plugin_file_rejected_without_launch(self):
         output,_,plugin=self.synthetic_prepared()
-        manifest=json.loads((output/'prepared.json').read_text())
+        manifest=json.loads((output/'prepared.json').read_text(encoding='utf-8'))
         self.assertTrue(all(r['state']=='current' for r in runner.plugin_integrity(output,manifest).values()))
-        (plugin/'extra.py').write_text('unexpected')
+        (plugin/'extra.py').write_text('unexpected', encoding='utf-8')
         self.assertTrue(all(r['state']=='changed' for r in runner.plugin_integrity(output,manifest).values()))
         with patch.object(runner.subprocess,'run') as launch:
             with self.assertRaisesRegex(ValueError,'Unexpected plugin file'):runner.run(output,6)
             launch.assert_not_called()
         (plugin/'extra.py').unlink()
-        (plugin/'scripts/reviewable.py').write_text('changed')
+        (plugin/'scripts/reviewable.py').write_text('changed', encoding='utf-8')
         with self.assertRaisesRegex(ValueError,'Prepared fixture changed'):runner.validate_prepared(output)
 
     def test_fake_cli_failure_retained_no_retry_and_outputs_never_overwritten(self):
@@ -88,7 +88,7 @@ class CostRunnerTests(unittest.TestCase):
         def fake_cli(args,**kwargs):
             calls.append(args);index=len(calls)-1;case=cases[index]
             if case['scenario']=='summary':
-                path=Path(case['task'])/'task.json';data=json.loads(path.read_text());data['summary']+=runner.ADDITION;path.write_text(json.dumps(data))
+                path=Path(case['task'])/'task.json';data=json.loads(path.read_text(encoding='utf-8'));data['summary']+=runner.ADDITION;path.write_text(json.dumps(data), encoding='utf-8')
             events=[dict(type='system',subtype='init',plugins=[dict(name='zl-dev',path=str(plugin),version='synthetic')]),
                     dict(type='result',subtype='error_max_turns' if index==0 else 'success',num_turns=13)]
             kwargs['stdout'].write('\n'.join(json.dumps(e) for e in events)+'\n');kwargs['stdout'].flush()
@@ -97,7 +97,7 @@ class CostRunnerTests(unittest.TestCase):
             result=runner.run(output,6)
         self.assertEqual(len(calls),6);self.assertEqual(result['successful_cli_results'],5)
         self.assertTrue(all('--resume' not in c for c in calls))
-        data=json.loads((output/'outcomes.json').read_text())
+        data=json.loads((output/'outcomes.json').read_text(encoding='utf-8'))
         self.assertEqual(data['cases'][0]['exit_code'],1)
         self.assertEqual(data['cases'][0]['observed_num_turns'],13)
         self.assertTrue(data['complete'])
@@ -120,7 +120,7 @@ class CostRunnerTests(unittest.TestCase):
         self.assertEqual((Path(cases[0]['folder'])/'events.jsonl').stat().st_mode & 0o777,0o600)
 
     def test_partial_and_malformed_events_are_preserved_as_missing_result(self):
-        path=self.root/'events.jsonl';path.write_text('{"type":"assistant"}\nnot-json\n')
+        path=self.root/'events.jsonl';path.write_text('{"type":"assistant"}\nnot-json\n', encoding='utf-8')
         events,errors=runner.read_events(path)
         self.assertEqual(errors,[2]);self.assertEqual(len(events),1)
         self.assertFalse(any(e.get('type')=='result' for e in events))

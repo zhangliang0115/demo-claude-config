@@ -22,7 +22,7 @@ class ExecTraceTests(unittest.TestCase):
         root = Path(temp.name).resolve()
         self.repo = root / 'repo'; self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'a.py').write_text('x = 1\n')
+        (self.repo / 'a.py').write_text('x = 1\n', encoding='utf-8')
         home = root / 'home'; home.mkdir()
         patcher = patch.object(Path, 'home', return_value=home); patcher.start(); self.addCleanup(patcher.stop)
 
@@ -47,22 +47,22 @@ class ExecTraceTests(unittest.TestCase):
 
     def test_locate_and_handoff_expose_only_compact_recent_entries(self):
         out = subprocess.run([sys.executable, str(Path(reviewable.__file__)), 'init', 't', '--project', str(self.repo), '--no-render'],
-                             capture_output=True, text=True, env=dict(__import__('os').environ, HOME=str(Path.home())))
+                             capture_output=True, text=True, encoding='utf-8', env=dict(__import__('os').environ, HOME=str(Path.home())))
         folder = Path(json.loads(out.stdout)['task_dir'])
-        data = json.loads((folder / 'task.json').read_text())
+        data = json.loads((folder / 'task.json').read_text(encoding='utf-8'))
         data['execution_trace'] = [dict(ENTRY, outcome=str(i)) for i in range(4)]
-        source = folder.parent / 'next.json'; source.write_text(json.dumps(data))
+        source = folder.parent / 'next.json'; source.write_text(json.dumps(data), encoding='utf-8')
         reviewable.update_task(folder, source, self.repo, reviewable.locate(folder)['task_revision'])
         state = reviewable.locate(folder)
         self.assertEqual(state['execution_trace']['total'], 4)
         self.assertEqual(len(state['execution_trace']['recent']), 3)
-        handoff = Path(reviewable.export_handoff(folder)).read_text()
+        handoff = Path(reviewable.export_handoff(folder)).read_text(encoding='utf-8')
         self.assertIn('最近执行记录（执行者声明，不是执行证明）', handoff)
         self.assertIn('更早的 1 条', handoff)
         self.assertNotIn('internal-actions/handoff.md', handoff)
         fingerprint = reviewable.fingerprint(folder)
-        data = json.loads((folder / 'task.json').read_text()); data['execution_trace'].append(dict(ENTRY, outcome='new'))
-        source.write_text(json.dumps(data))
+        data = json.loads((folder / 'task.json').read_text(encoding='utf-8')); data['execution_trace'].append(dict(ENTRY, outcome='new'))
+        source.write_text(json.dumps(data), encoding='utf-8')
         reviewable.update_task(folder, source, self.repo, reviewable.locate(folder)['task_revision'])
         self.assertEqual(reviewable.fingerprint(folder), fingerprint)
         reviewable.export_handoff(folder); reviewable.export_handoff(folder)

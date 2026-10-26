@@ -21,15 +21,15 @@ class EvidenceContextTests(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name).resolve(); self.repo = self.root/'repo'; self.repo.mkdir()
         subprocess.run(['git','init','-q',str(self.repo)], check=True)
-        (self.repo/'code.txt').write_text('baseline')
+        (self.repo/'code.txt').write_text('baseline', encoding='utf-8')
         self.task = self.root/'task'; self.task.mkdir()
         self.data = dict(version=1,id='task',title='diagnostics',kind='feature',project_path=str(self.repo),
                          behaviors=[dict(id='B1',before='a',after='b')], evidence=[])
         self.save()
     def save(self):
-        (self.task/'task.json').write_text(json.dumps(self.data,ensure_ascii=False))
+        (self.task/'task.json').write_text(json.dumps(self.data,ensure_ascii=False), encoding='utf-8')
     def verify(self):
-        code="import unittest\nfrom pathlib import Path\nclass T(unittest.TestCase):\n def test_source(self): self.assertEqual(Path('code.txt').read_text(),'baseline')\nunittest.main()\n"
+        code="import unittest\nfrom pathlib import Path\nclass T(unittest.TestCase):\n def test_source(self): self.assertEqual(Path('code.txt').read_text(encoding='utf-8'),'baseline')\nunittest.main()\n"
         result, status = verification.execute(self.task,self.repo,'unittest',['B1'],[sys.executable,'-c',code])
         self.assertEqual(status,0,result); return result
     def detail(self):
@@ -39,7 +39,7 @@ class EvidenceContextTests(unittest.TestCase):
         try:head=api.git(['rev-parse','HEAD'],root).strip()
         except subprocess.CalledProcessError:pass
         digest=hashlib.sha256(head)
-        digest.update(json.dumps(api.semantic_contract(json.loads((self.task/'task.json').read_text())),sort_keys=True,ensure_ascii=False).encode())
+        digest.update(json.dumps(api.semantic_contract(json.loads((self.task/'task.json').read_text(encoding='utf-8'))),sort_keys=True,ensure_ascii=False).encode())
         for raw in sorted(set(api.git(['ls-files','-z','--cached','--others','--exclude-standard'],root).split(b'\0'))):
             if not raw:continue
             path=root/raw.decode('utf-8','surrogateescape');digest.update(raw+b'\0')
@@ -54,19 +54,19 @@ class EvidenceContextTests(unittest.TestCase):
         (self.repo/'code.txt').unlink()
         self.assertEqual(api.fingerprint(self.task),self.legacy())
     def test_new_receipt_current_and_full_context_never_enters_snapshot(self):
-        result=self.verify();receipt=json.loads(Path(result['receipt']).read_text())
+        result=self.verify();receipt=json.loads(Path(result['receipt']).read_text(encoding='utf-8'))
         self.assertTrue(context.valid_context(receipt['fingerprint_context'],receipt['fingerprint_before']))
         state=api.snapshot(self.task);self.assertEqual(state['evidence'][0]['freshness_details']['state'],'current')
         self.assertEqual(state['evidence'][0]['verification_source'],'parsed_result')
         self.assertNotIn('fingerprint_context',json.dumps(state));self.assertNotIn('path_bytes_hex',json.dumps(state))
     def test_source_change_names_path_and_preserves_conservative_staleness(self):
-        self.verify();(self.repo/'code.txt').write_text('different')
+        self.verify();(self.repo/'code.txt').write_text('different', encoding='utf-8')
         state=api.snapshot(self.task);d=state['evidence'][0]['freshness_details']
         self.assertEqual(d['state'],'stale');self.assertIn('source_changed',d['reason_codes'])
         self.assertIn('code.txt（内容变化）',d['changed_paths']);self.assertEqual(d['behavior_ids'],['B1'])
         self.assertNotEqual(state['evidence'][0]['freshness'],'当前');self.assertEqual(d['attribution'],'unknown')
     def test_attribution_compares_changed_paths_with_declared_implementation_files(self):
-        self.verify();(self.repo/'code.txt').write_text('different')
+        self.verify();(self.repo/'code.txt').write_text('different', encoding='utf-8')
         self.data=api.load(self.task);self.data['implementation']=[dict(title='edit',description='d',files=['code.txt'])];self.save()
         d=self.detail();self.assertEqual(d['attribution'],'declared_by_this_task');self.assertEqual(d['undeclared_paths'],[])
         self.assertEqual(d['state'],'stale');self.assertIn('source_changed',d['reason_codes'])
@@ -84,7 +84,7 @@ class EvidenceContextTests(unittest.TestCase):
         self.assertEqual(context.attribute(['src/x/y.py'], True, f([dict(files='src/')])), ('declared_by_this_task', []))
         self.assertEqual(context.attribute(['a.py'], False, {'a.py'}), ('unknown', []))
     def test_malformed_implementation_files_never_break_locate_or_receipts(self):
-        self.verify();(self.repo/'code.txt').write_text('different')
+        self.verify();(self.repo/'code.txt').write_text('different', encoding='utf-8')
         self.data=api.load(self.task);self.data['implementation']=[dict(title='x',description='d',files=5)];self.save()
         state=api.snapshot(self.task);e=state['evidence'][0]
         self.assertEqual(e['verification_source'],'parsed_result');self.assertEqual(e['freshness_details']['attribution'],'unknown')
@@ -100,17 +100,17 @@ class EvidenceContextTests(unittest.TestCase):
         self.verify();self.data=api.load(self.task);self.data['summary']='editorial change';self.save()
         self.assertEqual(self.detail()['state'],'current')
     def test_legacy_claim_cannot_guess_reason_or_actor(self):
-        old=api.fingerprint(self.task);self.data['evidence']=[dict(id='E',status='passed',revision=old,behavior_ids=['B1'])];self.save();(self.repo/'code.txt').write_text('change')
+        old=api.fingerprint(self.task);self.data['evidence']=[dict(id='E',status='passed',revision=old,behavior_ids=['B1'])];self.save();(self.repo/'code.txt').write_text('change', encoding='utf-8')
         d=self.detail();self.assertEqual(d['baseline'],'legacy_missing');self.assertEqual(d['reason_codes'],['unknown_change']);self.assertEqual(d['changed_paths'],[])
     def test_receipt_log_invalid_precedes_matching_code(self):
-        result=self.verify();(Path(result['receipt']).parent/'stdout.log').write_text('altered log')
+        result=self.verify();(Path(result['receipt']).parent/'stdout.log').write_text('altered log', encoding='utf-8')
         e=api.snapshot(self.task)['evidence'][0]
         self.assertEqual(e['freshness'],'当前');self.assertEqual(e['status'],'not_run');self.assertEqual(e['freshness_details']['state'],'invalid_receipt')
         self.assertIn('receipt_invalid',e['freshness_details']['reason_codes'])
     def test_truncated_manifests_do_not_misreport_shifted_paths_as_deleted(self):
-        for n in range(4):(self.repo/f'z{n}').write_text(str(n))
+        for n in range(4):(self.repo/f'z{n}').write_text(str(n), encoding='utf-8')
         with patch.object(context,'MAX_FILES',2):
-            before=api.fingerprint_observation(self.task);(self.repo/'a0').write_text('new');after=api.fingerprint_observation(self.task)
+            before=api.fingerprint_observation(self.task);(self.repo/'a0').write_text('new', encoding='utf-8');after=api.fingerprint_observation(self.task)
         e=dict(revision=before['fingerprint'],behavior_ids=['B1'])
         d=context.explain(e,after['fingerprint'],after,before)
         self.assertEqual(d['changed_paths'],[]);self.assertIsNone(d['changed_path_count']);self.assertTrue(d['paths_truncated'])
@@ -135,8 +135,8 @@ class EvidenceContextTests(unittest.TestCase):
             self.assertEqual(observation['fingerprint'],self.legacy())
             self.verify()
     def test_symlink_target_contents_are_not_read(self):
-        external=self.root/'external';external.write_text('one');(self.repo/'external-link').symlink_to(external)
-        before=api.fingerprint_observation(self.task);external.write_text('two');after=api.fingerprint_observation(self.task)
+        external=self.root/'external';external.write_text('one', encoding='utf-8');(self.repo/'external-link').symlink_to(external)
+        before=api.fingerprint_observation(self.task);external.write_text('two', encoding='utf-8');after=api.fingerprint_observation(self.task)
         self.assertEqual(before,after);self.assertTrue(any(x['kind']=='link' for x in before['files']))
     def test_unknown_current_and_unbound_do_not_claim_validity(self):
         e=dict(behavior_ids=['B1']);self.assertEqual(context.explain(e,None)['state'],'unknown')
@@ -151,8 +151,8 @@ class EvidenceContextTests(unittest.TestCase):
         self.assertEqual(api.snapshot(self.task)['evidence'][0]['freshness_details']['state'],'current')
         self.assertEqual(before,{str(p):p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
     def test_invalid_optional_baseline_cannot_weaken_original_guard(self):
-        result=self.verify();path=Path(result['receipt']);receipt=json.loads(path.read_text());receipt['fingerprint_context']['source_digest']='0'*64;raw=(json.dumps(receipt)+'\n').encode();path.write_bytes(raw)
-        self.data=api.load(self.task);self.data['evidence'][0]['verification_receipt']['sha256']=hashlib.sha256(raw).hexdigest();self.save();(self.repo/'code.txt').write_text('change')
+        result=self.verify();path=Path(result['receipt']);receipt=json.loads(path.read_text(encoding='utf-8'));receipt['fingerprint_context']['source_digest']='0'*64;raw=(json.dumps(receipt)+'\n').encode();path.write_bytes(raw)
+        self.data=api.load(self.task);self.data['evidence'][0]['verification_receipt']['sha256']=hashlib.sha256(raw).hexdigest();self.save();(self.repo/'code.txt').write_text('change', encoding='utf-8')
         d=self.detail();self.assertEqual(d['state'],'stale');self.assertEqual(d['baseline'],'invalid');self.assertIn('unknown_change',d['reason_codes'])
     def test_historical_detail_does_not_reopen_currently_covered_behavior(self):
         self.verify()

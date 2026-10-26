@@ -26,15 +26,15 @@ class AnalysisTests(unittest.TestCase):
         self.root = Path(temp.name).resolve()
         self.repo = self.root/'repo';self.repo.mkdir()
         subprocess.run(['git','init','-q',str(self.repo)],check=True)
-        (self.repo/'service.py').write_text('def cancel(order):\n    return order.amount\n')
+        (self.repo/'service.py').write_text('def cancel(order):\n    return order.amount\n', encoding='utf-8')
         self.other=self.root/'other';self.other.mkdir()
-        (self.other/'view.py').write_text('amount = response["amount"]\n')
+        (self.other/'view.py').write_text('amount = response["amount"]\n', encoding='utf-8')
         self.folder=self.root/'task';self.folder.mkdir()
         self.data=dict(version=1,id='a',title='金额来源',kind='analysis',project_path=str(self.repo),summary='解释金额来源',behaviors=[],implementation=[],evidence=[],analysis=dict(mode='data_flow',question='金额从何而来？',conclusion='源码把订单金额直接返回。',project_paths=[],sources=[analysis.source(self.repo,'service.py')],steps=[dict(id='P1',title='金额读取',description='读取并返回',source_ids=['S1'])],mappings=[dict(id='M1',**{'from':'order.amount','to':'response.amount'},transformation='直接返回',source_ids=['S1'])],findings=[dict(id='F1',classification='fact',statement='直接返回金额',source_ids=['S1'])],gaps=[]))
         self.save()
 
     def save(self):
-        (self.folder/'task.json').write_text(json.dumps(self.data,ensure_ascii=False))
+        (self.folder/'task.json').write_text(json.dumps(self.data,ensure_ascii=False), encoding='utf-8')
 
     def tree(self):
         return {str(p):(p.read_bytes(),p.stat().st_mtime_ns) for p in self.root.rglob('*') if p.is_file()}
@@ -140,7 +140,7 @@ class AnalysisTests(unittest.TestCase):
         self.data['analysis']['project_paths']=[str(self.other)]
         self.data['analysis']['sources'].append(analysis.source(self.other,'view.py','S2'))
         self.save();reviewable.render(self.folder);before=self.state();primary=before['current_fingerprint']
-        (self.other/'view.py').write_text('amount = response["net"]\n')
+        (self.other/'view.py').write_text('amount = response["net"]\n', encoding='utf-8')
         after=self.state()
         self.assertEqual(primary,after['current_fingerprint'])
         self.assertNotEqual(before['assessment_revision'],after['assessment_revision'])
@@ -151,8 +151,8 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(html,(self.folder/'report.html').read_bytes())
 
     def test_already_stale_source_changes_remain_visible(self):
-        (self.repo/'service.py').write_text('first change\nsecond line\n');one=self.state()
-        (self.repo/'service.py').write_text('other change\nsecond line\n');two=self.state()
+        (self.repo/'service.py').write_text('first change\nsecond line\n', encoding='utf-8');one=self.state()
+        (self.repo/'service.py').write_text('other change\nsecond line\n', encoding='utf-8');two=self.state()
         self.assertEqual(one['analysis_assessment']['sources'][0]['status'],'stale')
         self.assertEqual(two['analysis_assessment']['sources'][0]['status'],'stale')
         self.assertNotEqual(one['assessment_revision'],two['assessment_revision'])
@@ -168,9 +168,9 @@ class AnalysisTests(unittest.TestCase):
             self.assertNotEqual(one['assessment_revision'],two['assessment_revision'])
 
     def test_ignored_source_change_visible_even_when_git_fingerprint_stable(self):
-        (self.repo/'.gitignore').write_text('ignored.py\n');(self.repo/'ignored.py').write_text('secret = 1\n')
+        (self.repo/'.gitignore').write_text('ignored.py\n', encoding='utf-8');(self.repo/'ignored.py').write_text('secret = 1\n', encoding='utf-8')
         self.data['analysis']['sources']=[analysis.source(self.repo,'ignored.py')]
-        self.save();before=self.state();(self.repo/'ignored.py').write_text('secret = 2\n');after=self.state()
+        self.save();before=self.state();(self.repo/'ignored.py').write_text('secret = 2\n', encoding='utf-8');after=self.state()
         self.assertEqual(before['current_fingerprint'],after['current_fingerprint'])
         self.assertNotEqual(before['assessment_revision'],after['assessment_revision'])
         self.assertEqual(after['workflow_summary']['step'],'analysis_refresh')
@@ -188,7 +188,7 @@ class AnalysisTests(unittest.TestCase):
                 with self.assertRaises(ValueError):analysis.source(self.repo,value)
         with self.assertRaises(ValueError):analysis.source(self.repo,'service.py',line_end=9)
         (self.repo/'service.py').unlink();self.assertEqual(self.state()['analysis_assessment']['sources'][0]['status'],'unavailable')
-        (self.repo/'service.py').write_text('one\n');self.assertEqual(self.state()['analysis_assessment']['sources'][0]['status'],'invalid')
+        (self.repo/'service.py').write_text('one\n', encoding='utf-8');self.assertEqual(self.state()['analysis_assessment']['sources'][0]['status'],'invalid')
 
     def test_undeclared_external_project_rejected(self):
         self.data['analysis']['sources'].append(analysis.source(self.other,'view.py','S2'))
@@ -208,7 +208,7 @@ class AnalysisTests(unittest.TestCase):
 
     def test_fake_assessment_cannot_override_snapshot(self):
         self.data['analysis_assessment']={'documented':True,'sources':[]}
-        (self.repo/'service.py').write_text('changed\nsecond\n');self.save()
+        (self.repo/'service.py').write_text('changed\nsecond\n', encoding='utf-8');self.save()
         self.assertEqual(self.state()['workflow_summary']['step'],'analysis_refresh')
 
     def test_analysis_rejects_verify_before_starting_or_writing_runs(self):

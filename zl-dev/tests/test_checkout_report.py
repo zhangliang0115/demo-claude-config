@@ -24,14 +24,14 @@ process.stdout.write(JSON.stringify({text:footer.textContent,nodes}));
 @unittest.skipUnless(shutil.which('node'), 'Node needed for presentation execution')
 class CheckoutReportTests(unittest.TestCase):
     def display(self, task):
-        template=TEMPLATE.read_text()
+        template=TEMPLATE.read_text(encoding='utf-8')
         helper='function el(tag,text,cls){'+template.split('function el(tag,text,cls){',1)[1].split('function feedbackComposer(',1)[0]
-        result=subprocess.run(['node','-e',DOM],input=json.dumps({'source':helper,'task':task}),capture_output=True,text=True)
+        result=subprocess.run(['node','-e',DOM],input=json.dumps({'source':helper,'task':task}),capture_output=True,text=True, encoding='utf-8')
         self.assertEqual(result.returncode,0,result.stderr)
         return json.loads(result.stdout)
 
     def test_shared_footer_is_wired_after_analysis_specific_notice(self):
-        source=TEMPLATE.read_text()
+        source=TEMPLATE.read_text(encoding='utf-8')
         call="renderCheckoutLocation(document.querySelector('footer'),task);"
         self.assertEqual(source.count(call),1)
         self.assertGreater(source.index(call),source.index("if(isAnalysis)document.querySelector('footer').textContent="))

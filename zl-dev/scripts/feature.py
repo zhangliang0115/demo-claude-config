@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Explicit-path cross-project coordinator; no build or production execution."""
+from filelock import copy_mode
 import argparse
 from datetime import datetime, timezone
 import html
@@ -97,7 +98,7 @@ def _replace_locked(folder, data, previous=None):
         with tempfile.NamedTemporaryFile(dir=folder, prefix='.feature-update-', delete=False) as temp:
             temporary = Path(temp.name)
             if target.exists():
-                os.fchmod(temp.fileno(), target.stat().st_mode & 0o777)
+                copy_mode(temp, target)
             temp.write(payload)
             temp.flush()
             os.fsync(temp.fileno())

@@ -27,7 +27,7 @@ class FeatureAcceptanceProtocolTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which('node'), 'Node required to execute report routing')
     def test_actual_report_phase_action_preserves_existing_acceptance_and_authority(self):
-        source = (ROOT / 'assets/feature.html').read_text()
+        source = (ROOT / 'assets/feature.html').read_text(encoding='utf-8')
         route = source[source.index('function phaseStage('):source.index('const tabs=')]
         program = '''
 const vm=require('vm'); const input=JSON.parse(process.argv[1]);
@@ -38,7 +38,7 @@ process.stdout.write(JSON.stringify({action:node.textContent,stage:vm.runInConte
         for phase in ['acceptance', '验收', '人工核验', 'integration', 'testing', 'implementation', 'design']:
             with self.subTest(phase=phase):
                 run = subprocess.run(['node', '-e', program, json.dumps(dict(phase=phase, source=route))],
-                                     capture_output=True, text=True)
+                                     capture_output=True, text=True, encoding='utf-8')
                 self.assertEqual(run.returncode, 0, run.stderr)
                 result = json.loads(run.stdout)
                 action = result['action']

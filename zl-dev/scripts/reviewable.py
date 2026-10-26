@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Offline zl-dev report builder. Python 3.9+, standard library only."""
+from filelock import copy_mode
 import argparse
 import hashlib
 import html
@@ -352,7 +353,7 @@ def update_task(task_dir, source, project, expected_revision, expected_fingerpri
         try:
             with tempfile.NamedTemporaryFile(dir=folder, prefix='.task-update-', delete=False) as temp:
                 temporary = Path(temp.name)
-                os.fchmod(temp.fileno(), target.stat().st_mode & 0o777)
+                copy_mode(temp, target)
                 temp.write(payload)
                 temp.flush()
                 os.fsync(temp.fileno())

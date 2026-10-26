@@ -56,26 +56,26 @@ if(input.kind==='changes'){
 class HumanReportTests(unittest.TestCase):
     def run_ui(self, task, kind='stage', draft=False, body='本次意见'):
         if kind == 'changes':
-            template=(ASSETS / 'report.html').read_text()
+            template=(ASSETS / 'report.html').read_text(encoding='utf-8')
             helpers='function el(tag,text,cls){'+template.split('function el(tag,text,cls){',1)[1].split('function feedbackComposer(',1)[0]
             source=helpers+'function renderRoundChanges(parent, changes){'+template.split('function renderRoundChanges(parent, changes){',1)[1].split("renderRoundChanges($('round-changes'),task.changes);",1)[0]
         elif kind == 'composer':
-            source=(ASSETS / 'report.html').read_text().split('function el(tag,text,cls){',1)[1].split('function evidenceOrigin(e){',1)[0]
+            source=(ASSETS / 'report.html').read_text(encoding='utf-8').split('function el(tag,text,cls){',1)[1].split('function evidenceOrigin(e){',1)[0]
             source='function el(tag,text,cls){'+source
         elif kind == 'evidence':
-            source=(ASSETS / 'report.html').read_text().split('function evidenceOrigin(e){',1)[1].split('function card(',1)[0]
+            source=(ASSETS / 'report.html').read_text(encoding='utf-8').split('function evidenceOrigin(e){',1)[1].split('function card(',1)[0]
             source='function evidenceOrigin(e){'+source
         elif kind.startswith('scene-'):
             name = kind.removeprefix('scene-')
-            helper=(ASSETS / 'report.html').read_text().split('function evidenceOrigin(e){',1)[1].split('function card(',1)[0]
-            template=(ASSETS/'report.html').read_text()
+            helper=(ASSETS / 'report.html').read_text(encoding='utf-8').split('function evidenceOrigin(e){',1)[1].split('function card(',1)[0]
+            template=(ASSETS/'report.html').read_text(encoding='utf-8')
             freshness='function renderEvidenceFreshnessDetails('+template.split('function renderEvidenceFreshnessDetails(',1)[1].split('function renderRoundChanges(',1)[0]
-            source='function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;}\nfunction evidenceOrigin(e){'+helper+'\n'+freshness+'\n'+(ASSETS / 'views' / (name+'.js')).read_text()
+            source='function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;}\nfunction evidenceOrigin(e){'+helper+'\n'+freshness+'\n'+(ASSETS / 'views' / (name+'.js')).read_text(encoding='utf-8')
         elif kind == 'stage':
-            source = (ASSETS / 'stages.js').read_text()
+            source = (ASSETS / 'stages.js').read_text(encoding='utf-8')
         else:
-            source = (ASSETS / 'report.html').read_text().split("'use strict';", 1)[1].split('// VIEW_SCRIPT', 1)[0]
-        result = subprocess.run(['node', '-e', DOM], input=json.dumps(dict(source=source, task=task, kind=kind, draft=draft, body=body, function={'scene-bugfix':'renderBugfixView','scene-incident':'renderIncidentView','scene-operations':'renderOperationsView','scene-engineering':'renderEngineeringView'}.get(kind,''))), text=True, capture_output=True)
+            source = (ASSETS / 'report.html').read_text(encoding='utf-8').split("'use strict';", 1)[1].split('// VIEW_SCRIPT', 1)[0]
+        result = subprocess.run(['node', '-e', DOM], input=json.dumps(dict(source=source, task=task, kind=kind, draft=draft, body=body, function={'scene-bugfix':'renderBugfixView','scene-incident':'renderIncidentView','scene-operations':'renderOperationsView','scene-engineering':'renderEngineeringView'}.get(kind,''))), text=True, encoding='utf-8', capture_output=True)
         self.assertEqual(0, result.returncode, result.stderr)
         return json.loads(result.stdout)
 
@@ -109,7 +109,7 @@ class HumanReportTests(unittest.TestCase):
         self.assertFalse(fold['open'])
         self.assertIn('还有 2 项变化',fold['text'])
         for change in changes:self.assertEqual(1,result['text'].count(change))
-        template=(ASSETS / 'report.html').read_text()
+        template=(ASSETS / 'report.html').read_text(encoding='utf-8')
         self.assertNotIn("list(checks,'自上次更新后的变化'",template)
         self.assertLess(template.index('id="round-changes"'),template.index('id="overview"'))
 

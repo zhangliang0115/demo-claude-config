@@ -3,6 +3,7 @@
 When neither is importable, raise the caller's message so writes are refused, never unlocked.
 """
 from contextlib import contextmanager
+import os
 from pathlib import Path
 import time
 
@@ -50,3 +51,12 @@ def exclusive(lock_path, unsupported_message):
             else:
                 stream.seek(0)
                 module.locking(stream.fileno(), module.LK_UNLCK, 1)
+
+
+def copy_mode(stream, target):
+    """Keep the target's permission bits on a replacement file; Windows has no fchmod."""
+    mode = Path(target).stat().st_mode & 0o777
+    if hasattr(os, 'fchmod'):
+        os.fchmod(stream.fileno(), mode)
+    else:
+        os.chmod(stream.name, mode)

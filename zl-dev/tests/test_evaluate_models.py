@@ -23,12 +23,12 @@ class ModelRunnerTests(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.root, True)
         self.fake = self.root / 'claude'
-        self.fake.write_text(FAKE_CLAUDE)
+        self.fake.write_text(FAKE_CLAUDE, encoding='utf-8')
         self.fake.chmod(self.fake.stat().st_mode | stat.S_IEXEC)
 
     def test_prepare_builds_one_isolated_case_per_model_scenario_repeat_without_model_calls(self):
         result = runner.prepare(self.root / 'out', ['m1'], 2)
-        manifest = json.loads((self.root / 'out/prepared.json').read_text())
+        manifest = json.loads((self.root / 'out/prepared.json').read_text(encoding='utf-8'))
         self.assertEqual(result['model_calls'], 0)
         self.assertEqual(len(manifest['cases']), len(runner.SCENARIOS) * 2)
         self.assertEqual(len({c['repo'] for c in manifest['cases']}), len(manifest['cases']))
@@ -47,7 +47,7 @@ class ModelRunnerTests(unittest.TestCase):
         runner.prepare(self.root / 'out', ['m1'], 1)
         summary = runner.run(self.root / 'out', 5, 30, 5, str(self.fake))
         self.assertEqual(summary['total_runs'], 5)
-        rows = {r['scenario']: r for r in json.loads((self.root / 'out/outcomes.json').read_text())['cases']}
+        rows = {r['scenario']: r for r in json.loads((self.root / 'out/outcomes.json').read_text(encoding='utf-8'))['cases']}
         self.assertTrue(rows['progress']['passed'])
         self.assertTrue(rows['analysis']['passed'])
         self.assertFalse(rows['summary']['checks']['summary_appended'])  # 假 CLI 不写入，必须如实失败

@@ -35,7 +35,7 @@ def _hash(value):
 
 def _git(project, *args):
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
-    return subprocess.run(['git', '-C', str(project), *args], capture_output=True, text=True,
+    return subprocess.run(['git', '-C', str(project), *args], capture_output=True, text=True, encoding='utf-8', errors='replace',
                           timeout=10, env=env)
 
 

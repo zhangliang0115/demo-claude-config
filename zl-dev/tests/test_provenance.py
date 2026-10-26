@@ -20,7 +20,7 @@ class ProvenanceTests(unittest.TestCase):
         self.repo = self.root / 'repo'
         self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'app.py').write_text('capacity = 3')
+        (self.repo / 'app.py').write_text('capacity = 3', encoding='utf-8')
         self.folder = self.root / 'task'
         self.folder.mkdir()
         self.data = dict(version=1, id='t', title='名额调整', kind='feature', project_path=str(self.repo),
@@ -31,7 +31,7 @@ class ProvenanceTests(unittest.TestCase):
         self.save()
 
     def save(self):
-        (self.folder / 'task.json').write_text(json.dumps(self.data))
+        (self.folder / 'task.json').write_text(json.dumps(self.data), encoding='utf-8')
 
     def tree(self):
         return {str(p): (p.read_bytes(), p.stat().st_mtime_ns) for p in self.root.rglob('*') if p.is_file()}
@@ -49,7 +49,7 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(api.locate(self.folder)['report_state']['freshness'], 'stale')
         self.assertEqual(before, self.tree())
         api.render(self.folder)
-        (self.repo / 'app.py').write_text('capacity = 1')
+        (self.repo / 'app.py').write_text('capacity = 1', encoding='utf-8')
         self.assertEqual(api.report_state(self.folder)['freshness'], 'stale')
 
     def test_semantic_change_cannot_export_old_html_as_current(self):
@@ -61,7 +61,7 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(state['step'], 'verify')
         self.assertEqual(state['report_state']['freshness'], 'stale')
         self.assertEqual(state['handoff']['freshness'], 'current')
-        handoff = (self.folder / 'HANDOFF.md').read_text()
+        handoff = (self.folder / 'HANDOFF.md').read_text(encoding='utf-8')
         self.assertIn('报告非 current 时不得把旧 HTML 当作当前交付', handoff)
         self.assertIn('"freshness": "stale"', handoff)
 
@@ -74,7 +74,7 @@ class ProvenanceTests(unittest.TestCase):
         before_raw = (self.folder / 'task.json').read_bytes()
         fingerprint = api.fingerprint(self.folder)
         self.assertEqual(api.locate(self.folder)['report_state']['freshness'], 'current')
-        (Path(result['receipt']).parent / 'stderr.log').write_text('tampered after render')
+        (Path(result['receipt']).parent / 'stderr.log').write_text('tampered after render', encoding='utf-8')
         before = self.tree()
         state = api.locate(self.folder)
         self.assertEqual(state['report_state']['freshness'], 'stale')
@@ -89,17 +89,17 @@ class ProvenanceTests(unittest.TestCase):
         for text in ['<html>old report</html>', '<script id="task-data">[]</script>',
                      '<script id="task-data">{broken</script>',
                      '<script id="task-data">{"id":"legacy"}</script>']:
-            (self.folder / 'report.html').write_text(text)
+            (self.folder / 'report.html').write_text(text, encoding='utf-8')
             before = self.tree()
             self.assertEqual(api.report_state(self.folder)['freshness'], 'unknown')
             self.assertEqual(before, self.tree())
 
     def test_edited_embedded_snapshot_or_identity_is_not_current(self):
         report = api.render(self.folder)
-        text = report.read_text()
-        report.write_text(text.replace('调整名额并晋升候补', '伪造新说明'))
+        text = report.read_text(encoding='utf-8')
+        report.write_text(text.replace('调整名额并晋升候补', '伪造新说明'), encoding='utf-8')
         self.assertEqual(api.report_state(self.folder)['freshness'], 'stale')
-        report.write_text(text)
+        report.write_text(text, encoding='utf-8')
         payload = read_payload(text)
         self.assertEqual(payload['task_revision'], api.task_revision((self.folder / 'task.json').read_bytes()))
         self.assertEqual(payload['provenance']['project_path'], str(self.repo))
@@ -107,7 +107,7 @@ class ProvenanceTests(unittest.TestCase):
     def test_report_copied_versions_must_match_provenance(self):
         import re
         report = api.render(self.folder)
-        original = report.read_text()
+        original = report.read_text(encoding='utf-8')
         payload = read_payload(original)
         self.assertEqual(api.report_state(self.folder)['freshness'], 'current')
         for field in ('task_revision', 'assessment_revision', 'current_fingerprint'):
@@ -116,19 +116,19 @@ class ProvenanceTests(unittest.TestCase):
                 altered[field] = '0' * 64
                 embedded = json.dumps(altered, ensure_ascii=False)
                 report.write_text(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
-                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S))
+                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S), encoding='utf-8')
                 before = self.tree()
                 result = api.report_state(self.folder)
                 self.assertEqual(result['freshness'], 'stale')
                 self.assertIn('复制版本与来源不一致', result['reason'])
                 self.assertEqual(before, self.tree())
-        report.write_text(original)
+        report.write_text(original, encoding='utf-8')
         self.assertEqual(api.report_state(self.folder)['freshness'], 'current')
 
     def test_report_without_top_level_copy_versions_is_unknown(self):
         import re
         report = api.render(self.folder)
-        original = report.read_text()
+        original = report.read_text(encoding='utf-8')
         payload = read_payload(original)
         for field in ('task_revision', 'assessment_revision', 'current_fingerprint'):
             with self.subTest(field=field):
@@ -136,7 +136,7 @@ class ProvenanceTests(unittest.TestCase):
                 del legacy[field]
                 embedded = json.dumps(legacy, ensure_ascii=False)
                 report.write_text(re.sub(r'(<script id="task-data" type="application/json">).*?(</script>)',
-                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S))
+                    lambda match: match[1] + embedded + match[2], original, count=1, flags=re.S), encoding='utf-8')
                 before = self.tree()
                 self.assertEqual(api.report_state(self.folder)['freshness'], 'unknown')
                 self.assertEqual(before, self.tree())
@@ -149,10 +149,10 @@ class ProvenanceTests(unittest.TestCase):
         backups = list(self.folder.glob('HANDOFF.legacy-*.md'))
         self.assertEqual(len(backups), 1)
         self.assertEqual(backups[0].read_bytes(), legacy)
-        self.assertIn(backups[0].name, handoff.read_text())
-        handoff.write_text('人工前言：先核对负责人\n' + handoff.read_text() + '\n人工后记：停止条件不能省略\n')
+        self.assertIn(backups[0].name, handoff.read_text(encoding='utf-8'))
+        handoff.write_text('人工前言：先核对负责人\n' + handoff.read_text(encoding='utf-8') + '\n人工后记：停止条件不能省略\n')
         api.export_handoff(self.folder)
-        after = handoff.read_text()
+        after = handoff.read_text(encoding='utf-8')
         self.assertTrue(after.startswith('人工前言：先核对负责人\n'))
         self.assertTrue(after.endswith('\n人工后记：停止条件不能省略\n'))
         self.assertIn(backups[0].name, after)
@@ -162,12 +162,12 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(api.locate(self.folder)['handoff']['freshness'], 'current')
 
     def test_handoff_uses_derived_stage_action_and_blockers(self):
-        handoff = api.export_handoff(self.folder).read_text()
+        handoff = api.export_handoff(self.folder).read_text(encoding='utf-8')
         self.assertIn('## 当前状态\n待人工核验\n', handoff)
         self.assertIn('记录原文：存在P1待修复', handoff)
         self.data['stage_details'] = {'review': {'items': [dict(id='R1', status='pending', severity='P0', finding='重复晋升')]}}
         self.save()
-        handoff = api.export_handoff(self.folder).read_text()
+        handoff = api.export_handoff(self.folder).read_text(encoding='utf-8')
         self.assertIn('## 当前状态\n审查中\n', handoff)
         self.assertIn('重复晋升', handoff)
         self.assertIn('"owner": "AI"', handoff)
@@ -178,31 +178,31 @@ class ProvenanceTests(unittest.TestCase):
         self.save()
         before = self.tree()
         command = [sys.executable, str(Path(api.__file__)), 'status', str(self.folder), '--project', str(self.repo)]
-        result = subprocess.run(command, text=True, capture_output=True, check=True)
+        result = subprocess.run(command, text=True, encoding='utf-8', capture_output=True, check=True)
         status = json.loads(result.stdout)
         self.assertEqual(status['report_state']['freshness'], 'stale')
         self.assertEqual(status['report_state'], api.locate(self.folder)['report_state'])
         self.assertEqual(before, self.tree())
         command[2] = 'continue'
-        result = subprocess.run(command, text=True, capture_output=True, check=True)
+        result = subprocess.run(command, text=True, encoding='utf-8', capture_output=True, check=True)
         continued = json.loads(result.stdout)
-        payload = read_payload((self.folder / 'report.html').read_text())
+        payload = read_payload((self.folder / 'report.html').read_text(encoding='utf-8'))
         self.assertEqual(continued['report_state']['freshness'], 'current')
         self.assertEqual(continued['task_revision'], payload['task_revision'])
         self.assertEqual(continued['next_action'], payload['workflow_summary']['next_action'])
 
     def test_all_public_resume_commands_expose_comparable_revision_fields(self):
         api.render(self.folder)
-        expected = read_payload((self.folder / 'report.html').read_text())
+        expected = read_payload((self.folder / 'report.html').read_text(encoding='utf-8'))
         located = api.locate(self.folder)
         for key in ('task_revision', 'assessment_revision'):
             self.assertEqual(located[key], expected[key])
         for command in ('locate', 'status', 'continue'):
             with self.subTest(command=command):
                 result = subprocess.run([sys.executable, str(Path(api.__file__)), command,
-                    str(self.folder), '--project', str(self.repo)], text=True, capture_output=True, check=True)
+                    str(self.folder), '--project', str(self.repo)], text=True, encoding='utf-8', capture_output=True, check=True)
                 output = json.loads(result.stdout)
-                payload = read_payload((self.folder / 'report.html').read_text())
+                payload = read_payload((self.folder / 'report.html').read_text(encoding='utf-8'))
                 for key in ('task_revision', 'assessment_revision'):
                     self.assertEqual(output[key], payload[key])
                     self.assertEqual(output[key], expected[key])
@@ -210,7 +210,7 @@ class ProvenanceTests(unittest.TestCase):
     def test_failed_atomic_artifact_replace_preserves_report_and_human_handoff(self):
         report = api.render(self.folder)
         handoff = api.export_handoff(self.folder)
-        handoff.write_text(handoff.read_text() + '\n人工补充：停止条件必须保留\n')
+        handoff.write_text(handoff.read_text(encoding='utf-8') + '\n人工补充：停止条件必须保留\n')
         report_bytes, handoff_bytes = report.read_bytes(), handoff.read_bytes()
         self.data['summary'] = '待刷新新内容'
         self.save()

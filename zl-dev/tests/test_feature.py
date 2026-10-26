@@ -19,7 +19,7 @@ class FeatureTests(unittest.TestCase):
         self.repo = self.root / 'repo'
         self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'package.json').write_text('{}')
+        (self.repo / 'package.json').write_text('{}', encoding='utf-8')
         self.folder = self.root / 'coord'
         feature.init(self.folder, '退款', ['app=' + str(self.repo)])
 
@@ -46,10 +46,10 @@ class FeatureTests(unittest.TestCase):
         feature.sync(self.folder)
         feature.render(self.folder)
         raw = (self.folder / 'feature.json').read_bytes()
-        (self.repo / 'package.json').write_text('{"change":1}')
+        (self.repo / 'package.json').write_text('{"change":1}', encoding='utf-8')
         first = feature.locate(self.folder)
         self.assertEqual(first['report_state']['freshness'], 'stale')
-        (self.repo / 'package.json').write_text('{"change":2}')
+        (self.repo / 'package.json').write_text('{"change":2}', encoding='utf-8')
         second = feature.locate(self.folder)
         self.assertNotEqual(first['assessment_revision'], second['assessment_revision'])
         self.assertEqual(raw, (self.folder / 'feature.json').read_bytes())
@@ -61,7 +61,7 @@ class FeatureTests(unittest.TestCase):
         before = feature.locate(self.folder)
         fingerprint = feature.reviewable.fingerprint(task)
         child['title'] = 'Changed handoff title'
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         after = feature.locate(self.folder)
         self.assertEqual(fingerprint, feature.reviewable.fingerprint(task))
         self.assertEqual(before['feature_revision'], after['feature_revision'])
@@ -72,7 +72,7 @@ class FeatureTests(unittest.TestCase):
         import verification
         task, child = self.ready_feature()
         child['project_path'] = str(self.repo)
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         result, code = verification.execute(task, self.repo, 'unittest', ['B1'],
             [sys.executable, '-c', 'import unittest\nclass T(unittest.TestCase):\n def test_one(self): self.assertTrue(True)\nunittest.main()'])
         self.assertEqual(code, 0, result)
@@ -83,7 +83,7 @@ class FeatureTests(unittest.TestCase):
         self.assertEqual(before_state['assessment']['ready_for_integration'], True)
         fingerprint = feature.reviewable.fingerprint(task)
         task_raw = (task / 'task.json').read_bytes()
-        (Path(result['receipt']).parent / 'stderr.log').write_text('modified runner output')
+        (Path(result['receipt']).parent / 'stderr.log').write_text('modified runner output', encoding='utf-8')
         before = self.tree()
         after = feature.locate(self.folder)
         self.assertEqual(fingerprint, feature.reviewable.fingerprint(task))
@@ -98,7 +98,7 @@ class FeatureTests(unittest.TestCase):
         for value in ('<h1>legacy</h1>', '<script id="feature-data">[]</script>',
                       '<script id="feature-data">{broken</script>',
                       '<script id="feature-data">{"id":"old"}</script>'):
-            target.write_text(value)
+            target.write_text(value, encoding='utf-8')
             before = self.tree()
             self.assertEqual(feature.locate(self.folder)['report_state']['freshness'], 'unknown')
             self.assertEqual(before, self.tree())
@@ -106,23 +106,23 @@ class FeatureTests(unittest.TestCase):
     def test_report_top_level_versions_and_identity_cannot_diverge_from_provenance(self):
         from provenance import read_payload
         target = feature.render(self.folder)
-        original = target.read_text()
+        original = target.read_text(encoding='utf-8')
         recorded = read_payload(original, 'feature-data')
         for field, value in [('feature_revision', '0'*64), ('assessment_revision', '0'*64),
                              ('id', 'different-feature'), ('workspace_path', '/different-workspace')]:
             changed = dict(recorded)
             changed[field] = value
-            target.write_text('<script id="feature-data">'+json.dumps(changed)+'</script>')
+            target.write_text('<script id="feature-data">'+json.dumps(changed)+'</script>', encoding='utf-8')
             self.assertEqual(feature.locate(self.folder)['report_state']['freshness'], 'stale', field)
-        target.write_text(original)
+        target.write_text(original, encoding='utf-8')
         self.assertEqual(feature.locate(self.folder)['report_state']['freshness'], 'current')
 
     def test_feature_cli_status_and_locate_return_comparable_versions_without_writes(self):
         from provenance import read_payload
-        recorded = read_payload(feature.render(self.folder).read_text(), 'feature-data')
+        recorded = read_payload(feature.render(self.folder).read_text(encoding='utf-8'), 'feature-data')
         before = self.tree()
         for command in ('status', 'locate'):
-            output = subprocess.check_output([sys.executable, feature.__file__, command, str(self.folder)], text=True)
+            output = subprocess.check_output([sys.executable, feature.__file__, command, str(self.folder)], text=True, encoding='utf-8')
             value = json.loads(output)
             self.assertEqual(value['feature_revision'], recorded['feature_revision'])
             self.assertEqual(value['assessment_revision'], recorded['assessment_revision'])
@@ -146,7 +146,7 @@ class FeatureTests(unittest.TestCase):
         import shutil
         if not shutil.which('node'):
             self.skipTest('Node required for actual feedback execution')
-        source = (feature.ROOT / 'assets/feature.html').read_text()
+        source = (feature.ROOT / 'assets/feature.html').read_text(encoding='utf-8')
         source = 'function feedback(' + source.split('function feedback(', 1)[1].split('\ntabs.forEach', 1)[0]
         program = r"""
 const vm=require('vm'),fs=require('fs'),input=JSON.parse(fs.readFileSync(0,'utf8'));
@@ -160,7 +160,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
 (async()=>{await all.find(n=>n.tag==='button').onclick();process.stdout.write(copied);})();
 """
         for data in [dict(id='F1',contract_version='v1',feature_revision='record-version',assessment_revision='assessment-version'), dict(id='F1',contract_version='v1')]:
-            copied = subprocess.check_output(['node', '-e', program], input=json.dumps(dict(source=source, data=data)), text=True)
+            copied = subprocess.check_output(['node', '-e', program], input=json.dumps(dict(source=source, data=data)), text=True, encoding='utf-8')
             self.assertIn('共享契约版本：v1', copied)
             self.assertIn('功能记录版本：'+data.get('feature_revision','未知'), copied)
             self.assertIn('功能评估版本：'+data.get('assessment_revision','未知'), copied)
@@ -200,7 +200,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         task = self.repo / '.zl-dev/tasks/test'
         task.mkdir(parents=True)
         child = dict(version=1, id='test', title='test', kind='feature', contract_version='v1')
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         data = feature.load(self.folder)
         data['projects'][0].update(task_path=str(task), contract_version='v2')
         feature.save(self.folder, data)
@@ -208,21 +208,21 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         self.assertFalse(snap['contract_match'])
         data = feature.load(self.folder)
         self.assertEqual(feature.assessed(data)['projects'][0]['snapshot_freshness'], 'current')
-        (self.repo / 'package.json').write_text('{"changed":true}')
+        (self.repo / 'package.json').write_text('{"changed":true}', encoding='utf-8')
         self.assertEqual(feature.assessed(data)['projects'][0]['snapshot_freshness'], 'stale')
         child['contract_version'] = 'v2'
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertTrue(feature.sync(self.folder)['projects'][0]['snapshot']['contract_match'])
 
     def test_render_injection(self):
         assets = self.root / 'assets'
         assets.mkdir()
-        (assets / 'feature.html').write_text('<title>__FEATURE_TITLE__</title><script type="application/json" id="feature-data">__FEATURE_DATA__</script>')
+        (assets / 'feature.html').write_text('<title>__FEATURE_TITLE__</title><script type="application/json" id="feature-data">__FEATURE_DATA__</script>', encoding='utf-8')
         data = feature.load(self.folder)
         data['title'] = '</script><img src=x onerror=alert(1)>'
         feature.save(self.folder, data)
         with patch.object(feature, 'ROOT', self.root):
-            output = feature.render(self.folder).read_text()
+            output = feature.render(self.folder).read_text(encoding='utf-8')
         self.assertNotIn('<img', output)
         self.assertEqual(output.count('</script>'), 1)
         self.assertIn('\\u003c/script', output)
@@ -235,7 +235,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
 
     def test_unassigned_project_dirty_changes(self):
         data=feature.sync(self.folder)
-        (self.repo / 'package.json').write_text('{"changed":2}')
+        (self.repo / 'package.json').write_text('{"changed":2}', encoding='utf-8')
         self.assertEqual(feature.assessed(data)['projects'][0]['snapshot_freshness'],'stale')
 
     def test_global_contract_version_mismatch(self):
@@ -247,7 +247,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
     def test_malformed_child_is_project_issue(self):
         task=self.repo / '.zl-dev/tasks/bad'
         task.mkdir(parents=True)
-        (task / 'task.json').write_text('[]')
+        (task / 'task.json').write_text('[]', encoding='utf-8')
         data=feature.load(self.folder)
         data['projects'][0]['task_path']=str(task)
         feature.save(self.folder,data)
@@ -259,12 +259,12 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         child = dict(version=1, id='notification', title='通知偏好', kind='feature',
                      summary='变更通知设置后刷新仍保持', contract_version='v1',
                      behaviors=[dict(id='B1', after='刷新保留通知偏好')], implementation=[dict(summary='持久化设置')], evidence=[])
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         revision = feature.reviewable.fingerprint(task)
         self.assertTrue(revision)
         child['evidence'] = [dict(id='old-failure', status='failed', revision='old-code', behavior_ids=['B1']),
                              dict(id='retest', status='passed', revision=revision, behavior_ids=['B1'])]
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         data = feature.load(self.folder)
         data.update(contract_version='v1', contracts=[dict(id='notification-api', version='v1', status='confirmed')],
                     allocations=[dict(id='persist', project_id='app', contract_version='v1', depends_on=[])])
@@ -284,7 +284,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
     def test_current_failure_not_hidden_by_current_pass(self):
         task, child = self.ready_feature()
         child['evidence'].append(dict(id='edge-failure', status='failed', revision=child['evidence'][1]['revision'], behavior_ids=['B1']))
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         data = feature.sync(self.folder)
         self.assertEqual(data['projects'][0]['snapshot']['evidence_counts']['unresolved_current'], 1)
         self.assertFalse(feature.assessed(data)['assessment']['ready_for_integration'])
@@ -292,10 +292,10 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
     def test_current_pass_does_not_cover_untested_behavior(self):
         task, child = self.ready_feature()
         child['behaviors'].append(dict(id='B2', after='其他用户不能修改设置'))
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         # Record one current result, still leave B2 untested.
         child['evidence'][1]['revision'] = feature.reviewable.fingerprint(task)
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         data = feature.sync(self.folder)
         self.assertEqual(data['projects'][0]['snapshot']['missing_behaviors'], 1)
         self.assertFalse(feature.assessed(data)['assessment']['ready_for_integration'])
@@ -308,7 +308,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
                                      ('done', ['old-failure'], False), ('done', ['retest'], True)]:
             with self.subTest(status=status, refs=refs):
                 finding.update(status=status, evidence_ids=refs)
-                (task / 'task.json').write_text(json.dumps(child))
+                (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
                 synced = feature.sync(self.folder)
                 state = feature.assessed(synced)
                 self.assertEqual(state['assessment']['ready_for_integration'], ready)
@@ -323,13 +323,13 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         self.assertTrue(feature.assessed(before)['assessment']['ready_for_integration'])
         finding = dict(id='R1', status='pending', severity='P1', finding='越权调整')
         child['stage_details'] = {'review': {'items': [finding]}}
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         state = feature.assessed(before)
         self.assertFalse(state['assessment']['ready_for_integration'])
         self.assertEqual(state['projects'][0]['snapshot_freshness'], 'stale')
         synced = feature.sync(self.folder)
         finding['finding'] = '新的越权成立条件'
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertEqual(feature.assessed(synced)['projects'][0]['snapshot_freshness'], 'stale')
 
     def human_ready_child(self, stage='acceptance', result='pass', revision='current', reviewer='human'):
@@ -341,11 +341,11 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
                 item.pop(field)
             item['check'] = '核对通知偏好发布条件'
         child['stage_details'] = {stage: {'items': [item]}}
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         current = feature.reviewable.fingerprint(task)
         child['evidence'][1]['revision'] = current
         item['reviewed_revision'] = current if revision == 'current' else revision
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         return task, child
 
     def test_current_human_return_blocks_cross_project_readiness(self):
@@ -370,14 +370,14 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         item = child['stage_details']['acceptance']['items'][0]
         item['acceptance_delegation'] = dict(kind='acceptance', revision=item['reviewed_revision'],
             source='用户：按标准替我验收', criteria='通知偏好保存后刷新保持')
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         rejected = feature.sync(self.folder)
         snapshot = rejected['projects'][0]['snapshot']
         self.assertEqual(snapshot['technical_blockers'][0]['type'], 'delegated_feedback')
         self.assertIn('受托 AI 验收反馈', str(snapshot['issues']))
         self.assertFalse(feature.assessed(rejected)['assessment']['ready_for_integration'])
         item['result_status'] = 'pass'
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertEqual(feature.assessed(rejected)['projects'][0]['snapshot_freshness'], 'stale')
         self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])
 
@@ -396,14 +396,14 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         self.assertTrue(feature.assessed(before)['assessment']['ready_for_integration'])
         item = child['stage_details']['acceptance']['items'][0]
         item['result_status'] = 'fail'
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertEqual(feature.reviewable.fingerprint(task), old_fp)
         state = feature.assessed(before)
         self.assertEqual(state['projects'][0]['snapshot_freshness'], 'stale')
         self.assertFalse(state['assessment']['ready_for_integration'])
         rejected = feature.sync(self.folder)
         item['result_status'] = 'pass'
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertEqual(feature.assessed(rejected)['projects'][0]['snapshot_freshness'], 'stale')
         accepted = feature.assessed(feature.sync(self.folder))
         self.assertTrue(accepted['assessment']['ready_for_integration'])
@@ -415,13 +415,13 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         self.assertFalse(state['assessment']['ready_for_integration'])
         self.assertEqual(state['projects'][0]['snapshot']['technical_blockers'][0]['type'],'ai_feedback')
         child['stage_details']['acceptance']['items'][0].update(reviewer_kind='human',result_status='not_checked')
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertTrue(feature.assessed(feature.sync(self.folder))['assessment']['ready_for_integration'])
 
     def test_pending_business_decision_is_not_failed_technical_verification(self):
         task, child = self.ready_feature()
         child['decisions'] = [dict(id='D1', status='pending', question='上线日期？')]
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         state = feature.assessed(feature.sync(self.folder))
         self.assertTrue(state['assessment']['ready_for_integration'])
         self.assertEqual(state['projects'][0]['snapshot']['technical_blockers'], [])
@@ -453,7 +453,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         data = feature.load(self.folder)
         data.update(phase='implementation', design=dict(goal='保存通知偏好 </script>'))
         feature.save(self.folder, data)
-        output = feature.render(self.folder).read_text()
+        output = feature.render(self.folder).read_text(encoding='utf-8')
         self.assertIn('const initialStage=phaseStage(f.phase)', output)
         self.assertIn('show(initialStage)', output)
         self.assertIn('navigator.clipboard.writeText(preview.textContent)', output)
@@ -464,7 +464,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
     def feature_replacement(self):
         data = feature.load(self.folder)
         source = self.root / 'replacement.json'
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         return data, source
 
     def test_feature_update_success_and_locate_read_only(self):
@@ -473,7 +473,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         self.assertEqual(before, (self.folder / 'feature.json').read_bytes())
         data, source = self.feature_replacement()
         data['design']['goal'] = '通知偏好持久化'
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         result = feature.update_feature(self.folder, source, data['workspace_path'], location['feature_revision'])
         self.assertTrue(result['updated'])
         self.assertNotEqual(result['feature_revision'], location['feature_revision'])
@@ -495,7 +495,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         data, source = self.feature_replacement()
         revision = feature.locate(self.folder)['feature_revision']
         data['projects'][0]['snapshot']['issues'] = []
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         before = (self.folder / 'feature.json').read_bytes()
         with self.assertRaisesRegex(ValueError, '派生快照'):
             feature.update_feature(self.folder, source, data['workspace_path'], revision)
@@ -511,7 +511,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
                 data['projects'] = []
             else:
                 data[field] = str(self.root) if field == 'workspace_path' else 'other-id'
-            source.write_text(json.dumps(data))
+            source.write_text(json.dumps(data), encoding='utf-8')
             before = (self.folder / 'feature.json').read_bytes()
             with self.assertRaises(ValueError):
                 feature.update_feature(self.folder, source, bound, feature.locate(self.folder)['feature_revision'])
@@ -527,19 +527,19 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         self.assertFalse((self.folder / 'feature.html').exists())
 
     def test_rebinding_equivalent_task_requires_sync(self):
-        (self.repo / '.gitignore').write_text('.zl-dev/\n')
+        (self.repo / '.gitignore').write_text('.zl-dev/\n', encoding='utf-8')
         task, child = self.ready_feature()
         twin = task.parent / 'equivalent'
         twin.mkdir()
         child['id'] = 'equivalent'
-        (twin / 'task.json').write_text(json.dumps(child))
+        (twin / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertEqual(feature.reviewable.fingerprint(task), feature.reviewable.fingerprint(twin))
         data = feature.sync(self.folder)
         self.assertTrue(feature.assessed(data)['assessment']['ready_for_integration'])
         revision = feature.locate(self.folder)['feature_revision']
         data['projects'][0]['task_path'] = str(twin)
         source = self.root / 'rebound-feature.json'
-        source.write_text(json.dumps(data))
+        source.write_text(json.dumps(data), encoding='utf-8')
         feature.update_feature(self.folder, source, data['workspace_path'], revision)
         state = feature.assessed(feature.load(self.folder))
         self.assertEqual(state['projects'][0]['snapshot_freshness'], 'stale')
@@ -553,7 +553,7 @@ const note=all.find(n=>n.tag==='textarea');note.value='QA-FEEDBACK';note.oninput
         task, child = self.ready_feature()
         data = feature.sync(self.folder)
         child['id'] = 'replacement-task'
-        (task / 'task.json').write_text(json.dumps(child))
+        (task / 'task.json').write_text(json.dumps(child), encoding='utf-8')
         self.assertEqual(data['projects'][0]['snapshot']['current_fingerprint'], feature.reviewable.fingerprint(task))
         self.assertEqual(feature.assessed(data)['projects'][0]['snapshot_freshness'], 'stale')
 

@@ -20,12 +20,12 @@ class HandoffProtocolTests(unittest.TestCase):
         self.repo = self.root / 'repo'
         self.repo.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
-        (self.repo / 'price.py').write_text('def quote(price, quantity):\n    return price * quantity\n')
+        (self.repo / 'price.py').write_text('def quote(price, quantity):\n    return price * quantity\n', encoding='utf-8')
         self.folder = self.root / 'task'
         self.folder.mkdir()
 
     def save(self, data):
-        (self.folder / 'task.json').write_text(json.dumps(data))
+        (self.folder / 'task.json').write_text(json.dumps(data), encoding='utf-8')
 
     def base(self, kind):
         return dict(version=1, id='t', title='Explain quotation', kind=kind,
@@ -41,7 +41,7 @@ class HandoffProtocolTests(unittest.TestCase):
             rules=[], mappings=[], findings=[], gaps=[], project_paths=[]))
         self.save(data)
         before = (self.folder / 'task.json').read_bytes()
-        handoff = api.export_handoff(self.folder).read_text()
+        handoff = api.export_handoff(self.folder).read_text(encoding='utf-8')
         self.assertEqual((self.folder / 'task.json').read_bytes(), before)
         for phrase in ['实付金额如何计算？', '单价乘数量。', '只解释本地报价函数', str(self.repo / 'price.py') + ':1–2', '静态源码依据', '不是运行或业务验收证明']:
             self.assertIn(phrase, handoff)
@@ -59,9 +59,9 @@ class HandoffProtocolTests(unittest.TestCase):
         self.save(data)
         api.export_handoff(self.folder)
         target = self.folder / 'HANDOFF.md'
-        target.write_text('User note before\n' + target.read_text() + '\nUser note after\n')
+        target.write_text('User note before\n' + target.read_text(encoding='utf-8') + '\nUser note after\n')
         facts = (self.folder / 'task.json').read_bytes()
-        text = api.export_handoff(self.folder).read_text()
+        text = api.export_handoff(self.folder).read_text(encoding='utf-8')
         self.assertTrue(text.startswith('User note before\n'))
         self.assertTrue(text.endswith('\nUser note after\n'))
         self.assertEqual(text.count(START), 1)
@@ -81,7 +81,7 @@ class HandoffProtocolTests(unittest.TestCase):
             steps=[dict(id='ST1', title='入口', description='读取参数', source_ids=['S0'])],
             rules=[], mappings=[], findings=[], gaps=[]))
         self.save(data)
-        text = api.export_handoff(self.folder).read_text()
+        text = api.export_handoff(self.folder).read_text(encoding='utf-8')
         self.assertIn('- S11：', text)
         self.assertNotIn('- S12：', text)
         self.assertIn('其余 1 项来源见 task.json', text)
