@@ -133,6 +133,9 @@ class FeatureTests(unittest.TestCase):
     def test_feature_render_replace_failure_preserves_existing_report(self):
         target = feature.render(self.folder)
         original = target.read_bytes()
+        changed = feature.load(self.folder)
+        changed['title'] = 'Changed facts require a new report'
+        feature.save(self.folder, changed)
         with patch('os.replace', side_effect=PermissionError('injected failure')):
             with self.assertRaises(PermissionError):
                 feature.render(self.folder)

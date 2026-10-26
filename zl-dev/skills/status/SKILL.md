@@ -29,3 +29,5 @@ user-invocable: true
 locate 的 primary_action/blockers/verification/human_verification 是顶层字段，status 则位于 workflow_summary 下；两个命令顶层均直接提供 task_revision/assessment_revision。使用脚本绝对路径直接调用，不 cd 到插件目录、不用相对路径或 head 截断 JSON。现成字段足以判断时不要扫描 runs 或阅读脚本源码自行重算版本。
 
 用户关注工作区、并行任务或执行冲突时，按需读 docs/execution-context.md 并调用 workspace.py inspect/status；仅返回实际路径、Git本机关系与已登记活动，observation_unstable=true 时说明观察可能变化。状态未知不能当空表，无活动也不能宣称没有外部写入。status不begin/end、不自动创建worktree，不让活动状态替代业务完成状态。
+
+报告时效同时核对展示模板和实际内容；模板过期或旧页缺展示版本时说明具体原因，不能只凭任务版本一致称 current。保持只读，不因模板变化生成页面或重跑业务测试。

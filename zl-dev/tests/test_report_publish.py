@@ -54,7 +54,7 @@ class ReportPublishTests(unittest.TestCase):
         api.update_task(self.folder, source, self.repo, state['task_revision'])
 
     def during_template(self, template, action):
-        original = Path.read_text
+        original = Path.read_bytes
         fired = []
         def read(path, *args, **kwargs):
             text = original(path, *args, **kwargs)
@@ -62,7 +62,7 @@ class ReportPublishTests(unittest.TestCase):
                 fired.append(True)
                 action()
             return text
-        return patch.object(Path, 'read_text', read)
+        return patch.object(Path, 'read_bytes', read)
 
     def test_old_task_snapshot_cannot_replace_new_report(self):
         old = api.snapshot(self.folder)
@@ -184,6 +184,7 @@ class ReportPublishTests(unittest.TestCase):
     def test_final_validator_observes_changes_after_temporary_write(self):
         api.render(self.folder)
         previous = self.artifact(self.folder, 'report.html')
+        self.task_update('New facts require publication')
         original = provenance.atomic_write
         observed = []
         def writing(target, raw, before_replace=None):
@@ -205,6 +206,7 @@ class ReportPublishTests(unittest.TestCase):
 
     def test_html_change_before_replace_is_preserved(self):
         api.render(self.folder)
+        self.task_update('New facts require publication')
         original = provenance.atomic_write
         changed = []
         def writing(target, raw, before_replace=None):
@@ -246,6 +248,12 @@ class ReportPublishTests(unittest.TestCase):
             with self.subTest(name=name):
                 module.render(folder)
                 previous = self.artifact(folder, name)
+                if module is api:
+                    self.task_update('New facts require publication')
+                else:
+                    changed = feature.load(folder)
+                    changed['title'] = 'Changed feature before publication'
+                    feature.save(folder, changed)
                 with patch('os.replace', side_effect=OSError('replace failed')):
                     with self.assertRaisesRegex(OSError, 'replace failed'):
                         module.render(folder)

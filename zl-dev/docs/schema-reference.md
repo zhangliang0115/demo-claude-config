@@ -117,3 +117,7 @@ acceptance/release 条目可选 result_status: pass/fail/blocked/not_checked，�
 ## 只读源码分析（0.18）
 
 kind=analysis 使用固定 analysis 阶段和顶层 analysis 对象，不按开发/验收状态派生；字段与来源工具见 [analysis-workflow.md](analysis-workflow.md)。来源元数据由 analysis.py source 读取实际文件取得，不手编哈希。推断/未知不能冒充事实，source_ids 必须存在。来源当前状态重新计算，观察变化参与 assessment；旧九类业务指纹保持兼容。通用 verify 不执行 analysis 任务，需运行验证时另行明确范围。
+
+## HTML 展示版本（0.20）
+
+HTML 内嵌 provenance.template_revision 由实际素材字节和 per-kind 渲染协议派生，不手填 task.json/feature.json，不参与业务 assessment_revision。report_state 另外提供 template_revision/current_template_revision/template_freshness，旧页缺值为 unknown，素材不同为 stale；整体 freshness 还须核对事实、代码、评估和实际页面。模板当前不能代替业务版本或验证。详见 [report-reuse.md](report-reuse.md)。

@@ -216,38 +216,12 @@ def snapshot(task_dir):
 
 
 def report_state(task_dir, state=None):
-    """Read report provenance without rendering, repairing, or executing HTML."""
-    from provenance import read_payload, assessment_revision
+    """Read report data/template freshness without rendering or writing."""
+    from provenance import inspect_report
     target = Path(task_dir) / 'report.html'
-    result = dict(path=str(target) if target.is_file() else None, freshness='missing', reason='报告尚未生成', generated_at=None)
-    if not target.is_file():
-        return result
-    result.update(freshness='unknown', reason='报告缺少可核对的版本来源')
-    try:
-        recorded = read_payload(target.read_text(encoding='utf-8'))
-        result['generated_at'] = recorded.get('generated_at')
-        provenance = recorded.get('provenance')
-        if not isinstance(provenance, dict) or provenance.get('version') != 1:
-            return result
-        state = snapshot(task_dir) if state is None else state
-        expected = state['provenance']
-        fields = ('task_id', 'project_path', 'task_revision', 'current_fingerprint', 'assessment_revision')
-        copied_fields = ('task_revision', 'current_fingerprint', 'assessment_revision')
-        if any(key not in provenance for key in fields) or any(key not in recorded for key in copied_fields):
-            return result
-        if any(recorded[key] != provenance[key] for key in copied_fields):
-            result.update(freshness='stale', reason='报告复制版本与来源不一致')
-        elif recorded.get('id') != provenance['task_id'] or recorded.get('project_path') != provenance['project_path'] or assessment_revision(recorded) != provenance['assessment_revision']:
-            result.update(freshness='stale', reason='报告快照内容与来源不一致')
-        elif any(provenance[key] != expected[key] for key in fields):
-            result.update(freshness='stale', reason='任务、代码或证据评估已变化，请重新生成报告')
-        elif not expected['current_fingerprint']:
-            result['reason'] = '无法核对当前代码状态'
-        else:
-            result.update(freshness='current', reason='任务、代码和证据评估与当前一致')
-    except (OSError, UnicodeError, ValueError, TypeError, KeyError):
-        result['reason'] = '报告损坏或无法读取来源，需重新核对'
-    return result
+    state = snapshot(task_dir) if state is None and target.is_file() else state
+    return inspect_report(target, state, 'task-data', ROOT,
+                          bool((state or {}).get('current_fingerprint')))
 
 
 def handoff_state(task_dir, revision, current, state=None):
@@ -395,29 +369,22 @@ def assessed(data, current, task_dir=None):
 
 
 def render(task_dir, state=None):
+    from datetime import datetime, timezone
+    from provenance import report_bytes, publish_report, template_bundle, render_report_bytes
     task_dir = Path(task_dir)
-    from provenance import report_bytes, publish_report
     target = task_dir / 'report.html'
     with write_lock(task_dir):
         expected_report = report_bytes(target)
         data = snapshot(task_dir) if state is None else json.loads(json.dumps(state))
-    # Escape inline JSON closing tags and all markup-sensitive chars.
-    payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
-    template = (ROOT / 'assets' / 'report.html').read_text(encoding='utf-8')
-    template = template.replace('/* STAGE_STYLES */', (ROOT / 'assets/stages.css').read_text(encoding='utf-8')).replace('// STAGE_SCRIPT', (ROOT / 'assets/stages.js').read_text(encoding='utf-8'))
-    view_scripts = '\n'.join((ROOT / 'assets/views' / (name + '.js')).read_text(encoding='utf-8') for name in ('feature','bugfix','incident','operations','engineering','analysis'))
-    template = template.replace('// VIEW_SCRIPT', view_scripts)
-    if '/* REPORT_THEME */' in template:
-        template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
-    replacements = {
-        '__TASK_DATA__': payload,
-        '__PAGE_TITLE__': html.escape(data['title']),
-        '__STAGE_LABEL__': html.escape(data['workflow_summary']['stage_label']),
-    }
-    output = re.sub('__TASK_DATA__|__PAGE_TITLE__|__STAGE_LABEL__', lambda match: replacements[match.group()], template)
-    return publish_report(target, output.encode('utf-8'), expected_report, data,
+    data['generated_at'] = datetime.now(timezone.utc).isoformat()
+    bundle = template_bundle(ROOT, 'task-data')
+    data['provenance']['template_revision'] = bundle['revision']
+    output = render_report_bytes(data, bundle)
+    return publish_report(target, output, expected_report, data,
                           lambda: snapshot(task_dir), lambda: write_lock(task_dir),
-                          'task-data', reuse_matching=state is not None)
+                          'task-data', reuse_matching=True, bundle=bundle,
+                          current_template=lambda: template_bundle(ROOT, 'task-data')['revision'],
+                          known_code=bool(data.get('current_fingerprint')))
 
 
 def build_index(task_root):

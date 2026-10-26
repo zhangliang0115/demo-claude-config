@@ -147,41 +147,12 @@ def project_bindings(data):
 
 
 def report_state(folder, state=None):
-    """Inspect the feature HTML snapshot without rendering or executing it."""
-    from provenance import read_payload, assessment_revision
+    """Inspect data/template freshness without syncing or rendering."""
+    from provenance import inspect_report
     target = Path(folder) / 'feature.html'
-    result = dict(path=str(target) if target.is_file() else None, freshness='missing',
-                  reason='功能报告尚未生成', generated_at=None)
-    if not target.is_file():
-        return result
-    result.update(freshness='unknown', reason='功能报告缺少可核对的版本来源')
-    try:
-        recorded = read_payload(target.read_text(encoding='utf-8'), payload_id='feature-data')
-        result['generated_at'] = recorded.get('generated_at')
-        provenance = recorded.get('provenance')
-        fields = ('feature_id', 'workspace_path', 'project_bindings', 'feature_revision', 'assessment_revision')
-        if not isinstance(provenance, dict) or provenance.get('version') != 1 or any(k not in provenance for k in fields):
-            return result
-        if any(k not in recorded for k in ('id', 'workspace_path', 'projects', 'feature_revision', 'assessment_revision')):
-            return result
-        state = snapshot(folder) if state is None else state
-        expected = state['provenance']
-        if (recorded.get('id') != provenance['feature_id']
-                or recorded.get('workspace_path') != provenance['workspace_path']
-                or project_bindings(recorded) != provenance['project_bindings']
-                or recorded.get('feature_revision') != provenance['feature_revision']
-                or recorded.get('assessment_revision') != provenance['assessment_revision']
-                or assessment_revision(recorded) != provenance['assessment_revision']):
-            result.update(freshness='stale', reason='功能报告内容与版本来源不一致')
-        elif any(provenance[key] != expected[key] for key in fields):
-            result.update(freshness='stale', reason='整体方案、项目或子任务评估已变化，请核对后重新生成')
-        elif any(not p.get('current_snapshot', {}).get('current_fingerprint') for p in state['projects']):
-            result['reason'] = '部分项目代码状态无法核对，不能认定当前'
-        else:
-            result.update(freshness='current', reason='整体记录、项目与子任务评估均与当前一致')
-    except (OSError, UnicodeError, ValueError, TypeError, KeyError, AttributeError):
-        result['reason'] = '功能报告损坏或无法读取来源，需重新核对'
-    return result
+    state = snapshot(folder) if state is None and target.is_file() else state
+    known = state is not None and all(p.get('current_snapshot', {}).get('current_fingerprint') for p in state['projects'])
+    return inspect_report(target, state, 'feature-data', ROOT, known)
 
 
 def locate(folder):
@@ -453,20 +424,20 @@ def preflight(folder):
 
 
 def render(folder, state=None):
-    from provenance import report_bytes, publish_report
+    from provenance import report_bytes, publish_report, template_bundle, render_report_bytes
     target = Path(folder) / 'feature.html'
     with write_lock(folder):
         expected_report = report_bytes(target)
         data = snapshot(folder) if state is None else json.loads(json.dumps(state))
-    payload = json.dumps(data, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
-    template = (ROOT / 'assets/feature.html').read_text(encoding='utf-8')
-    if '/* REPORT_THEME */' in template:
-        template = template.replace('/* REPORT_THEME */', (ROOT / 'assets/report-theme.css').read_text(encoding='utf-8'))
-    replacements = {'__FEATURE_DATA__': payload, '__FEATURE_TITLE__': html.escape(data['title'])}
-    output = re.sub('__FEATURE_DATA__|__FEATURE_TITLE__', lambda m: replacements[m.group()], template).encode('utf-8')
+    data['generated_at'] = now()
+    bundle = template_bundle(ROOT, 'feature-data')
+    data['provenance']['template_revision'] = bundle['revision']
+    output = render_report_bytes(data, bundle)
     return publish_report(target, output, expected_report, data,
                           lambda: snapshot(folder), lambda: write_lock(folder),
-                          'feature-data', reuse_matching=state is not None)
+                          'feature-data', reuse_matching=True, bundle=bundle,
+                          current_template=lambda: template_bundle(ROOT, 'feature-data')['revision'],
+                          known_code=all(p.get('current_snapshot', {}).get('current_fingerprint') for p in data['projects']))
 
 
 def main():

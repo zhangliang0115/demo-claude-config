@@ -24,7 +24,7 @@
 
 任务报告与 update 共用 .task-update.lock；整体报告与 feature update/sync 共用 .feature-update.lock。锁是协作 CLI 的约定，不能拦截任意编辑器或旧版本客户端直接写文件。
 
-已有同事实版本的有效页面时，缓存状态渲染可复用当前页面，避免旧 generated_at 回写。普通显式 render 的行为保持兼容；这不等于已实现所有无变化情况下的渲染幂等，也不代替模板版本管理。
+0.20.0 起，普通显式 render 与缓存状态渲染均按事实、评估、展示版本及实际页面比对后复用；同版保持原字节、mtime 和 generated_at。模板变化独立识别，详见[报告复用与模板时效](report-reuse.md)。返回值仍为原路径，不增加用户命令。
 
 ## Agent 如何处理结果
 
