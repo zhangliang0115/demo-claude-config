@@ -2,10 +2,10 @@
 
 此文件供插件按需读取，不注册用户命令。遵循 docs/entry-workflow.md 的入口规则；不得要求用户手工轮流调用阶段命令。
 
-读取 `${CLAUDE_PLUGIN_ROOT}/docs/entry-workflow.md`、`docs/team-workflow.md` 和 `docs/schema-reference.md`（后两者也相对插件根目录）。
+沿用已加载的 entry-workflow.md；需要生产专项细节或真实角色交接时才读 team-workflow.md，缺字段定义时才读 schema-reference.md。
 
 用户参数：当前任务输入（由 go 路由提供）
 
-按 docs/team-workflow.md 生产事件协议处理。创建 incident 任务，记录影响、时间线、事实、假设、负责人。默认只读诊断，脱敏资料。写操作必须具备明确授权和范围、停止条件、回退办法；已有具体授权不重复询问。恢复要有实际用户路径或指标证据，不能用重启成功代替恢复。
+需要专项细节时按需读 docs/team-workflow.md 的生产事件段，不因没有多人交接而跳过生产边界。创建 incident 任务，记录影响、时间线、事实、假设、负责人。默认只读诊断，脱敏资料。写操作必须具备明确授权和范围、停止条件、回退办法；已有具体授权不重复询问。恢复要有实际用户路径或指标证据，不能用重启成功代替恢复。
 
-使用 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/reviewable.py"` 管理任务，新建/恢复按入口使用 `--no-render`；渲染是按需独立动作。默认 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/<slug>/`，使用任务 slug 和 `--project <项目绝对路径>` 解析，按入口的 locate → CAS update 安全保存事实。仅确需结构化交付时 render 并返回真实链接，不逐动作 render 或批量 index；否则直接文字说明结果。
+事实读写、CAS、默认目录和按需报告沿用入口协议；不因内部动作结束重复 render/index，不为重读规则扫描脚本。

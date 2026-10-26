@@ -4,7 +4,7 @@
 
 ## 核心顺序
 
-识别候选项目 → 检查现有职责和调用关系 → 设计整个功能 → 确定项目边界与共同契约 → 拆开发任务及依赖 → 分项目实现 → 整体联调与人工核验。
+识别候选项目 → 检查现有职责和调用关系 → 设计整个功能 → 确定项目边界与共同契约 → 拆开发任务及依赖 → 分项目实现 → 整体链路检查与适用的接受判断。
 
 一个功能一个 feature.json，各项目各自一个 task.json；feature.html 与 report.html 均按 entry-workflow.md 的产出策略生成，不因子步骤结束而强制更新。页面根据 phase 默认打开当前阶段（discovery/design/contracts/implementation/integration，也识别 solution/testing/acceptance 等常用别名），页首读取 design.goal。导航用于查看同一功能的已有材料，不代表每次必须重走所有阶段。各阶段可填写判断和备注并复制给 AI；复制内容含功能编号、契约版本、报告生成时间和阶段，只是草稿，不自动批准方案或写回记录。设计负责人和实施者可一人兼任，也可多人协作；项目数量不等于人员数量。换人或换 agent 要复述理解，同一个人不必人为交接给自己。
 
@@ -24,7 +24,7 @@ contracts 列出跨项目共同约定及版本。每条 {id, version, descriptio
 
 allocations 中每条 {id, project_id, summary, depends_on: [], contract_version, status, owner}。owner 可同一个人也可不同人，未知留空。depends_on 引用其他 allocation.id，禁止环。业务代码实施前运行 `feature.py preflight /功能目录`。它只读检查当前整体方案基线、所有共享契约确认、项目/子任务版本和切片依赖版本；有缺口返回退出码 2，先解决问题再开始实施。它不是 Edit hook，不能技术上阻止绕过指引的任意编辑，也不会因为通过就证明依赖已实现。先实现真实依赖；契约已明确时可以采用清楚标记的 mock 并行，但 mock 通过不代表联调通过。
 
-projects 每条 {id, path, responsibility, task_path, contract_version, status, owner}。task_path 指向明确的子任务绝对目录（默认在用户 .claude 下），path 为本机仓库路径。外置子任务的 project_path 必须与此项目真实路径一致；不能借用其他项目的证据。为其他机器交接时应重新绑定本机路径，不照搬别人的绝对路径。
+projects 每条 {id, path, responsibility, task_path, contract_version, status, owner}。task_path 指向明确的子任务绝对目录（默认在用户 .claude 下），path 为本机仓库路径。外置子任务的 project_path 必须与此项目真实路径一致；不能借用其他项目的证据。跨机器接手需先核对本机项目与任务关系，不照搬他人绝对路径；当前 update 不支持项目集合或路径重绑，不承诺自动迁移。需要新本机任务时显式创建并保留原记录引用，旧证据不迁移为当前。
 
 子任务额外记录 feature: {id, path, contract_version}，保持子任务的需求与总方案关联。feature.py sync 只读取显式关联任务并汇总，不替任何项目修改代码，不自动创建团队或派发给他人。`projects[].snapshot` 是派生快照，只能由 sync 更新；AI 不得手改其中计数、问题或新鲜度来使状态变绿。历史失败和过期证据仍计数、保留追溯；当前版本有全部行为覆盖且无当前未通过记录时，历史失败不再永久阻塞。当前失败/阻塞/未执行不能被另一条 passed 简单抵消，未知或未覆盖仍阻塞。
 
@@ -94,3 +94,7 @@ feature 的 render、locate/status 输出 feature_revision（精确记录）及 
 ## 整体功能的会话焦点
 
 按[会话关联](session-context.md)，整体功能用 target-kind=feature，作用范围是已核对的 feature.json.workspace_path；子任务用 target-kind=task，作用范围是自己的 project_path。主会话明确选择整体功能后保存关联，再由 target.kind/path 恢复。显式查看某个子任务不自动替换整体焦点；只有用户明确切换才由 go 绑定新目标。status 只读，不 bind/clear。换目录或缺失关联时不扫描其他项目猜测总功能，必要时使用明确功能路径。
+
+## 接受结果的边界
+
+feature.py 的 ready_for_integration 只表示当前联调准备度，不会自动聚合整体接受或发布权限。单任务受托 AI 验收按入口条目级协议记录，不冒充人工；已有同范围有效结果不重复催人工操作。整体验收仍需明确环境、项目版本、真实跨项目路径和实际判断来源；integration 的自由文本或子任务 pass 不是整体完成的机器判定。不能靠文案修改宣称新增功能级委托或自动放行模型。

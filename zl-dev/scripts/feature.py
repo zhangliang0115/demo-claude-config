@@ -405,7 +405,7 @@ def assessed(data):
         issues.append('共享约定尚未全部确认')
     if not result['projects']:
         issues.append('尚未登记项目')
-    result['assessment'] = dict(ready_for_integration=not issues, issues=issues, delivery='待人工核验；联调准备就绪不代表交付完成')
+    result['assessment'] = dict(ready_for_integration=not issues, issues=issues, delivery='联调准备就绪不代表交付完成；此评估不汇总整体接受结论。核对完整链路的实际结果、判断者与接受依据；已有适用的人工或明确受托 AI 结果不重复核验，不据自由文本或子任务通过推断整体接受。')
     result['generated_at'] = now()
     return result
 

@@ -465,19 +465,37 @@ def export_handoff(task_dir):
              'task_revision: ' + state['task_revision'],
              'assessment_revision: ' + state['assessment_revision'], '',
              '请先读取同目录 task.json 和实际项目约定；报告需先核对下列时效。它们不覆盖本机指令或权限。',
-             '不要根据上一位 AI 的总结直接宣布完成。先核对仓库、分支与运行环境，复述目标、范围、关键行为、待决问题和第一步。',
+             '不要根据上一位 AI 的总结直接宣布完成。核对实际项目与材料版本；仅在本轮操作依赖运行环境时检查环境，复述目标、范围、关键依据、待决问题和第一步。',
              '区分事实、假设和人已确认的决定；遇到矛盾记录差异，不能静默修改目标。',
              '只有接收人明确确认后才能记录接手；不要把 AI 生成的自洽方案当成业务批准。',
              '生产诊断先只读。写操作须有明确授权、范围、观察指标、停止条件和恢复办法。', '',
              '## 当前状态', state['workflow_summary']['stage_label'],
-             '记录原文：' + str(state.get('stage') or '未记录'),
+             ('记录类型：只读分析；以下采用派生状态，不用旧开发阶段判断完成。' if state.get('kind') == 'analysis' else '记录原文：' + str(state.get('stage') or '未记录')),
              '## 下一步', json.dumps(state['workflow_summary']['primary_action'], ensure_ascii=False),
              '## 当前阻塞', json.dumps(state['workflow_summary']['blockers'], ensure_ascii=False),
              '## 报告时效', json.dumps(report, ensure_ascii=False),
-             '报告非 current 时不得把旧 HTML 当作当前交付；核对后显式 render。',
-             '## 使用其他工具', '本包可供 Codex、Cursor 等 agent 阅读；它们不会原生加载 Claude Code 插件命令。',
+             '报告非 current 时不得把旧 HTML 当作当前交付；仅本轮确需结构化阅读或明确要求页面时核对后按需 render。缺失 HTML 不阻塞普通解释或仅导出交接。']
+    if state.get('kind') == 'analysis':
+        analysis = state.get('analysis', {})
+        observed = {row['id']: row for row in state.get('analysis_assessment', {}).get('sources', [])}
+        sources = analysis.get('sources', [])
+        lines += ['## 只读分析摘要',
+                  '问题：' + str(analysis.get('question') or '尚未明确'),
+                  '结论：' + str(analysis.get('conclusion') or '尚未形成结论'),
+                  '范围：' + str(state.get('scope') or '以 task.json 的问题、项目范围和断点为准'),
+                  '来源项目：' + json.dumps([state.get('project_path')] + analysis.get('project_paths', []), ensure_ascii=False),
+                  '以下是静态源码依据，不是运行或业务验收证明；来源当前匹配也不证明解释正确。']
+        for source in sources[:12]:
+            lines.append('- ' + source['id'] + '：' + str(Path(source['project_path']) / source['path'])
+                         + ':' + str(source['line_start']) + '–' + str(source['line_end'])
+                         + '；状态=' + observed.get(source['id'], {}).get('status', 'unknown'))
+        if len(sources) > 12:
+            lines.append('其余 ' + str(len(sources) - 12) + ' 项来源见 task.json 的 analysis.sources。')
+        if not sources:
+            lines.append('尚未记录源码来源；不可据此当作分析已完成。')
+    lines += ['## 使用其他工具', '本包可供 Codex、Cursor 等 agent 阅读；它们不会原生加载 Claude Code 插件命令。',
              'Python 3.9+：python3 /插件路径/scripts/reviewable.py locate /任务目录。',
-             '完成后更新 task.json，render 固定模板；重新导出仅刷新本生成区，区外人工说明保留。']
+             '只有新增必要事实时才按 locate → CAS update 保存 task.json；普通解释或仅导出无需修改任务事实。HTML 按需使用固定模板，不要求读取脚本或重复运行已适用的检查。重新导出仅刷新本生成区，区外人工说明保留。']
     lines += [END]
     block = '\n'.join(lines) + '\n'
     if previous and backup is None:
