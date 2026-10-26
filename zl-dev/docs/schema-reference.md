@@ -121,3 +121,7 @@ kind=analysis 使用固定 analysis 阶段和顶层 analysis 对象，不按开�
 ## HTML 展示版本（0.20）
 
 HTML 内嵌 provenance.template_revision 由实际素材字节和 per-kind 渲染协议派生，不手填 task.json/feature.json，不参与业务 assessment_revision。report_state 另外提供 template_revision/current_template_revision/template_freshness，旧页缺值为 unknown，素材不同为 stale；整体 freshness 还须核对事实、代码、评估和实际页面。模板当前不能代替业务版本或验证。详见 [report-reuse.md](report-reuse.md)。
+
+## locate 目标预览（0.22）
+
+任务 locate 增加 task_brief（身份、summary/scope/why；analysis 另带问题/结论），整体功能增加 feature_brief（身份、phase、goal、goal_source）。它们仅存在于返回层，不写事实、不参与 snapshot/assessment 或代码指纹。人类文本每字段最多1200Unicode字符，截断、非字符串或缺失设计目标分别标 truncated_fields/unavailable_fields/missing_fields；身份id/kind/路径不截断。预览不是完整任务、不是CAS更新源，整个旧locate响应也不保证严格总量上限。只有确需缺失信息时补读对应字段。

@@ -253,10 +253,12 @@ def handoff_state(task_dir, revision, current, state=None):
 
 def locate(task_dir):
     """Locate and assess without creating directories or regenerating reports."""
+    from brief import task_brief
     folder = Path(task_dir)
     state = snapshot(folder)
     report = report_state(folder, state)
     return dict(task_dir=str(folder), title=state['title'], report=report['path'], report_state=report,
+                task_brief=task_brief(state),
                 task_revision=state['task_revision'], assessment_revision=state['assessment_revision'], fingerprint=state['current_fingerprint'],
                 handoff=handoff_state(folder, state['task_revision'], state['current_fingerprint'], state),
                 **state['workflow_summary'])

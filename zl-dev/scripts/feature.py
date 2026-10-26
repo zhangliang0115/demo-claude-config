@@ -156,10 +156,12 @@ def report_state(folder, state=None):
 
 
 def locate(folder):
+    from brief import feature_brief
     folder = Path(folder).resolve()
     data = snapshot(folder)
     report = report_state(folder, data)
     return dict(feature_dir=str(folder), feature_file=str(folder / 'feature.json'),
+                feature_brief=feature_brief(data),
                 feature_revision=data['feature_revision'], assessment_revision=data['assessment_revision'],
                 id=data['id'], title=data['title'], workspace_path=data.get('workspace_path'),
                 phase=data.get('phase'), contract_version=data.get('contract_version'),
