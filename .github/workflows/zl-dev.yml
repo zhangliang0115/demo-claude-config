@@ -1,0 +1,24 @@
+name: zl-dev
+
+on:
+  push:
+    paths: ['zl-dev/**', '.claude-plugin/**', '.github/workflows/zl-dev.yml']
+  pull_request:
+    paths: ['zl-dev/**', '.claude-plugin/**', '.github/workflows/zl-dev.yml']
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.9', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      # 插件只依赖 Python 标准库，无需安装依赖
+      - name: Unit tests
+        run: python -m unittest discover -s zl-dev/tests
