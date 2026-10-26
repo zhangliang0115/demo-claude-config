@@ -1,5 +1,6 @@
 """Model evaluation runner: fixtures, explicit run count and per-scenario checks without a real model."""
 import json
+import os
 from pathlib import Path
 import shutil
 import stat
@@ -18,13 +19,27 @@ echo '{"type":"result","subtype":"success","num_turns":2,"total_cost_usd":0.01,"
 '''
 
 
+FAKE_CLAUDE_PY = '''import sys
+if sys.argv[1:2] == ["--version"]:
+    print("fake 0"); sys.exit(0)
+print('{"type":"system","subtype":"init","plugins":[]}')
+print('{"type":"result","subtype":"success","num_turns":2,"total_cost_usd":0.01,"usage":{}}')
+'''
+
+
 class ModelRunnerTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.root, True)
-        self.fake = self.root / 'claude'
-        self.fake.write_text(FAKE_CLAUDE, encoding='utf-8')
-        self.fake.chmod(self.fake.stat().st_mode | stat.S_IEXEC)
+        if os.name == 'nt':
+            script = self.root / 'fake_claude.py'
+            script.write_text(FAKE_CLAUDE_PY, encoding='utf-8')
+            self.fake = self.root / 'claude.cmd'
+            self.fake.write_text(f'@"{sys.executable}" "{script}" %*\r\n', encoding='utf-8')
+        else:
+            self.fake = self.root / 'claude'
+            self.fake.write_text(FAKE_CLAUDE, encoding='utf-8')
+            self.fake.chmod(self.fake.stat().st_mode | stat.S_IEXEC)
 
     def test_prepare_builds_one_isolated_case_per_model_scenario_repeat_without_model_calls(self):
         result = runner.prepare(self.root / 'out', ['m1'], 2)

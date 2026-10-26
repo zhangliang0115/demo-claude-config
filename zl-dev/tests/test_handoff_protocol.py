@@ -59,7 +59,7 @@ class HandoffProtocolTests(unittest.TestCase):
         self.save(data)
         api.export_handoff(self.folder)
         target = self.folder / 'HANDOFF.md'
-        target.write_text('User note before\n' + target.read_text(encoding='utf-8') + '\nUser note after\n')
+        target.write_text('User note before\n' + target.read_text(encoding='utf-8') + '\nUser note after\n', encoding='utf-8')
         facts = (self.folder / 'task.json').read_bytes()
         text = api.export_handoff(self.folder).read_text(encoding='utf-8')
         self.assertTrue(text.startswith('User note before\n'))

@@ -37,7 +37,7 @@ class CostRunnerTests(unittest.TestCase):
                                   ('source',repo/'logic.py'),('task',task/'task.json'),('report',task/'report.html')]}))
         variants={key:dict(plugin=str(plugin),commit='synthetic',version='synthetic') for key in runner.VARIANTS}
         runner.write_json(output/'prepared.json',dict(version=1,root=str(output),variants=variants,cases=cases))
-        runner.write_json(output/'integrity.json',dict(version=1,files={str(p.relative_to(output)):runner.digest(p.read_bytes())
+        runner.write_json(output/'integrity.json',dict(version=1,files={p.relative_to(output).as_posix():runner.digest(p.read_bytes())
                           for p in runner.fixture_files(output)}))
         return output,cases,plugin
 

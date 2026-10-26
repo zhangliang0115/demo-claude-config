@@ -122,7 +122,7 @@ class ProvenanceTests(unittest.TestCase):
                 self.assertEqual(result['freshness'], 'stale')
                 self.assertIn('复制版本与来源不一致', result['reason'])
                 self.assertEqual(before, self.tree())
-        report.write_text(original, encoding='utf-8')
+        report.write_bytes(original.encode('utf-8'))
         self.assertEqual(api.report_state(self.folder)['freshness'], 'current')
 
     def test_report_without_top_level_copy_versions_is_unknown(self):
@@ -150,7 +150,7 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         self.assertEqual(backups[0].read_bytes(), legacy)
         self.assertIn(backups[0].name, handoff.read_text(encoding='utf-8'))
-        handoff.write_text('人工前言：先核对负责人\n' + handoff.read_text(encoding='utf-8') + '\n人工后记：停止条件不能省略\n')
+        handoff.write_text('人工前言：先核对负责人\n' + handoff.read_text(encoding='utf-8') + '\n人工后记：停止条件不能省略\n', encoding='utf-8')
         api.export_handoff(self.folder)
         after = handoff.read_text(encoding='utf-8')
         self.assertTrue(after.startswith('人工前言：先核对负责人\n'))
@@ -210,7 +210,7 @@ class ProvenanceTests(unittest.TestCase):
     def test_failed_atomic_artifact_replace_preserves_report_and_human_handoff(self):
         report = api.render(self.folder)
         handoff = api.export_handoff(self.folder)
-        handoff.write_text(handoff.read_text(encoding='utf-8') + '\n人工补充：停止条件必须保留\n')
+        handoff.write_bytes(handoff.read_bytes() + '\n人工补充：停止条件必须保留\n'.encode('utf-8'))
         report_bytes, handoff_bytes = report.read_bytes(), handoff.read_bytes()
         self.data['summary'] = '待刷新新内容'
         self.save()

@@ -42,8 +42,10 @@ def stamp(path):
 
 
 def execute(args, cwd=None):
+    # 固定的历史插件版本早于 UTF-8 输出修复；统一子进程编码，不改动历史代码
+    env = dict(os.environ, PYTHONIOENCODING='utf-8')
     result = subprocess.run([str(x) for x in args], cwd=cwd, capture_output=True, text=True, encoding='utf-8',
-                            timeout=30)
+                            timeout=30, env=env)
     if result.returncode:
         raise ValueError('Fixture command failed: ' + result.stderr[-1200:])
     return result.stdout
