@@ -93,7 +93,7 @@ R0～R3 的定位、按需报告和快照保护已基本落地，剩余问题主
 | 阶段 | 目标 | 内容 | 退出条件 |
 | --- | --- | --- | --- |
 | M0 仓库卫生 | 本地、远端、安装版一致，回归可自动执行 | 同步到 0.23.0；增加 CI（unittest，macOS/Linux × Python 3.9/3.12）；选定 LICENSE（需仓库所有者决定） | CI 全绿；插件与 marketplace 严格校验通过 |
-| M1 关键约束硬化 | 高风险规则不只依赖提示词 | 用插件 hooks 拦截：直接 Write/cp 改写 task.json/feature.json、status 路径内调用 update/render/begin、update 缺少 --expect-revision；CLI 返回明确 next_action，减少模型探索 | 每条拦截有回归测试；真实会话中被拦截时能按提示恢复 |
+| M1 关键约束硬化（0.24.0 已完成写入拦截） | 高风险规则不只依赖提示词 | 用插件 hooks 拦截：直接 Write/cp 改写 task.json/feature.json、status 路径内调用 update/render/begin、update 缺少 --expect-revision；CLI 返回明确 next_action，减少模型探索 | 每条拦截有回归测试；真实会话中被拦截时能按提示恢复 |
 | M2 Claude 模型评测 | 结论适用于主力模型 | 用 Sonnet 5.5、Opus 5.5 复跑 quick-read、analyze、handoff、多会话、执行上下文场景，每场景 ≥3 次；记录 num_turns、超时/max_turns 率、冗余调用 | 形成按模型区分的基线，失败与冗余可量化 |
 | M3 提示词瘦身 | 降低加载量和理解成本 | go-design.md/html 与 evaluations 移出插件运行时加载路径；entry-workflow 按分支拆分；长句与叠加限定改为短规则 | 首轮加载字节下降，M2 场景不退化 |
 | M4 成本归因 | 判断 ZL-12 是否值得做 | 基于 M2 重复样本完成 ZL-11 归因 | 能回答全量 JSON 往返是否为主要成本 |

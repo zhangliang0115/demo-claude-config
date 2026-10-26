@@ -56,7 +56,7 @@ AI 按需进入 [跨项目流程](docs/cross-project.md)，共用整体方案和
 
 ## 存储与边界
 
-版本 0.23.0，Python 3.9+ 标准库。目前安全写入依赖 POSIX `fcntl` 文件锁；Windows 只读路径仅通过模拟缺失 `fcntl` 的测试，尚未真机验证，写入暂不支持。
+版本 0.24.0，Python 3.9+ 标准库。目前安全写入依赖 POSIX `fcntl` 文件锁；Windows 只读路径仅通过模拟缺失 `fcntl` 的测试，尚未真机验证，写入暂不支持。
 
 任务默认存放于 `~/.claude/zl-dev/projects/<项目名>-<路径哈希>/tasks/`，跨项目功能放于归属工作区的 `features/`。原仓库保存业务代码，产出绑定原项目路径。旧任务不自动搬迁。 Claude Code 对项目外产出目录的访问可能需要针对具体任务目录授权；非交互 CLI 的 acceptEdits 不保证允许这些读写或 Bash。权限拒绝时保留原记录并报告未完成内容，不改全局权限、不换路径或工具绕过。
 
@@ -176,3 +176,7 @@ claude plugin validate --strict zl-dev
 新验证回执保存有界分项基线；已有证据失效时，短查询和离线报告能说明 HEAD、行为约定或观察文件变化，并给出原关联范围。旧回执缺基线时明确未知，不推断其他任务改了什么。
 
 历史失效不等于当前仍缺验证；已有新覆盖不因旧记录单独重跑。不根据不同路径缩小必要重验，不改变原指纹与接受规则。升级解释不要求重新人工签字。详见[规则与数据流](docs/evidence-freshness.md)和[包含失败的实测记录](docs/evaluations/2026-10-26-evidence-freshness.md)。
+
+## 受保护记录写入拦截（0.24.0）
+
+插件附带 PreToolUse hook（`hooks/hooks.json` → `scripts/guard.py`）：Write/Edit 直接改 `~/.claude/zl-dev` 下的 task.json、feature.json、report.html、feature.html 及 contexts/executions 记录时拒绝，并提示 locate → 临时完整 JSON → `update --expect-revision` 的正确路径。Bash 按写入目标启发式检查（重定向、tee、cp/mv 目标、sed -i、Python 写打开），读取和插件 CLI 调用放行。它是防误用护栏，不是沙箱：变量拼接路径等写法仍可能绕过，hook 未运行的宿主也不受保护。真实 Claude Code 会话验证 Write 被拒、文件未变。

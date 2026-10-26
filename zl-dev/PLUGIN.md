@@ -3,7 +3,7 @@
 ## 基本信息
 
 - 插件名：`zl-dev`
-- 当前版本：`0.23.0`
+- 当前版本：`0.24.0`
 - 类型：Claude Code 命令与代理插件，附带本地 HTML 生成工具
 - 标准插件描述文件：`.claude-plugin/plugin.json`（相对于本插件目录）
 - 仓库安装入口：仓库根目录 `.claude-plugin/marketplace.json`
@@ -161,3 +161,7 @@ locate/status 返回 report_state，路径存在不代表报告当前；记录�
 新验证回执保存有界分项基线；已有证据失效时，短查询和离线报告能说明 HEAD、行为约定或观察文件变化，并给出原关联范围。旧回执缺基线时明确未知，不推断其他任务改了什么。
 
 历史失效不等于当前仍缺验证；已有新覆盖不因旧记录单独重跑。不根据不同路径缩小必要重验，不改变原指纹与接受规则。升级解释不要求重新人工签字。详见[规则与数据流](docs/evidence-freshness.md)和[包含失败的实测记录](docs/evaluations/2026-10-26-evidence-freshness.md)。
+
+## 受保护记录写入拦截（0.24.0）
+
+插件附带 PreToolUse hook（`hooks/hooks.json` → `scripts/guard.py`）：Write/Edit 直接改 `~/.claude/zl-dev` 下的 task.json、feature.json、report.html、feature.html 及 contexts/executions 记录时拒绝，并提示 locate → 临时完整 JSON → `update --expect-revision` 的正确路径。Bash 按写入目标启发式检查（重定向、tee、cp/mv 目标、sed -i、Python 写打开），读取和插件 CLI 调用放行。它是防误用护栏，不是沙箱：变量拼接路径等写法仍可能绕过，hook 未运行的宿主也不受保护。真实 Claude Code 会话验证 Write 被拒、文件未变。

@@ -1,0 +1,17 @@
+{
+  "description": "阻止绕过 zl-dev CLI 直接改写结构化记录和生成页面",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/guard.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
